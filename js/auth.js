@@ -14,6 +14,7 @@
     saveData: null,
     settings: null,
     selectedMenuUnitId: null,
+    activeMainPanel: "party",
     inventoryView: {
       sort: "rarity",
       type: "all",
@@ -57,12 +58,24 @@
     }, 2600);
   }
 
+  const MAIN_PANEL_META = {
+    party: { eyebrow: "Party", title: "파티 관리" },
+    inventory: { eyebrow: "Inventory", title: "공유 인벤토리" },
+    shop: { eyebrow: "Shop", title: "보급 상점" },
+    settings: { eyebrow: "Settings", title: "전투 설정" },
+    codex: { eyebrow: "Codex", title: "보스 드롭 도감" }
+  };
+
   function normalizeUserId(rawUserId) {
     return rawUserId.trim().toLowerCase();
   }
 
   function validateUserId(userId) {
     return /^[a-z0-9_]{4,20}$/.test(userId);
+  }
+
+  function validatePassword(password) {
+    return typeof password === "string" && password.length >= 8;
   }
 
   function renderSessionChrome() {
@@ -128,12 +141,60 @@
     ].join("\n");
   }
 
+  function formatStageFocus(stage) {
+    if (!stage) {
+      return "선택된 스테이지가 없습니다.";
+    }
+
+    return [
+      `${stage.order}. ${stage.name}`,
+      `${stage.category === "main" ? "메인 콘텐츠" : "튜토리얼"} / ${stage.available ? "개방" : "잠김"}`,
+      `목표: ${stage.victoryLabel}`,
+      `임무: ${stage.objective}`,
+      `보상: ${stage.rewardGold}G`,
+      `상태: ${stage.inProgress ? "진행 중" : stage.cleared ? "클리어" : "준비"}`
+    ].join("\n");
+  }
+
+  function formatShopStatus(saveData) {
+    if (!saveData) {
+      return "상점 정보를 불러올 수 없습니다.";
+    }
+
+    const consumables = (saveData.inventory || []).filter((item) => InventoryService.isConsumable(item)).length;
+
+    return [
+      `보유 골드: ${saveData.partyGold}G`,
+      `인벤토리 수: ${(saveData.inventory || []).length}개`,
+      `소모품 수: ${consumables}개`
+    ].join("\n");
+  }
+
   function getSelectedStageMeta() {
     if (!appState.saveData) {
       return null;
     }
 
     return BattleService.getStageCatalog(appState.saveData).find((stage) => stage.selected) || null;
+  }
+
+  function setActiveMainPanel(panelKey) {
+    appState.activeMainPanel = MAIN_PANEL_META[panelKey] ? panelKey : "party";
+
+    Object.keys(MAIN_PANEL_META).forEach((key) => {
+      const panel = getElement(`menu-panel-${key}`);
+      if (panel) {
+        panel.classList.toggle("active", key === appState.activeMainPanel);
+      }
+    });
+
+    document.querySelectorAll("[data-menu-panel]").forEach((button) => {
+      button.classList.toggle("active", button.dataset.menuPanel === appState.activeMainPanel);
+    });
+
+    const meta = MAIN_PANEL_META[appState.activeMainPanel];
+    getElement("menu-detail-eyebrow").textContent = meta.eyebrow;
+    getElement("menu-detail-title").textContent = meta.title;
   }
 
   function getSelectedMenuUnit() {
@@ -210,13 +271,13 @@
 
       return [
         `<button class="${classes.join(" ")}" type="button" data-menu-unit="${unit.id}">`,
-        `  <strong>${unit.name}</strong> <span>${unit.className}</span>`,
+        `  <div class="item-title-row"><strong class="card-title">${unit.name}</strong><span class="card-subtitle">${unit.className}</span></div>`,
         '  <div class="roster-meta">',
         `    <span class="meta-pill">Lv.${unit.level}</span>`,
         `    <span class="meta-pill">HP ${unit.maxHp}</span>`,
-        `    <span class="meta-pill">포인트 ${unit.statPoints || 0}</span>`,
-        `    <span class="meta-pill">${isUnitSelectedForSortie(unit.id) ? "출전 중" : "후방 대기"}</span>`,
-        `    <span class="meta-pill">${weapon ? weapon.name : "무기 없음"}</span>`,
+        `    <span class="meta-pill">${unit.statPoints || 0}P</span>`,
+        `    <span class="meta-pill ${isUnitSelectedForSortie(unit.id) ? "is-cyan" : "is-muted"}">${isUnitSelectedForSortie(unit.id) ? "출전 중" : "후방 대기"}</span>`,
+        `    <span class="meta-pill ${weapon ? "is-gold" : "is-muted"}">${weapon ? weapon.name : "무기 없음"}</span>`,
         "  </div>",
         "</button>"
       ].join("");
@@ -227,7 +288,7 @@
       .filter(Boolean)
       .map((item) => {
         const rarity = InventoryService.getRarityMeta(item.rarity);
-        return `<span class="meta-pill" style="color: var(${rarity.colorVar});">${item.name} (${rarity.label})</span>`;
+        return `<span class="meta-pill rarity-${item.rarity}">${item.name} (${rarity.label})</span>`;
       })
       .join("");
 
@@ -356,9 +417,9 @@
       const useDisabled = !selectedUnit || !InventoryService.isConsumable(item) ? "disabled" : "";
 
       return [
-        '<article class="inventory-card">',
-        `  <div class="item-title-row"><strong style="color: var(${rarity.colorVar});">${item.name}</strong><span>${rarity.label}</span></div>`,
-        `  <div class="inventory-meta"><span class="meta-pill">${item.type || item.slot}</span><span class="meta-pill">${item.equippedBy ? `${getUnitNameById(item.equippedBy)} 장착 중` : "미장착"}</span></div>`,
+        `<article class="inventory-card rarity-${item.rarity}">`,
+        `  <div class="item-title-row"><strong class="card-title">${item.name}</strong><span class="card-subtitle">${rarity.label}</span></div>`,
+        `  <div class="inventory-meta"><span class="meta-pill">${item.type || item.slot}</span><span class="meta-pill ${item.equippedBy ? "is-cyan" : "is-muted"}">${item.equippedBy ? `${getUnitNameById(item.equippedBy)} 장착 중` : "미장착"}</span></div>`,
         `  <p>${InventoryService.describeItem(item)}</p>`,
         '  <div class="button-row">',
         `    <button class="secondary-button small-button" type="button" data-menu-equip="${item.id}" ${equipDisabled}>${selectedUnit ? `${selectedUnit.name}에게 장착` : "유닛 선택 필요"}</button>`,
@@ -409,15 +470,20 @@
 
   function renderShopList() {
     const target = getElement("menu-shop-list");
+    const statusTarget = getElement("menu-shop-status");
+
+    if (statusTarget) {
+      statusTarget.textContent = formatShopStatus(appState.saveData);
+    }
 
     target.innerHTML = InventoryService.SHOP_CATALOG.map((product) => {
       const rarity = InventoryService.getRarityMeta(product.rarity);
       const disabled = !appState.saveData || appState.saveData.partyGold < product.price ? "disabled" : "";
 
       return [
-        '<article class="shop-card">',
-        `  <div class="item-title-row"><strong style="color: var(${rarity.colorVar});">${product.name}</strong><span>${rarity.label}</span></div>`,
-        `  <div class="inventory-meta"><span class="meta-pill">${product.type}</span><span class="meta-pill">${product.price}G</span></div>`,
+        `<article class="shop-card rarity-${product.rarity}">`,
+        `  <div class="item-title-row"><strong class="card-title">${product.name}</strong><span class="card-subtitle">${rarity.label}</span></div>`,
+        `  <div class="inventory-meta"><span class="meta-pill">${product.type}</span><span class="meta-pill is-gold">${product.price}G</span></div>`,
         `  <p>${product.description}</p>`,
         '  <div class="button-row">',
         `    <button class="primary-button small-button" type="button" data-shop-buy="${product.id}" ${disabled}>구매</button>`,
@@ -443,7 +509,6 @@
     const target = getElement("menu-settings-list");
     const settings = appState.settings || {};
     const settingDescriptors = [
-      { key: "freeCameraEnabled", label: "자유 시점", value: settings.freeCameraEnabled ? "활성" : "비활성" },
       { key: "gridVisible", label: "격자선 표시", value: settings.gridVisible ? "활성" : "비활성" },
       { key: "actionLogVisible", label: "행동 로그 표시", value: settings.actionLogVisible ? "활성" : "비활성" },
       { key: "confirmEndTurn", label: "턴 종료 확인", value: settings.confirmEndTurn ? "활성" : "비활성" }
@@ -451,17 +516,17 @@
 
     target.innerHTML = settingDescriptors.map((setting) => [
       '<article class="settings-card">',
-      `  <strong>${setting.label}</strong>`,
-      `  <div class="settings-meta"><span class="meta-pill">${setting.value}</span></div>`,
+      `  <div class="item-title-row"><strong class="card-title">${setting.label}</strong><span class="card-subtitle">전투 UI</span></div>`,
+      `  <div class="settings-meta"><span class="meta-pill ${setting.value === "활성" ? "is-cyan" : "is-muted"}">${setting.value}</span></div>`,
       '  <div class="button-row">',
       `    <button class="ghost-button small-button" type="button" data-toggle-setting="${setting.key}">토글</button>`,
       "  </div>",
       "</article>"
     ].join("")).concat([
       '<article class="settings-card">',
-      "  <strong>카메라 기준값</strong>",
-      `  <div class="settings-meta"><span class="meta-pill">Pitch ${settings.cameraPitch}</span><span class="meta-pill">Yaw ${settings.cameraYaw}</span><span class="meta-pill">Zoom ${settings.cameraZoom}</span></div>`,
-      '  <div class="button-row"><button class="ghost-button small-button" type="button" data-reset-camera="true">전투 시점 리셋</button></div>',
+      '  <div class="item-title-row"><strong class="card-title">전술 시점</strong><span class="card-subtitle">고정 탑다운</span></div>',
+      '  <div class="settings-meta"><span class="meta-pill is-gold">회전 없음</span><span class="meta-pill">던전보드 고정</span></div>',
+      '  <p class="muted-text">입구, 출구, 특수 방 표식을 기준으로 전장을 읽는 방식입니다.</p>',
       "</article>"
     ]).join("");
 
@@ -474,27 +539,26 @@
       });
     });
 
-    target.querySelectorAll("[data-reset-camera]").forEach((button) => {
-      button.addEventListener("click", () => {
-        appState.settings.cameraRotation = 0;
-        appState.settings.cameraPitch = 58;
-        appState.settings.cameraYaw = -45;
-        appState.settings.cameraZoom = 1;
-        persistSession(appState.saveData, appState.settings);
-        showToast("카메라 기준값을 초기화했습니다.");
-      });
-    });
   }
 
   function renderStageList() {
     const target = getElement("menu-stage-list");
+    const focusTarget = getElement("menu-stage-focus");
 
     if (!appState.saveData) {
       target.innerHTML = '<article class="stage-card"><p>세이브 데이터가 없습니다.</p></article>';
+      if (focusTarget) {
+        focusTarget.textContent = "세이브 데이터가 없습니다.";
+      }
       return;
     }
 
     const stages = BattleService.getStageCatalog(appState.saveData);
+    const selectedStage = stages.find((stage) => stage.selected) || stages[0] || null;
+
+    if (focusTarget) {
+      focusTarget.textContent = formatStageFocus(selectedStage);
+    }
 
     target.innerHTML = stages.map((stage) => {
       const classes = ["stage-card"];
@@ -507,15 +571,20 @@
         classes.push("locked");
       }
 
+      classes.push(stage.category === "main" ? "is-main-stage" : "is-tutorial-stage");
+      if (stage.inProgress) {
+        classes.push("is-in-progress");
+      }
+
       return [
         `<button class="${classes.join(" ")}" type="button" data-stage-id="${stage.id}" ${stage.available ? "" : "disabled"}>`,
         `  <div class="item-title-row"><strong>${stage.order}. ${stage.name}</strong><span>${stage.available ? "개방" : "잠김"}</span></div>`,
         '  <div class="inventory-meta">',
-        `    <span class="meta-pill">${stage.category === "main" ? "메인 콘텐츠" : "튜토리얼"}</span>`,
+        `    <span class="meta-pill ${stage.category === "main" ? "is-gold" : "is-cyan"}">${stage.category === "main" ? "메인 콘텐츠" : "튜토리얼"}</span>`,
         `    <span class="meta-pill">${stage.victoryLabel}</span>`,
-        `    <span class="meta-pill">${stage.rewardGold}G</span>`,
-        `    <span class="meta-pill">${stage.cleared ? "클리어" : "미클리어"}</span>`,
-        `    <span class="meta-pill">${stage.inProgress ? "진행 중" : "준비"}</span>`,
+        `    <span class="meta-pill is-gold">${stage.rewardGold}G</span>`,
+        `    <span class="meta-pill ${stage.cleared ? "is-cyan" : "is-muted"}">${stage.cleared ? "클리어" : "미클리어"}</span>`,
+        `    <span class="meta-pill ${stage.inProgress ? "is-crimson" : "is-muted"}">${stage.inProgress ? "진행 중" : "준비"}</span>`,
         "  </div>",
         `  <p>${stage.objective}</p>`,
         `  <p>${stage.selected ? "현재 출격 대상" : "클릭하여 선택"}</p>`,
@@ -568,11 +637,11 @@
       }
 
       return [
-        `<article class="${classes.join(" ")}">`,
-        `  <div class="item-title-row"><strong style="color: var(${rarity.colorVar});">${reward.discovered ? reward.rewardName : "???"}</strong><span>${reward.discovered ? rarity.label : "미발견"}</span></div>`,
+        `<article class="${classes.join(" ")} rarity-${reward.rewardRarity}">`,
+        `  <div class="item-title-row"><strong class="card-title">${reward.discovered ? reward.rewardName : "???"}</strong><span class="card-subtitle">${reward.discovered ? rarity.label : "미발견"}</span></div>`,
         '  <div class="inventory-meta">',
         `    <span class="meta-pill">${reward.stageName}</span>`,
-        `    <span class="meta-pill">보스 ${reward.bossName}</span>`,
+        `    <span class="meta-pill is-crimson">보스 ${reward.bossName}</span>`,
         `    <span class="meta-pill">${reward.rewardType}</span>`,
         "  </div>",
         `  <p>${reward.discovered ? reward.rewardDescription : "해당 스테이지의 보스를 격파하면 정보가 기록됩니다."}</p>`,
@@ -594,6 +663,7 @@
     renderSettingsList();
     renderShopList();
     renderRewardCodex();
+    setActiveMainPanel(appState.activeMainPanel);
     getElement("menu-inventory-sort").value = appState.inventoryView.sort;
     getElement("menu-inventory-type-filter").value = appState.inventoryView.type;
     getElement("menu-inventory-rarity-filter").value = appState.inventoryView.rarity;
@@ -654,6 +724,11 @@
 
     if (!validateUserId(userId)) {
       showToast("아이디는 4~20자의 영문, 숫자, 밑줄만 사용할 수 있습니다.", true);
+      return;
+    }
+
+    if (!validatePassword(password)) {
+      showToast("비밀번호는 8자 이상이면 됩니다.", true);
       return;
     }
 
@@ -730,6 +805,7 @@
     appState.saveData = null;
     appState.settings = null;
     appState.selectedMenuUnitId = null;
+    appState.activeMainPanel = "party";
     appState.inventoryView.sort = "rarity";
     appState.inventoryView.type = "all";
     appState.inventoryView.rarity = "all";
@@ -778,6 +854,11 @@
 
       loadUserSession(appState.currentUserId);
       showToast("세이브 정보를 새로고침했습니다.");
+    });
+    document.querySelectorAll("[data-menu-panel]").forEach((button) => {
+      button.addEventListener("click", () => {
+        setActiveMainPanel(button.dataset.menuPanel);
+      });
     });
     getElement("menu-inventory-sort").addEventListener("change", (event) => {
       appState.inventoryView.sort = event.target.value;

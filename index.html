@@ -68,7 +68,7 @@
 
             <label class="field">
               <span>비밀번호</span>
-              <input id="login-password" name="password" type="password" minlength="8" required>
+              <input id="login-password" name="password" type="password" minlength="8" autocomplete="current-password" required>
             </label>
 
             <div class="button-row">
@@ -96,12 +96,12 @@
 
             <label class="field">
               <span>비밀번호</span>
-              <input id="register-password" name="password" type="password" minlength="8" required>
+              <input id="register-password" name="password" type="password" minlength="8" autocomplete="new-password" required>
             </label>
 
             <label class="field">
               <span>비밀번호 확인</span>
-              <input id="register-password-confirm" name="passwordConfirm" type="password" minlength="8" required>
+              <input id="register-password-confirm" name="passwordConfirm" type="password" minlength="8" autocomplete="new-password" required>
             </label>
 
             <div class="button-row">
@@ -115,138 +115,125 @@
       </section>
 
       <section id="screen-main-menu" class="screen">
-        <div class="menu-layout">
-          <section class="panel">
+        <div class="command-layout">
+          <aside class="panel command-sidebar">
             <div class="panel-header">
-              <p class="eyebrow">Main Menu</p>
-              <h2>플레이어 정보</h2>
+              <p class="eyebrow">Command Deck</p>
+              <h2>작전 사이드바</h2>
             </div>
-            <div id="player-summary" class="summary-card"></div>
-          </section>
-
-          <section class="panel">
-            <div class="panel-header">
-              <p class="eyebrow">Save Slot</p>
-              <h2>기본 저장 슬롯</h2>
-            </div>
-            <div id="save-summary" class="summary-card"></div>
-          </section>
-
-          <section class="panel">
-            <div class="panel-header">
-              <p class="eyebrow">Party</p>
-              <h2>파티 관리</h2>
-            </div>
-            <div class="party-management">
-              <div id="menu-roster-list" class="roster-list"></div>
-              <div id="menu-unit-detail" class="summary-card unit-detail-card"></div>
-            </div>
-          </section>
-
-          <section class="panel">
-            <div class="panel-header">
-              <p class="eyebrow">Stages</p>
-              <h2>작전 지도</h2>
-            </div>
-            <div id="menu-stage-list" class="stage-list"></div>
-          </section>
-
-          <section class="panel">
-            <div class="panel-header">
-              <p class="eyebrow">Inventory</p>
-              <h2>공유 인벤토리</h2>
-            </div>
-            <div class="inventory-toolbar">
-              <label class="field compact-field">
-                <span>정렬</span>
-                <select id="menu-inventory-sort">
-                  <option value="rarity">희귀도</option>
-                  <option value="type">타입</option>
-                  <option value="equipped">장착 상태</option>
-                  <option value="name">이름</option>
-                </select>
-              </label>
-              <label class="field compact-field">
-                <span>타입</span>
-                <select id="menu-inventory-type-filter">
-                  <option value="all">전체</option>
-                  <option value="sword">검</option>
-                  <option value="lance">창</option>
-                  <option value="bow">활</option>
-                  <option value="axe">도끼</option>
-                  <option value="accessory">장신구</option>
-                </select>
-              </label>
-              <label class="field compact-field">
-                <span>장착 여부</span>
-                <select id="menu-inventory-equipped-filter">
-                  <option value="all">전체</option>
-                  <option value="equipped">장착 중</option>
-                  <option value="unequipped">미장착</option>
-                </select>
-              </label>
-              <label class="field compact-field">
-                <span>희귀도</span>
-                <select id="menu-inventory-rarity-filter">
-                  <option value="all">전체</option>
-                  <option value="common">커먼</option>
-                  <option value="uncommon">언커먼</option>
-                  <option value="rare">레어</option>
-                  <option value="unique">유니크</option>
-                  <option value="legendary">레전더리</option>
-                  <option value="epic">에픽</option>
-                  <option value="mystic">미스틱</option>
-                </select>
-              </label>
-            </div>
-            <div id="menu-inventory-list" class="inventory-list"></div>
-          </section>
-
-          <section class="panel">
-            <div class="panel-header">
-              <p class="eyebrow">Settings</p>
-              <h2>전투 설정</h2>
-            </div>
-            <div id="menu-settings-list" class="settings-list"></div>
-          </section>
-
-          <section class="panel">
-            <div class="panel-header">
-              <p class="eyebrow">Shop</p>
-              <h2>보급 상점</h2>
-            </div>
-            <div id="menu-shop-list" class="shop-list"></div>
-          </section>
-
-          <section class="panel">
-            <div class="panel-header">
-              <p class="eyebrow">Codex</p>
-              <h2>보스 드롭 도감</h2>
-            </div>
-            <div id="menu-reward-codex" class="reward-codex-list"></div>
-          </section>
-
-          <section class="panel">
-            <div class="panel-header">
-              <p class="eyebrow">System</p>
-              <h2>출격 명령</h2>
-            </div>
+            <div id="player-summary" class="summary-card compact-summary"></div>
+            <div id="save-summary" class="summary-card compact-summary"></div>
             <div class="menu-actions">
               <button id="start-battle-button" class="primary-button" type="button">새 전투 시작</button>
               <button id="resume-battle-button" class="secondary-button" type="button">이어하기</button>
               <button id="refresh-save-button" class="ghost-button" type="button">세이브 새로고침</button>
             </div>
-            <ul class="status-list">
-              <li>전투 시작 전 자동 저장</li>
-              <li>스테이지 클리어 시 자동 저장</li>
-              <li>선택 유닛에서 장비/스탯 분배 가능</li>
-            </ul>
+            <nav class="menu-sidebar-nav" aria-label="메인 메뉴 탭">
+              <button class="sidebar-tab active" type="button" data-menu-panel="party">파티 관리</button>
+              <button class="sidebar-tab" type="button" data-menu-panel="inventory">인벤토리</button>
+              <button class="sidebar-tab" type="button" data-menu-panel="shop">보급 상점</button>
+              <button class="sidebar-tab" type="button" data-menu-panel="settings">전투 설정</button>
+              <button class="sidebar-tab" type="button" data-menu-panel="codex">보스 도감</button>
+            </nav>
+          </aside>
+
+          <section class="panel command-stage-panel">
+            <div class="panel-header">
+              <p class="eyebrow">Stages</p>
+              <h2>작전 지도</h2>
+            </div>
+            <div id="menu-stage-focus" class="summary-card stage-focus-card"></div>
+            <div id="menu-stage-list" class="stage-list"></div>
+          </section>
+
+          <section class="panel command-detail-panel">
+            <div class="panel-header">
+              <p id="menu-detail-eyebrow" class="eyebrow">Party</p>
+              <h2 id="menu-detail-title">파티 관리</h2>
+            </div>
+
+            <div id="menu-panel-party" class="menu-panel-view active">
+              <div class="party-management">
+                <div id="menu-roster-list" class="roster-list"></div>
+                <div id="menu-unit-detail" class="summary-card unit-detail-card"></div>
+              </div>
+            </div>
+
+            <div id="menu-panel-inventory" class="menu-panel-view">
+              <div class="inventory-toolbar">
+                <label class="field compact-field">
+                  <span>정렬</span>
+                  <select id="menu-inventory-sort">
+                    <option value="rarity">희귀도</option>
+                    <option value="type">타입</option>
+                    <option value="equipped">장착 상태</option>
+                    <option value="name">이름</option>
+                  </select>
+                </label>
+                <label class="field compact-field">
+                  <span>타입</span>
+                  <select id="menu-inventory-type-filter">
+                    <option value="all">전체</option>
+                    <option value="sword">검</option>
+                    <option value="lance">창</option>
+                    <option value="bow">활</option>
+                    <option value="axe">도끼</option>
+                    <option value="accessory">장신구</option>
+                  </select>
+                </label>
+                <label class="field compact-field">
+                  <span>장착 여부</span>
+                  <select id="menu-inventory-equipped-filter">
+                    <option value="all">전체</option>
+                    <option value="equipped">장착 중</option>
+                    <option value="unequipped">미장착</option>
+                  </select>
+                </label>
+                <label class="field compact-field">
+                  <span>희귀도</span>
+                  <select id="menu-inventory-rarity-filter">
+                    <option value="all">전체</option>
+                    <option value="common">커먼</option>
+                    <option value="uncommon">언커먼</option>
+                    <option value="rare">레어</option>
+                    <option value="unique">유니크</option>
+                    <option value="legendary">레전더리</option>
+                    <option value="epic">에픽</option>
+                    <option value="mystic">미스틱</option>
+                  </select>
+                </label>
+              </div>
+              <div id="menu-inventory-list" class="inventory-list"></div>
+            </div>
+
+            <div id="menu-panel-shop" class="menu-panel-view">
+              <div id="menu-shop-status" class="summary-card shop-status-card"></div>
+              <div id="menu-shop-list" class="shop-list"></div>
+            </div>
+
+            <div id="menu-panel-settings" class="menu-panel-view">
+              <div id="menu-settings-list" class="settings-list"></div>
+            </div>
+
+            <div id="menu-panel-codex" class="menu-panel-view">
+              <div id="menu-reward-codex" class="reward-codex-list"></div>
+            </div>
           </section>
         </div>
       </section>
 
       <section id="screen-battle" class="screen">
         <div class="battle-layout">
+          <aside class="battle-sidebar battle-sidebar-left">
+            <section class="panel">
+              <div class="panel-header">
+                <p class="eyebrow">Unit</p>
+                <h2>선택 유닛</h2>
+              </div>
+              <div id="selected-unit-info" class="summary-card"></div>
+            </section>
+          </aside>
+
           <section class="panel battle-map-panel">
             <div class="panel-header">
               <p class="eyebrow">Battlefield</p>
@@ -262,14 +249,6 @@
                 <h2>턴 정보</h2>
               </div>
               <div id="turn-info" class="summary-card"></div>
-            </section>
-
-            <section class="panel">
-              <div class="panel-header">
-                <p class="eyebrow">Unit</p>
-                <h2>선택 유닛</h2>
-              </div>
-              <div id="selected-unit-info" class="summary-card"></div>
             </section>
 
             <section class="panel">

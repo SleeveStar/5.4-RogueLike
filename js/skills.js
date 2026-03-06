@@ -24,6 +24,15 @@
         attackerEffect(context) {
           return context.isInitiator ? { attackPowerBonus: 2 } : null;
         }
+      },
+      {
+        id: "highland_command",
+        name: "고지 지휘",
+        description: "고지에서 공격 시 명중 +8",
+        unlockLevel: 4,
+        attackerEffect(context) {
+          return context.attackerTileType === "hill" ? { hitBonus: 8 } : null;
+        }
       }
     ],
     하이로드: [
@@ -43,6 +52,15 @@
         unlockLevel: 1,
         defenderEffect(context) {
           return context.defender.hp >= Math.ceil(context.defender.maxHp / 2) ? { defenseBonus: 2 } : null;
+        }
+      },
+      {
+        id: "crown_highground",
+        name: "왕가의 제고지",
+        description: "고지에서 공격 시 명중 +10, 피해 +1",
+        unlockLevel: 3,
+        attackerEffect(context) {
+          return context.attackerTileType === "hill" ? { hitBonus: 10, attackPowerBonus: 1 } : null;
         }
       }
     ],
@@ -64,6 +82,15 @@
         attackerEffect() {
           return { hitBonus: 6 };
         }
+      },
+      {
+        id: "ridge_guard",
+        name: "능선 수비",
+        description: "고지에서 방어 +2",
+        unlockLevel: 5,
+        defenderEffect(context) {
+          return context.defenderTileType === "hill" ? { defenseBonus: 2 } : null;
+        }
       }
     ],
     팔라딘: [
@@ -83,6 +110,15 @@
         unlockLevel: 1,
         defenderEffect(context) {
           return context.distance === 1 ? { defenseBonus: 3 } : null;
+        }
+      },
+      {
+        id: "plateau_lancer",
+        name: "고원 돌격",
+        description: "고지에서 선공 시 피해 +2",
+        unlockLevel: 3,
+        attackerEffect(context) {
+          return context.attackerTileType === "hill" && context.isInitiator ? { attackPowerBonus: 2 } : null;
         }
       }
     ],
@@ -104,6 +140,15 @@
         attackerEffect(context) {
           return context.defender.hp <= Math.ceil(context.defender.maxHp / 2) ? { attackPowerBonus: 2 } : null;
         }
+      },
+      {
+        id: "ridge_archery",
+        name: "능선 사수",
+        description: "고지에서 원거리 공격 시 명중 +8",
+        unlockLevel: 4,
+        attackerEffect(context) {
+          return context.attackerTileType === "hill" && context.distance >= 2 ? { hitBonus: 8 } : null;
+        }
       }
     ],
     스나이퍼: [
@@ -124,6 +169,15 @@
         attackerEffect(context) {
           return context.defender.hp <= Math.ceil(context.defender.maxHp / 2) ? { attackPowerBonus: 3 } : null;
         }
+      },
+      {
+        id: "elevated_scope",
+        name: "고지 조준",
+        description: "고지에서 원거리 공격 시 명중 +10, 피해 +1",
+        unlockLevel: 3,
+        attackerEffect(context) {
+          return context.attackerTileType === "hill" && context.distance >= 2 ? { hitBonus: 10, attackPowerBonus: 1 } : null;
+        }
       }
     ],
     검사: [
@@ -134,6 +188,15 @@
         unlockLevel: 1,
         attackerEffect() {
           return { hitBonus: 5 };
+        }
+      },
+      {
+        id: "woodland_step",
+        name: "수림 보법",
+        description: "숲에서 회피 +10",
+        unlockLevel: 4,
+        defenderEffect(context) {
+          return context.defenderTileType === "forest" ? { avoidBonus: 10 } : null;
         }
       }
     ],
@@ -146,6 +209,15 @@
         attackerEffect(context) {
           return context.isInitiator ? { attackPowerBonus: 1 } : null;
         }
+      },
+      {
+        id: "cliff_raider",
+        name: "절벽 약탈",
+        description: "고지에서 공격 시 피해 +2",
+        unlockLevel: 4,
+        attackerEffect(context) {
+          return context.attackerTileType === "hill" ? { attackPowerBonus: 2 } : null;
+        }
       }
     ],
     헌터: [
@@ -157,6 +229,15 @@
         attackerEffect(context) {
           return context.attackerTileType === "forest" ? { hitBonus: 10 } : null;
         }
+      },
+      {
+        id: "canopy_veil",
+        name: "수관 은폐",
+        description: "숲에서 방어 시 회피 +8",
+        unlockLevel: 4,
+        defenderEffect(context) {
+          return context.defenderTileType === "forest" ? { avoidBonus: 8 } : null;
+        }
       }
     ],
     솔저: [
@@ -167,6 +248,15 @@
         unlockLevel: 1,
         defenderEffect() {
           return { defenseBonus: 1 };
+        }
+      },
+      {
+        id: "stonefoot",
+        name: "석각 보루",
+        description: "고지나 숲에서 방어 +1",
+        unlockLevel: 4,
+        defenderEffect(context) {
+          return context.defenderTileType === "hill" || context.defenderTileType === "forest" ? { defenseBonus: 1 } : null;
         }
       }
     ]
@@ -186,6 +276,21 @@
         effect: {
           kind: "heal",
           amount: 8
+        }
+      },
+      {
+        id: "hill_command",
+        name: "고지 돌파",
+        description: "고지에서만 사용 가능. 사거리 내 적 1명에게 명중 +18, 피해 +3의 공격을 가한다.",
+        unlockLevel: 5,
+        cooldown: 3,
+        targetType: "enemy",
+        useWeaponRange: true,
+        requiredTileTypes: ["hill"],
+        effect: {
+          kind: "attack",
+          hitBonus: 18,
+          damageBonus: 3
         }
       }
     ],
@@ -221,6 +326,27 @@
             id: "iron_wall_buff",
             name: "철벽 자세",
             defenseBonus: 3,
+            remainingOwnPhases: 1
+          }
+        }
+      },
+      {
+        id: "forest_guard",
+        name: "수림 수비",
+        description: "숲에서만 사용 가능. 자신에게 방어 +3, 회피 +10을 부여한다.",
+        unlockLevel: 5,
+        cooldown: 3,
+        targetType: "self",
+        rangeMin: 0,
+        rangeMax: 0,
+        requiredTileTypes: ["forest"],
+        effect: {
+          kind: "buff",
+          buff: {
+            id: "forest_guard_buff",
+            name: "수림 수비",
+            defenseBonus: 3,
+            avoidBonus: 10,
             remainingOwnPhases: 1
           }
         }
@@ -260,6 +386,21 @@
           kind: "attack",
           hitBonus: 20,
           damageBonus: 3
+        }
+      },
+      {
+        id: "ridge_volley",
+        name: "능선 일제사격",
+        description: "고지에서만 사용 가능. 사거리 내 적 1명에게 명중 +24, 피해 +4의 공격을 가한다.",
+        unlockLevel: 5,
+        cooldown: 3,
+        targetType: "enemy",
+        useWeaponRange: true,
+        requiredTileTypes: ["hill"],
+        effect: {
+          kind: "attack",
+          hitBonus: 24,
+          damageBonus: 4
         }
       }
     ],

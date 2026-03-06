@@ -31,6 +31,18 @@
         return (right.estimatedDamage || 0) - (left.estimatedDamage || 0);
       }
 
+      if ((left.hitRate || 0) !== (right.hitRate || 0)) {
+        return (right.hitRate || 0) - (left.hitRate || 0);
+      }
+
+      if ((left.terrainAdvantage || 0) !== (right.terrainAdvantage || 0)) {
+        return (right.terrainAdvantage || 0) - (left.terrainAdvantage || 0);
+      }
+
+      if ((left.rangeBonus || 0) !== (right.rangeBonus || 0)) {
+        return (right.rangeBonus || 0) - (left.rangeBonus || 0);
+      }
+
       if (left.target.hp !== right.target.hp) {
         return left.target.hp - right.target.hp;
       }
@@ -59,6 +71,14 @@
         return (right.estimatedValue || 0) - (left.estimatedValue || 0);
       }
 
+      if ((left.terrainAdvantage || 0) !== (right.terrainAdvantage || 0)) {
+        return (right.terrainAdvantage || 0) - (left.terrainAdvantage || 0);
+      }
+
+      if ((left.hitRate || 0) !== (right.hitRate || 0)) {
+        return (right.hitRate || 0) - (left.hitRate || 0);
+      }
+
       return (left.distanceToTarget || 0) - (right.distanceToTarget || 0);
     });
 
@@ -76,6 +96,14 @@
 
       if (leftDistance !== rightDistance) {
         return leftDistance - rightDistance;
+      }
+
+      if ((right.elevation || 0) !== (left.elevation || 0)) {
+        return (right.elevation || 0) - (left.elevation || 0);
+      }
+
+      if ((left.cost || 0) !== (right.cost || 0)) {
+        return (left.cost || 0) - (right.cost || 0);
       }
 
       if (left.y !== right.y) {

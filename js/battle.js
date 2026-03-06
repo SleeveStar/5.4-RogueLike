@@ -8,31 +8,39 @@
   const StatsService = global.StatsService;
   const SkillsService = global.SkillsService;
   const ENDLESS_STAGE_ID = "endless-rift";
+  const MAP_WIDTH = 12;
+  const MAP_HEIGHT = 7;
 
   const ALLY_SPAWNS = [
-    { x: 1, y: 6 },
-    { x: 2, y: 6 },
-    { x: 1, y: 5 }
+    { x: 1, y: 5 },
+    { x: 2, y: 5 },
+    { x: 1, y: 4 }
   ];
 
   const ENEMY_SPAWN_CANDIDATES = [
-    { x: 8, y: 1 },
-    { x: 7, y: 1 },
-    { x: 8, y: 2 },
+    { x: 10, y: 1 },
+    { x: 9, y: 1 },
+    { x: 10, y: 2 },
+    { x: 11, y: 2 },
     { x: 9, y: 2 },
-    { x: 7, y: 2 },
-    { x: 8, y: 3 }
+    { x: 10, y: 3 }
   ];
 
+  const TILE_ELEVATION_BY_TYPE = {
+    plain: 0,
+    forest: 1,
+    hill: 2,
+    wall: 3
+  };
+
   const MAP_TEMPLATE = [
-    ["plain", "plain", "plain", "forest", "plain", "plain", "plain", "plain", "plain", "plain"],
-    ["plain", "forest", "plain", "forest", "plain", "wall", "plain", "forest", "plain", "plain"],
-    ["plain", "plain", "plain", "plain", "plain", "wall", "plain", "forest", "plain", "plain"],
-    ["plain", "wall", "wall", "plain", "plain", "plain", "plain", "plain", "plain", "plain"],
-    ["plain", "plain", "forest", "plain", "forest", "plain", "wall", "wall", "plain", "plain"],
-    ["plain", "plain", "forest", "plain", "plain", "plain", "plain", "plain", "plain", "plain"],
-    ["plain", "plain", "plain", "plain", "wall", "plain", "forest", "plain", "forest", "plain"],
-    ["plain", "plain", "plain", "plain", "plain", "plain", "plain", "plain", "plain", "plain"]
+    ["plain", "plain", "hill", "forest", "plain", "plain", "plain", "plain", "forest", "plain", "plain", "plain"],
+    ["plain", "forest", "plain", "forest", "plain", "wall", "plain", "forest", "plain", "plain", "plain", "plain"],
+    ["plain", "plain", "hill", "plain", "plain", "wall", "plain", "forest", "plain", "plain", "hill", "plain"],
+    ["plain", "wall", "wall", "plain", "plain", "plain", "plain", "plain", "plain", "forest", "plain", "plain"],
+    ["plain", "plain", "forest", "plain", "forest", "plain", "wall", "wall", "hill", "plain", "plain", "plain"],
+    ["plain", "plain", "plain", "hill", "wall", "plain", "forest", "plain", "forest", "plain", "plain", "plain"],
+    ["plain", "plain", "plain", "plain", "plain", "plain", "plain", "plain", "plain", "plain", "plain", "plain"]
   ];
 
   const ENEMY_ARCHETYPES = [
@@ -294,7 +302,7 @@
         title: "평원 약탈단 두목",
         className: "검사",
         weaponType: "sword",
-        spawn: { x: 9, y: 1 },
+        spawn: { x: 11, y: 1 },
         levelBonus: 1,
         maxHpBonus: 4,
         statBonuses: { str: 2, skl: 1, spd: 1, def: 1 },
@@ -338,23 +346,22 @@
       name: "목재 능선",
       objective: "감시대장 격파 또는 적 전멸",
       mapTiles: [
-        ["plain", "forest", "forest", "plain", "plain", "plain", "plain", "forest", "plain", "plain"],
-        ["plain", "forest", "wall", "plain", "plain", "wall", "plain", "forest", "plain", "plain"],
-        ["plain", "plain", "wall", "plain", "forest", "wall", "plain", "plain", "plain", "plain"],
-        ["plain", "plain", "plain", "plain", "forest", "plain", "plain", "plain", "wall", "plain"],
-        ["plain", "wall", "plain", "plain", "plain", "plain", "forest", "plain", "wall", "plain"],
-        ["plain", "wall", "plain", "forest", "plain", "plain", "forest", "plain", "plain", "plain"],
-        ["plain", "plain", "plain", "forest", "plain", "wall", "plain", "plain", "forest", "plain"],
-        ["plain", "plain", "plain", "plain", "plain", "plain", "plain", "plain", "plain", "plain"]
+        ["plain", "forest", "forest", "hill", "plain", "plain", "plain", "forest", "plain", "plain", "plain", "plain"],
+        ["plain", "forest", "wall", "plain", "plain", "wall", "plain", "forest", "plain", "plain", "plain", "plain"],
+        ["plain", "plain", "wall", "plain", "forest", "wall", "hill", "plain", "plain", "plain", "forest", "plain"],
+        ["plain", "plain", "plain", "plain", "forest", "plain", "plain", "plain", "wall", "plain", "plain", "plain"],
+        ["plain", "wall", "plain", "plain", "plain", "plain", "forest", "plain", "wall", "plain", "hill", "plain"],
+        ["plain", "wall", "plain", "forest", "plain", "hill", "forest", "plain", "plain", "plain", "plain", "plain"],
+        ["plain", "plain", "plain", "plain", "plain", "plain", "plain", "plain", "plain", "plain", "plain", "plain"]
       ],
       allySpawns: ALLY_SPAWNS,
       enemySpawns: [
-        { x: 7, y: 1 },
-        { x: 8, y: 1 },
-        { x: 8, y: 2 },
-        { x: 7, y: 3 },
-        { x: 9, y: 2 },
-        { x: 8, y: 4 }
+        { x: 9, y: 1 },
+        { x: 10, y: 1 },
+        { x: 10, y: 2 },
+        { x: 9, y: 3 },
+        { x: 11, y: 2 },
+        { x: 10, y: 4 }
       ],
       enemyBonus: 1,
       rewardGold: 170,
@@ -368,7 +375,7 @@
         title: "능선 감시대장",
         className: "헌터",
         weaponType: "bow",
-        spawn: { x: 9, y: 1 },
+        spawn: { x: 11, y: 1 },
         levelBonus: 2,
         maxHpBonus: 5,
         statBonuses: { str: 2, skl: 2, spd: 1, def: 1 },
@@ -421,23 +428,22 @@
       name: "붉은 성채 외곽",
       objective: "성채 수비대장 격파",
       mapTiles: [
-        ["plain", "plain", "plain", "plain", "wall", "wall", "plain", "plain", "plain", "plain"],
-        ["plain", "forest", "plain", "plain", "wall", "wall", "plain", "forest", "forest", "plain"],
-        ["plain", "forest", "plain", "plain", "plain", "plain", "plain", "wall", "plain", "plain"],
-        ["plain", "plain", "wall", "wall", "plain", "forest", "plain", "wall", "plain", "plain"],
-        ["plain", "plain", "plain", "wall", "plain", "forest", "plain", "plain", "plain", "plain"],
-        ["plain", "wall", "plain", "plain", "plain", "plain", "plain", "plain", "wall", "plain"],
-        ["plain", "wall", "plain", "forest", "forest", "plain", "plain", "forest", "wall", "plain"],
-        ["plain", "plain", "plain", "plain", "plain", "plain", "plain", "plain", "plain", "plain"]
+        ["plain", "plain", "hill", "plain", "wall", "wall", "plain", "plain", "plain", "plain", "plain", "plain"],
+        ["plain", "forest", "plain", "plain", "wall", "wall", "plain", "forest", "forest", "plain", "plain", "plain"],
+        ["plain", "forest", "plain", "plain", "plain", "plain", "plain", "wall", "plain", "plain", "hill", "plain"],
+        ["plain", "plain", "wall", "wall", "plain", "forest", "hill", "wall", "plain", "plain", "plain", "plain"],
+        ["plain", "plain", "plain", "wall", "plain", "forest", "plain", "plain", "plain", "plain", "forest", "plain"],
+        ["plain", "wall", "plain", "plain", "plain", "plain", "plain", "plain", "wall", "plain", "plain", "plain"],
+        ["plain", "plain", "plain", "plain", "plain", "plain", "plain", "plain", "plain", "plain", "plain", "plain"]
       ],
       allySpawns: ALLY_SPAWNS,
       enemySpawns: [
-        { x: 6, y: 1 },
-        { x: 7, y: 1 },
         { x: 8, y: 1 },
-        { x: 8, y: 2 },
-        { x: 7, y: 4 },
-        { x: 9, y: 3 }
+        { x: 9, y: 1 },
+        { x: 10, y: 1 },
+        { x: 10, y: 2 },
+        { x: 9, y: 4 },
+        { x: 11, y: 3 }
       ],
       enemyBonus: 2,
       rewardGold: 220,
@@ -451,7 +457,7 @@
         title: "성채 수비대장",
         className: "솔저",
         weaponType: "lance",
-        spawn: { x: 9, y: 1 },
+        spawn: { x: 11, y: 1 },
         levelBonus: 3,
         maxHpBonus: 7,
         statBonuses: { str: 2, skl: 1, spd: 1, def: 3 },
@@ -597,6 +603,7 @@
       reachableTiles: [],
       attackTiles: [],
       attackableTargetIds: [],
+      pendingAttack: false,
       skillTargetIds: [],
       pendingMove: null,
       pendingSkillId: null,
@@ -624,12 +631,52 @@
     subscribers.forEach((listener) => listener(snapshot));
   }
 
+  function getBaseTileElevation(tileType) {
+    return TILE_ELEVATION_BY_TYPE[tileType] || 0;
+  }
+
+  function buildElevationMap(mapTiles) {
+    return mapTiles.map((row) => row.map((tileType) => getBaseTileElevation(tileType)));
+  }
+
+  function normalizeBattleMap(map) {
+    const normalizedMap = Object.assign({
+      id: state.saveData ? state.saveData.stageId : "map",
+      width: MAP_WIDTH,
+      height: MAP_HEIGHT,
+      tiles: []
+    }, clone(map || {}));
+
+    normalizedMap.width = normalizedMap.width || (normalizedMap.tiles[0] ? normalizedMap.tiles[0].length : MAP_WIDTH);
+    normalizedMap.height = normalizedMap.height || normalizedMap.tiles.length || MAP_HEIGHT;
+    normalizedMap.elevations = Array.isArray(normalizedMap.elevations) && normalizedMap.elevations.length
+      ? clone(normalizedMap.elevations)
+      : buildElevationMap(normalizedMap.tiles);
+    normalizedMap.markers = clone(normalizedMap.markers || []);
+    return normalizedMap;
+  }
+
   function getTileType(x, y) {
     if (!state.battle || y < 0 || y >= state.battle.map.height || x < 0 || x >= state.battle.map.width) {
       return "void";
     }
 
     return state.battle.map.tiles[y][x];
+  }
+
+  function getTileElevation(x, y) {
+    if (!isTileInside(x, y)) {
+      return 0;
+    }
+
+    return state.battle.map.elevations && state.battle.map.elevations[y]
+      ? state.battle.map.elevations[y][x] || 0
+      : getBaseTileElevation(getTileType(x, y));
+  }
+
+  function getTileMovementCost(x, y) {
+    const terrain = CombatService.getTerrainModifier(getTileType(x, y));
+    return Number.isFinite(terrain.moveCost) ? terrain.moveCost : Infinity;
   }
 
   function isTileInside(x, y) {
@@ -1156,6 +1203,162 @@
     return baseRule;
   }
 
+  function createFilledTileMap(width, height, tileType) {
+    return Array.from({ length: height }, () => Array.from({ length: width }, () => tileType));
+  }
+
+  function setMapTile(mapTiles, x, y, tileType) {
+    if (mapTiles[y] && typeof mapTiles[y][x] !== "undefined") {
+      mapTiles[y][x] = tileType;
+    }
+  }
+
+  function carveRoom(mapTiles, room, tileType) {
+    for (let y = room.y; y < room.y + room.h; y += 1) {
+      for (let x = room.x; x < room.x + room.w; x += 1) {
+        setMapTile(mapTiles, x, y, tileType);
+      }
+    }
+  }
+
+  function carveHorizontalHall(mapTiles, x1, x2, y) {
+    const start = Math.min(x1, x2);
+    const end = Math.max(x1, x2);
+
+    for (let x = start; x <= end; x += 1) {
+      setMapTile(mapTiles, x, y, "plain");
+    }
+  }
+
+  function carveVerticalHall(mapTiles, y1, y2, x) {
+    const start = Math.min(y1, y2);
+    const end = Math.max(y1, y2);
+
+    for (let y = start; y <= end; y += 1) {
+      setMapTile(mapTiles, x, y, "plain");
+    }
+  }
+
+  function getRoomCenter(room) {
+    return {
+      x: room.x + Math.floor(room.w / 2),
+      y: room.y + Math.floor(room.h / 2)
+    };
+  }
+
+  function collectPassableTiles(mapTiles, excludedKeys) {
+    const result = [];
+
+    for (let y = 0; y < mapTiles.length; y += 1) {
+      for (let x = 0; x < mapTiles[y].length; x += 1) {
+        if (mapTiles[y][x] !== "wall" && !excludedKeys.has(`${x},${y}`)) {
+          result.push({ x, y });
+        }
+      }
+    }
+
+    return result;
+  }
+
+  function buildEndlessDungeonLayout(floorType, floor, random) {
+    const width = MAP_WIDTH;
+    const height = MAP_HEIGHT;
+    const mapTiles = createFilledTileMap(width, height, "wall");
+    const entranceRoom = { x: 0, y: 4, w: 4, h: 3 };
+    const bossRoom = { x: 8, y: 0, w: 4, h: 3 };
+    const middleTemplates = [
+      { x: 4, y: 2, w: 3, h: 3 },
+      { x: 3, y: 2, w: 4, h: 3 },
+      { x: 5, y: 2, w: 3, h: 3 }
+    ];
+    const sideTemplates = [
+      { x: 1, y: 1, w: 3, h: 2 },
+      { x: 6, y: 4, w: 3, h: 2 },
+      { x: 4, y: 0, w: 3, h: 2 }
+    ];
+    const middleRoom = clone(middleTemplates[Math.floor(random() * middleTemplates.length)]);
+    const sideRoom = clone(sideTemplates[Math.floor(random() * sideTemplates.length)]);
+    const useSideRoom = floorType === "combat" || floorType === "boss" || floor % 3 === 0;
+    const rooms = [entranceRoom, middleRoom, bossRoom];
+
+    if (useSideRoom) {
+      rooms.splice(2, 0, sideRoom);
+    }
+
+    rooms.forEach((room) => carveRoom(mapTiles, room, "plain"));
+
+    for (let index = 0; index < rooms.length - 1; index += 1) {
+      const start = getRoomCenter(rooms[index]);
+      const end = getRoomCenter(rooms[index + 1]);
+
+      if (random() > 0.5) {
+        carveHorizontalHall(mapTiles, start.x, end.x, start.y);
+        carveVerticalHall(mapTiles, start.y, end.y, end.x);
+      } else {
+        carveVerticalHall(mapTiles, start.y, end.y, start.x);
+        carveHorizontalHall(mapTiles, start.x, end.x, end.y);
+      }
+    }
+
+    const protectedTiles = new Set(
+      ALLY_SPAWNS.concat(ENEMY_SPAWN_CANDIDATES).map((position) => `${position.x},${position.y}`)
+    );
+    const terrainCandidates = shuffleWithRandom(collectPassableTiles(mapTiles, protectedTiles), random);
+    const forestCount = floorType === "combat" || floorType === "boss"
+      ? Math.min(8, 2 + Math.floor(floor / 3))
+      : Math.min(4, 1 + Math.floor(floor / 6));
+    const hillCount = floorType === "combat" || floorType === "boss"
+      ? Math.min(5, 1 + Math.floor(floor / 4))
+      : 1;
+
+    terrainCandidates.slice(0, forestCount).forEach((tile) => {
+      setMapTile(mapTiles, tile.x, tile.y, "forest");
+    });
+
+    terrainCandidates.slice(forestCount, forestCount + hillCount).forEach((tile) => {
+      setMapTile(mapTiles, tile.x, tile.y, "hill");
+    });
+
+    ALLY_SPAWNS.concat(ENEMY_SPAWN_CANDIDATES).forEach((position) => {
+      setMapTile(mapTiles, position.x, position.y, "plain");
+    });
+
+    const mapElevations = mapTiles.map((row) => row.map((tileType) => {
+      if (tileType === "wall") {
+        return 2;
+      }
+
+      if (tileType === "hill") {
+        return 1;
+      }
+
+      return 0;
+    }));
+
+    const entranceCenter = getRoomCenter(entranceRoom);
+    const goalCenter = getRoomCenter(bossRoom);
+    const markerByFloorType = {
+      combat: { type: "exit", label: "출구" },
+      boss: { type: "boss", label: "보스실" },
+      rest: { type: "rest", label: "휴식실" },
+      supply: { type: "supply", label: "보급실" },
+      shop: { type: "shop", label: "상점" },
+      relic: { type: "relic", label: "유물실" },
+      event: { type: "event", label: "사건실" }
+    };
+    const goalMarker = markerByFloorType[floorType] || markerByFloorType.combat;
+    const mapMarkers = [
+      { x: entranceCenter.x, y: entranceCenter.y, type: "entry", label: "입구" },
+      { x: goalCenter.x, y: goalCenter.y, type: goalMarker.type, label: goalMarker.label }
+    ];
+
+    return {
+      tiles: mapTiles,
+      elevations: mapElevations,
+      markers: mapMarkers
+    };
+  }
+
   function buildEndlessStageDefinition(floor) {
     const normalizedFloor = Math.max(1, floor || 1);
     const seed = normalizedFloor * 7919 + 17;
@@ -1168,40 +1371,13 @@
         ? "supply"
       : normalizedFloor % 5 === 0
         ? "rest"
-        : normalizedFloor % 4 === 0
+      : normalizedFloor % 4 === 0
           ? "relic"
           : normalizedFloor % 6 === 0
             ? "event"
           : "combat";
-    const mapTiles = Array.from({ length: 8 }, () => Array.from({ length: 10 }, () => "plain"));
-    const reservedTiles = new Set(
-      ALLY_SPAWNS.concat(ENEMY_SPAWN_CANDIDATES).map((position) => `${position.x},${position.y}`)
-    );
-    const candidateTiles = [];
-
-    for (let y = 0; y < 8; y += 1) {
-      for (let x = 0; x < 10; x += 1) {
-        if (!reservedTiles.has(`${x},${y}`)) {
-          candidateTiles.push({ x, y });
-        }
-      }
-    }
-
-    const shuffledTiles = shuffleWithRandom(candidateTiles, random);
-    const wallCount = floorType === "combat" || floorType === "boss"
-      ? Math.min(10, 3 + (normalizedFloor % 4) + Math.floor(normalizedFloor / 3))
-      : 2;
-    const forestCount = floorType === "combat" || floorType === "boss"
-      ? Math.min(14, 6 + (normalizedFloor % 5) + Math.floor(normalizedFloor / 4))
-      : 5;
-
-    shuffledTiles.slice(0, wallCount).forEach((tile) => {
-      mapTiles[tile.y][tile.x] = "wall";
-    });
-
-    shuffledTiles.slice(wallCount, wallCount + forestCount).forEach((tile) => {
-      mapTiles[tile.y][tile.x] = "forest";
-    });
+    const dungeonLayout = buildEndlessDungeonLayout(floorType, normalizedFloor, random);
+    const mapTiles = dungeonLayout.tiles;
 
     const bossEnabled = floorType === "boss";
     const bossWeaponType = ["sword", "axe", "bow", "lance"][normalizedFloor % 4];
@@ -1250,20 +1426,20 @@
             ? 60 + normalizedFloor * 10
           : 120 + normalizedFloor * 35,
       introLines: [
-        `리아: 균열 ${normalizedFloor}층이다. 지형이 매번 달라진다.`,
+        `리아: 균열 ${normalizedFloor}층이다. 방과 통로 구조부터 빠르게 파악해.`,
         floorType === "rest"
-          ? "도윤: 잠시 숨을 돌릴 수 있겠어. 장비와 호흡을 가다듬자."
+          ? "도윤: 잠시 숨을 돌릴 수 있겠어. 휴식실에서 전열을 다시 정비하자."
           : floorType === "supply"
-            ? "세라: 균열 속 보급 잔해가 보여. 챙길 수 있는 건 모두 챙기자."
+            ? "세라: 보급 창고 흔적이 보여. 통로를 따라 챙길 수 있는 건 모두 챙기자."
             : floorType === "shop"
-              ? "도윤: 균열 상인이다. 필요 없는 욕심만 버리면 유용하게 쓸 수 있어."
+              ? "도윤: 상점방이다. 다음 전투 전에 필요한 것만 고르자."
             : floorType === "relic"
-              ? "리아: 균열 잔향이 응축돼 있어. 하나를 고르면 힘이 따라올 거야."
+              ? "리아: 유물실이야. 하나를 고르면 다음 방부터 흐름이 달라질 거야."
               : floorType === "event"
-                ? "도윤: 흐름이 불안정해. 하나를 고르면 다른 가능성은 사라진다."
-            : bossEnabled
-              ? "도윤: 강한 반응이 하나 있다. 이번 층은 지휘 개체가 섞여 있어."
-              : "세라: 적 반응이 흩어져 있어. 지형을 먼저 읽자."
+                ? "도윤: 사건방이다. 하나를 고르면 다른 가능성은 닫힌다."
+              : bossEnabled
+                ? "도윤: 가장 안쪽 방에 강한 반응이 있다. 통로를 열며 밀고 들어가자."
+                : "세라: 적 반응이 방마다 흩어져 있어. 시야를 넓히며 전진하자."
       ].concat(
         activeChain
           ? [`연속 사건 - ${activeChain.name}: 이전 층에서 붙잡은 실마리가 다시 모습을 드러냈다.`]
@@ -1279,7 +1455,7 @@
         title: "무한 균열 지배체",
         className: bossClassNameByType[bossWeaponType],
         weaponType: bossWeaponType,
-        spawn: { x: 9, y: 1 },
+        spawn: { x: 11, y: 1 },
         levelBonus: 2 + Math.floor(normalizedFloor / 2),
         maxHpBonus: 5 + normalizedFloor,
         statBonuses: {
@@ -1311,6 +1487,8 @@
       endlessFloor: normalizedFloor,
       floorType,
       specialRule,
+      mapElevations: dungeonLayout.elevations,
+      mapMarkers: dungeonLayout.markers,
       pendingChoice: floorType === "relic"
         ? {
             type: "relic",
@@ -1482,16 +1660,39 @@
     state.battle.floorType = state.battle.floorType || "combat";
     state.battle.specialRule = clone(state.battle.specialRule || null);
     state.battle.pendingChoice = clone(state.battle.pendingChoice || null);
+    state.battle.map = normalizeBattleMap(state.battle.map);
     state.battle.units.forEach((unit) => initializeUnitBattleState(unit));
   }
 
   function createMap(stageDefinition) {
-    return {
+    const fallbackMarkers = [];
+
+    if (stageDefinition.allySpawns && stageDefinition.allySpawns[0]) {
+      fallbackMarkers.push({
+        x: stageDefinition.allySpawns[0].x,
+        y: stageDefinition.allySpawns[0].y,
+        type: "entry",
+        label: "시작"
+      });
+    }
+
+    if (stageDefinition.boss && stageDefinition.boss.spawn) {
+      fallbackMarkers.push({
+        x: stageDefinition.boss.spawn.x,
+        y: stageDefinition.boss.spawn.y,
+        type: "boss",
+        label: "목표"
+      });
+    }
+
+    return normalizeBattleMap({
       id: stageDefinition.id,
-      width: 10,
-      height: 8,
-      tiles: clone(stageDefinition.mapTiles)
-    };
+      width: MAP_WIDTH,
+      height: MAP_HEIGHT,
+      tiles: clone(stageDefinition.mapTiles),
+      elevations: clone(stageDefinition.mapElevations || null),
+      markers: clone(stageDefinition.mapMarkers || fallbackMarkers)
+    });
   }
 
   function buildEnemyWeapon(type, level) {
@@ -1742,6 +1943,7 @@
     state.ui.reachableTiles = [];
     state.ui.attackTiles = [];
     state.ui.attackableTargetIds = [];
+    state.ui.pendingAttack = false;
     state.ui.skillTargetIds = [];
     state.ui.pendingMove = null;
     state.ui.pendingSkillId = null;
@@ -2028,7 +2230,7 @@
   }
 
   function buildReachableTiles(unit, allowOccupiedOrigin) {
-    const queue = [{ x: unit.x, y: unit.y, cost: 0 }];
+    const queue = [{ x: unit.x, y: unit.y, cost: 0, path: [] }];
     const visited = new Map();
     const reachable = [];
     const originKey = `${unit.x},${unit.y}`;
@@ -2043,10 +2245,17 @@
         { x: current.x, y: current.y + 1 },
         { x: current.x, y: current.y - 1 }
       ].forEach((next) => {
-        const nextCost = current.cost + 1;
         const key = `${next.x},${next.y}`;
 
-        if (!isTilePassable(next.x, next.y) || nextCost > unit.mov) {
+        if (!isTilePassable(next.x, next.y)) {
+          return;
+        }
+
+        const terrainCost = getTileMovementCost(next.x, next.y);
+        const climbCost = Math.max(0, getTileElevation(next.x, next.y) - getTileElevation(current.x, current.y));
+        const nextCost = current.cost + terrainCost + climbCost;
+
+        if (!Number.isFinite(nextCost) || nextCost > unit.mov) {
           return;
         }
 
@@ -2062,16 +2271,29 @@
         }
 
         visited.set(key, nextCost);
-        queue.push({ x: next.x, y: next.y, cost: nextCost });
+        const nextPath = current.path.concat([{ x: next.x, y: next.y }]);
+        queue.push({
+          x: next.x,
+          y: next.y,
+          cost: nextCost,
+          path: nextPath,
+          elevation: getTileElevation(next.x, next.y)
+        });
 
         if (!isOrigin || allowOccupiedOrigin) {
-          reachable.push({ x: next.x, y: next.y, cost: nextCost });
+          reachable.push({
+            x: next.x,
+            y: next.y,
+            cost: nextCost,
+            path: nextPath,
+            elevation: getTileElevation(next.x, next.y)
+          });
         }
       });
     }
 
     if (allowOccupiedOrigin) {
-      reachable.unshift({ x: unit.x, y: unit.y, cost: 0 });
+      reachable.unshift({ x: unit.x, y: unit.y, cost: 0, path: [], elevation: getTileElevation(unit.x, unit.y) });
     }
 
     return reachable;
@@ -2084,7 +2306,12 @@
     positions.forEach((origin) => {
       for (let y = 0; y < state.battle.map.height; y += 1) {
         for (let x = 0; x < state.battle.map.width; x += 1) {
-          if (CombatService.isInWeaponRange(unit, origin, { x, y })) {
+          if (CombatService.isInWeaponRange(unit, origin, { x, y }, {
+            attackerTileType: getTileType(origin.x, origin.y),
+            attackerElevation: getTileElevation(origin.x, origin.y),
+            defenderTileType: getTileType(x, y),
+            defenderElevation: getTileElevation(x, y)
+          })) {
             const key = `${x},${y}`;
 
             if (!seen.has(key)) {
@@ -2102,7 +2329,12 @@
   function collectAttackableTargets(unit, origin) {
     return state.battle.units
       .filter((candidate) => candidate.alive && candidate.team !== unit.team)
-      .filter((candidate) => CombatService.isInWeaponRange(unit, origin, { x: candidate.x, y: candidate.y }))
+      .filter((candidate) => CombatService.isInWeaponRange(unit, origin, { x: candidate.x, y: candidate.y }, {
+        attackerTileType: getTileType(origin.x, origin.y),
+        attackerElevation: getTileElevation(origin.x, origin.y),
+        defenderTileType: getTileType(candidate.x, candidate.y),
+        defenderElevation: getTileElevation(candidate.x, candidate.y)
+      }))
       .map((candidate) => candidate.id);
   }
 
@@ -2119,8 +2351,92 @@
     return CombatService.calculatePreview(simulatedAttacker, defender, {
       attackerTileType: getTileType(origin.x, origin.y),
       defenderTileType: getTileType(defender.x, defender.y),
-      phase: state.battle.phase
+      attackerElevation: getTileElevation(origin.x, origin.y),
+      defenderElevation: getTileElevation(defender.x, defender.y),
+      phase: state.battle.phase,
+      isInitiator: true
     });
+  }
+
+  function calculateCounterPreview(attacker, defender) {
+    if (!attacker || !defender || !attacker.alive || !defender.alive) {
+      return {
+        canCounter: false,
+        hitRate: 0,
+        damage: 0
+      };
+    }
+
+    const counterAllowed = CombatService.isInWeaponRange(defender, { x: defender.x, y: defender.y }, { x: attacker.x, y: attacker.y }, {
+      attackerTileType: getTileType(defender.x, defender.y),
+      attackerElevation: getTileElevation(defender.x, defender.y),
+      defenderTileType: getTileType(attacker.x, attacker.y),
+      defenderElevation: getTileElevation(attacker.x, attacker.y)
+    });
+
+    if (!counterAllowed) {
+      return {
+        canCounter: false,
+        hitRate: 0,
+        damage: 0
+      };
+    }
+
+    const preview = CombatService.calculatePreview(defender, attacker, {
+      attackerTileType: getTileType(defender.x, defender.y),
+      defenderTileType: getTileType(attacker.x, attacker.y),
+      attackerElevation: getTileElevation(defender.x, defender.y),
+      defenderElevation: getTileElevation(attacker.x, attacker.y),
+      phase: state.battle.phase,
+      isInitiator: false
+    });
+
+    return Object.assign({ canCounter: preview.canAttack }, preview);
+  }
+
+  function tryCounterAttack(attacker, defender) {
+    const counterPreview = calculateCounterPreview(attacker, defender);
+
+    if (!counterPreview.canCounter || !attacker.alive || !defender.alive) {
+      return null;
+    }
+
+    const result = CombatService.resolveAttack(defender, attacker, {
+      attackerTileType: getTileType(defender.x, defender.y),
+      defenderTileType: getTileType(attacker.x, attacker.y),
+      attackerElevation: getTileElevation(defender.x, defender.y),
+      defenderElevation: getTileElevation(attacker.x, attacker.y),
+      phase: state.battle.phase,
+      isInitiator: false
+    });
+
+    if (result.didHit) {
+      addLog(`반격: ${defender.name} -> ${attacker.name}: ${result.damageDealt} 피해`);
+      updateEndlessRunStat((currentRun) => {
+        if (defender.team === "ally") {
+          currentRun.damageDealt += result.damageDealt;
+        } else {
+          currentRun.damageTaken += result.damageDealt;
+        }
+      });
+    } else {
+      addLog(`${defender.name}의 반격이 빗나갔습니다.`);
+    }
+
+    if (result.preview.triggeredSkills && result.preview.triggeredSkills.length) {
+      addLog(`스킬 발동: ${result.preview.triggeredSkills.join(", ")}`);
+    }
+
+    if (result.preview.elevationNote) {
+      addLog(`지형 보정: ${result.preview.elevationNote}`);
+    }
+
+    if (result.targetDefeated) {
+      handleUnitDefeat(attacker);
+      maybeGrantLoot(attacker);
+    }
+
+    return result;
   }
 
   function getActiveSkills(unit) {
@@ -2136,11 +2452,25 @@
     return getActiveSkills(unit).find((skill) => skill.id === skillId) || null;
   }
 
+  function canUseSkillOnCurrentTerrain(unit, skill) {
+    if (!skill || !skill.requiredTileTypes || !skill.requiredTileTypes.length) {
+      return true;
+    }
+
+    return skill.requiredTileTypes.includes(getTileType(unit.x, unit.y));
+  }
+
   function getSkillRange(skill, unit) {
     const weapon = unit.weapon || {};
+    const effectiveRange = CombatService.getEffectiveWeaponRange(unit, {
+      attackerTileType: getTileType(unit.x, unit.y),
+      attackerElevation: getTileElevation(unit.x, unit.y),
+      defenderElevation: getTileElevation(unit.x, unit.y)
+    });
+
     return {
-      rangeMin: skill.useWeaponRange ? weapon.rangeMin : skill.rangeMin,
-      rangeMax: skill.useWeaponRange ? weapon.rangeMax : skill.rangeMax
+      rangeMin: skill.useWeaponRange ? effectiveRange.rangeMin : skill.rangeMin,
+      rangeMax: skill.useWeaponRange ? effectiveRange.rangeMax : skill.rangeMax
     };
   }
 
@@ -2174,20 +2504,31 @@
   }
 
   function refreshSelectionState(unit) {
-    if (unit.team === "ally" && state.battle.phase === "player" && !unit.acted) {
+    const hasCommittedMove = !!(state.ui.pendingMove && state.ui.pendingMove.unitId === unit.id);
+    const attackMode = !!state.ui.pendingAttack;
+
+    if (attackMode) {
+      state.ui.reachableTiles = [];
+    } else if (unit.team === "ally" && state.battle.phase === "player" && !unit.acted && !hasCommittedMove) {
       const reachableTiles = buildReachableTiles(unit, true);
       state.ui.reachableTiles = reachableTiles;
-      state.ui.attackTiles = collectAttackTilesFromPositions(unit, reachableTiles);
+    } else {
+      state.ui.reachableTiles = hasCommittedMove
+        ? [{ x: unit.x, y: unit.y, cost: 0, path: [], elevation: getTileElevation(unit.x, unit.y) }]
+        : [];
+    }
+
+    if (unit.team === "ally" && state.battle.phase === "player" && !unit.acted && attackMode) {
+      state.ui.attackTiles = collectAttackTilesFromPositions(unit, [{ x: unit.x, y: unit.y }]);
       state.ui.attackableTargetIds = collectAttackableTargets(unit, { x: unit.x, y: unit.y });
     } else {
-      state.ui.reachableTiles = [];
-      state.ui.attackTiles = collectAttackTilesFromPositions(unit, [{ x: unit.x, y: unit.y }]);
+      state.ui.attackTiles = [];
       state.ui.attackableTargetIds = [];
     }
 
     if (state.ui.pendingSkillId) {
       const skill = getSkillById(unit, state.ui.pendingSkillId);
-      state.ui.skillTargetIds = skill ? collectSkillTargets(unit, skill) : [];
+      state.ui.skillTargetIds = skill && canUseSkillOnCurrentTerrain(unit, skill) ? collectSkillTargets(unit, skill) : [];
     } else {
       state.ui.skillTargetIds = [];
     }
@@ -2200,8 +2541,12 @@
       return;
     }
 
+    if (state.ui.pendingMove && state.ui.pendingMove.unitId !== unit.id) {
+      return;
+    }
+
     state.ui.selectedUnitId = unit.id;
-    state.ui.pendingMove = null;
+    state.ui.pendingAttack = false;
     state.ui.pendingSkillId = null;
     state.ui.activePanel = "unit";
     refreshSelectionState(unit);
@@ -2231,14 +2576,17 @@
       origin: { x: unit.x, y: unit.y }
     };
 
+    state.ui.pendingAttack = false;
     unit.x = x;
     unit.y = y;
-    state.ui.reachableTiles = [{ x: unit.x, y: unit.y, cost: 0 }];
-    state.ui.attackTiles = collectAttackTilesFromPositions(unit, [{ x: unit.x, y: unit.y }]);
-    state.ui.attackableTargetIds = collectAttackableTargets(unit, { x: unit.x, y: unit.y });
+    state.ui.reachableTiles = [{ x: unit.x, y: unit.y, cost: 0, path: [], elevation: getTileElevation(unit.x, unit.y) }];
+    state.ui.attackTiles = [];
+    state.ui.attackableTargetIds = [];
     if (state.ui.pendingSkillId) {
       const pendingSkill = getSkillById(unit, state.ui.pendingSkillId);
-      state.ui.skillTargetIds = pendingSkill ? collectSkillTargets(unit, pendingSkill) : [];
+      state.ui.skillTargetIds = pendingSkill && canUseSkillOnCurrentTerrain(unit, pendingSkill)
+        ? collectSkillTargets(unit, pendingSkill)
+        : [];
     } else {
       state.ui.skillTargetIds = [];
     }
@@ -2427,6 +2775,8 @@
       const preview = CombatService.calculatePreview(unit, target, {
         attackerTileType: getTileType(unit.x, unit.y),
         defenderTileType: getTileType(target.x, target.y),
+        attackerElevation: getTileElevation(unit.x, unit.y),
+        defenderElevation: getTileElevation(target.x, target.y),
         phase: state.battle.phase
       });
 
@@ -2444,6 +2794,9 @@
       if (didHit) {
         target.hp = Math.max(0, target.hp - damage);
         addLog(`${unit.name}의 ${skill.name}: ${target.name}에게 ${damage} 피해`);
+        if (preview.elevationNote) {
+          addLog(`지형 보정: ${preview.elevationNote}`);
+        }
         updateEndlessRunStat((currentRun) => {
           if (unit.team === "ally") {
             currentRun.damageDealt += damage;
@@ -2487,6 +2840,11 @@
       throw new Error(`이 스킬은 ${skill.cooldownRemaining}턴 후 다시 사용할 수 있습니다.`);
     }
 
+    if (!canUseSkillOnCurrentTerrain(unit, skill)) {
+      throw new Error("현재 지형에서는 이 스킬을 사용할 수 없습니다.");
+    }
+
+    state.ui.pendingAttack = false;
     state.ui.pendingSkillId = skill.id;
     state.ui.skillTargetIds = collectSkillTargets(unit, skill);
 
@@ -2515,6 +2873,10 @@
     if (skill.cooldownRemaining > 0) {
       throw new Error(`이 스킬은 ${skill.cooldownRemaining}턴 후 다시 사용할 수 있습니다.`);
     }
+
+    if (!canUseSkillOnCurrentTerrain(unit, skill)) {
+      throw new Error("현재 지형에서는 이 스킬을 사용할 수 없습니다.");
+    }
     const result = executeSkill(unit, skill, target);
 
     if (checkBattleEnd()) {
@@ -2525,6 +2887,23 @@
 
     notify();
     return result;
+  }
+
+  function setPendingAttack() {
+    const unit = getUnitById(state.ui.selectedUnitId);
+
+    if (!canPlayerControl(unit)) {
+      return;
+    }
+
+    if (!unit.weapon || unit.weapon.uses <= 0) {
+      throw new Error("사용 가능한 무기가 없습니다.");
+    }
+
+    state.ui.pendingSkillId = null;
+    state.ui.pendingAttack = !state.ui.pendingAttack;
+    refreshSelectionState(unit);
+    notify();
   }
 
   function checkBattleEnd() {
@@ -2910,7 +3289,9 @@
 
     const result = CombatService.resolveAttack(attacker, defender, {
       attackerTileType: getTileType(attacker.x, attacker.y),
-      defenderTileType: getTileType(defender.x, defender.y)
+      defenderTileType: getTileType(defender.x, defender.y),
+      attackerElevation: getTileElevation(attacker.x, attacker.y),
+      defenderElevation: getTileElevation(defender.x, defender.y)
     });
 
     if (!result.canAttack) {
@@ -2932,9 +3313,15 @@
       addLog(`스킬 발동: ${result.preview.triggeredSkills.join(", ")}`);
     }
 
+    if (result.preview.elevationNote) {
+      addLog(`지형 보정: ${result.preview.elevationNote}`);
+    }
+
     if (result.targetDefeated) {
       handleUnitDefeat(defender);
       maybeGrantLoot(defender);
+    } else {
+      tryCounterAttack(attacker, defender);
     }
 
     applyExperience(attacker, result.expGained);
@@ -3023,14 +3410,22 @@
 
     reachableTiles.forEach((origin) => {
       allies.forEach((ally) => {
-        if (CombatService.isInWeaponRange(enemy, origin, { x: ally.x, y: ally.y })) {
+        if (CombatService.isInWeaponRange(enemy, origin, { x: ally.x, y: ally.y }, {
+          attackerTileType: getTileType(origin.x, origin.y),
+          attackerElevation: getTileElevation(origin.x, origin.y),
+          defenderTileType: getTileType(ally.x, ally.y),
+          defenderElevation: getTileElevation(ally.x, ally.y)
+        })) {
           const preview = calculatePreviewFromOrigin(enemy, origin, ally);
           options.push({
             origin,
             target: ally,
             distanceToTarget: Math.abs(origin.x - ally.x) + Math.abs(origin.y - ally.y),
             estimatedDamage: preview.damage || 0,
-            wouldDefeat: (preview.damage || 0) >= ally.hp
+            wouldDefeat: (preview.damage || 0) >= ally.hp,
+            hitRate: preview.hitRate || 0,
+            terrainAdvantage: preview.elevationDelta || 0,
+            rangeBonus: preview.rangeBonus || 0
           });
         }
       });
@@ -3072,7 +3467,8 @@
               estimatedValue: Math.min(skill.effect.amount || 0, missingHp),
               wouldDefeat: false,
               priority: 18 + eliteSkillPriorityBonus,
-              distanceToTarget: Math.abs(origin.x - target.x) + Math.abs(origin.y - target.y)
+              distanceToTarget: Math.abs(origin.x - target.x) + Math.abs(origin.y - target.y),
+              terrainAdvantage: (origin.elevation || 0) - getTileElevation(target.x, target.y)
             });
           }
 
@@ -3092,7 +3488,8 @@
                 (skill.effect.buff.hitBonus || 0),
               wouldDefeat: false,
               priority: (target.id === enemy.id ? 12 : 10) + eliteSkillPriorityBonus + (enemy.hp <= Math.ceil(enemy.maxHp / 2) ? 4 : 0),
-              distanceToTarget: Math.abs(origin.x - target.x) + Math.abs(origin.y - target.y)
+              distanceToTarget: Math.abs(origin.x - target.x) + Math.abs(origin.y - target.y),
+              terrainAdvantage: 0
             });
           }
 
@@ -3112,7 +3509,10 @@
               estimatedValue: estimatedDamage,
               wouldDefeat: estimatedDamage >= target.hp,
               priority: (estimatedDamage >= target.hp ? 40 : 30) + eliteSkillPriorityBonus + (enemy.isBoss ? 4 : 0),
-              distanceToTarget: Math.abs(origin.x - target.x) + Math.abs(origin.y - target.y)
+              distanceToTarget: Math.abs(origin.x - target.x) + Math.abs(origin.y - target.y),
+              terrainAdvantage: preview.elevationDelta || 0,
+              hitRate: preview.hitRate || 0,
+              rangeBonus: preview.rangeBonus || 0
             });
           }
         });
@@ -3174,7 +3574,9 @@
         const target = getUnitById(action.targetId);
         const result = CombatService.resolveAttack(enemy, target, {
           attackerTileType: getTileType(enemy.x, enemy.y),
-          defenderTileType: getTileType(target.x, target.y)
+          defenderTileType: getTileType(target.x, target.y),
+          attackerElevation: getTileElevation(enemy.x, enemy.y),
+          defenderElevation: getTileElevation(target.x, target.y)
         });
 
         if (result.didHit) {
@@ -3190,8 +3592,14 @@
           addLog(`스킬 발동: ${result.preview.triggeredSkills.join(", ")}`);
         }
 
+        if (result.preview.elevationNote) {
+          addLog(`지형 보정: ${result.preview.elevationNote}`);
+        }
+
         if (result.targetDefeated) {
           handleUnitDefeat(target);
+        } else {
+          tryCounterAttack(enemy, target);
         }
 
         evaluateStageEvents("boss_hp_half");
@@ -3236,22 +3644,59 @@
       return;
     }
 
-    if (occupant && state.ui.selectedUnitId && occupant.team === "enemy" && state.ui.attackableTargetIds.includes(occupant.id)) {
+    if (
+      occupant &&
+      state.ui.selectedUnitId &&
+      state.ui.pendingAttack &&
+      occupant.team === "enemy" &&
+      state.ui.attackableTargetIds.includes(occupant.id)
+    ) {
       attackTarget(occupant.id);
       return;
     }
 
     if (occupant && occupant.team === "ally") {
+      if (
+        state.ui.pendingMove &&
+        state.ui.pendingMove.unitId === occupant.id &&
+        state.ui.selectedUnitId === occupant.id &&
+        !state.ui.pendingSkillId &&
+        !state.ui.attackableTargetIds.length
+      ) {
+        waitSelectedUnit();
+        return;
+      }
+
+      if (state.ui.pendingMove && state.ui.pendingMove.unitId !== occupant.id) {
+        return;
+      }
+
       selectUnit(occupant.id);
       return;
     }
 
     if (!occupant && state.ui.selectedUnitId && !state.ui.pendingMove) {
+      if (state.ui.pendingAttack) {
+        const unit = getUnitById(state.ui.selectedUnitId);
+        state.ui.pendingAttack = false;
+        state.ui.attackTiles = [];
+        state.ui.attackableTargetIds = [];
+        if (unit) {
+          refreshSelectionState(unit);
+        }
+        notify();
+        return;
+      }
+
       moveSelectedUnit(x, y);
       return;
     }
 
     if (!occupant && state.ui.selectedUnitId && state.ui.pendingMove) {
+      return;
+    }
+
+    if (occupant && state.ui.pendingMove) {
       return;
     }
 
@@ -3489,6 +3934,7 @@
     getSnapshot,
     handleTileSelection,
     selectUnit,
+    setPendingAttack,
     setPendingSkill,
     getActiveSkills,
     waitSelectedUnit,
@@ -3504,6 +3950,8 @@
     dismissEndlessChoice,
     completeSupportFloor,
     getVictoryProgressText,
+    calculateCounterPreview,
+    canUseSkillOnCurrentTerrain,
     getStageCatalog,
     selectCampaignStage,
     getRewardCodex,

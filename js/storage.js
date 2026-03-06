@@ -9,10 +9,6 @@
   const DEFAULT_SETTINGS = {
     cameraMode: "isometric",
     cameraRotation: 0,
-    cameraPitch: 58,
-    cameraYaw: -45,
-    cameraZoom: 1,
-    freeCameraEnabled: true,
     gridVisible: true,
     actionLogVisible: true,
     confirmEndTurn: true,

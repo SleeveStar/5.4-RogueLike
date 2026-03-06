@@ -1,7 +1,8 @@
-/* 역할: 전투 화면 렌더링, 3D 맵 카메라, 인벤토리/스탯 UI, 전투 입력 이벤트를 담당한다. */
+/* 역할: 전투 화면 렌더링, 탑다운 전술 맵, 인벤토리/스탯 UI, 전투 입력 이벤트를 담당한다. */
 
 (function attachBattleView(global) {
   const BattleService = global.BattleService;
+  const CombatService = global.CombatService;
   const InventoryService = global.InventoryService;
   const SkillsService = global.SkillsService;
   const StatsService = global.StatsService;
@@ -13,11 +14,18 @@
     aiRunning: false,
     statusAnnounced: null,
     modal: null,
-    drag: null,
     audioContext: null,
     scenePulseTimer: null,
     overlayTimer: null,
-    cutInTimer: null
+    cutInTimer: null,
+    centeredBattleId: null,
+    panState: {
+      active: false,
+      startClientX: 0,
+      startClientY: 0,
+      startScrollLeft: 0,
+      startScrollTop: 0
+    }
   };
 
   function getElement(id) {
@@ -37,11 +45,11 @@
     mapRoot.innerHTML = [
       '<div class="battle-toolbar">',
       '  <div class="camera-controls">',
-      '    <button id="rotate-left-button" class="ghost-button" type="button">Q 회전</button>',
-      '    <button id="rotate-right-button" class="ghost-button" type="button">E 회전</button>',
-      '    <button id="reset-camera-button" class="ghost-button" type="button">시점 리셋</button>',
+      '    <span class="meta-pill is-cyan">탑다운 고정 시점</span>',
+      '    <span class="meta-pill">랜덤 던전 보드</span>',
       "  </div>",
       '  <div class="battle-toolbar-actions">',
+      '    <button id="battle-stage-info-button" class="ghost-button" type="button">스테이지 정보</button>',
       '    <button id="battle-end-turn-button" class="secondary-button" type="button">턴 종료</button>',
       '    <button id="battle-return-menu-button" class="ghost-button" type="button">메뉴로</button>',
       "  </div>",
@@ -57,6 +65,7 @@
       "    </div>",
       "  </div>",
       '  <div id="battle-overlay-effect" class="battle-overlay-effect hidden"></div>',
+      '  <div id="battle-hover-preview" class="battle-hover-preview hidden"></div>',
       '  <div id="battle-camera" class="battle-camera">',
       '    <div id="battle-grid" class="battle-grid"></div>',
       "  </div>",
@@ -70,20 +79,17 @@
   }
 
   function bindStaticEvents() {
-    getElement("rotate-left-button").addEventListener("click", () => rotateCamera(-90));
-    getElement("rotate-right-button").addEventListener("click", () => rotateCamera(90));
-    getElement("reset-camera-button").addEventListener("click", resetCamera);
+    const scene = getElement("battle-scene");
+
+    getElement("battle-stage-info-button").addEventListener("click", openBattleInfoModal);
     getElement("battle-end-turn-button").addEventListener("click", handleEndTurn);
     getElement("battle-return-menu-button").addEventListener("click", handleReturnMenu);
-
-    const scene = getElement("battle-scene");
-    scene.addEventListener("mousedown", beginDrag);
-    scene.addEventListener("mousemove", continueDrag);
-    scene.addEventListener("mouseup", endDrag);
-    scene.addEventListener("mouseleave", endDrag);
-    scene.addEventListener("wheel", handleZoom, { passive: false });
+    scene.addEventListener("mousedown", handleScenePointerDown);
+    scene.addEventListener("contextmenu", handleSceneContextMenu);
 
     document.addEventListener("keydown", handleKeydown);
+    document.addEventListener("mousemove", handleScenePointerMove);
+    document.addEventListener("mouseup", handleScenePointerUp);
   }
 
   function handleSnapshot(snapshot) {
@@ -123,7 +129,7 @@
     return viewState.audioContext;
   }
 
-  function playUiTone(type) {
+  function playUiTone(type, terrainType) {
     const context = ensureAudioContext();
 
     if (!context) {
@@ -141,13 +147,19 @@
       victory: { frequency: 540, endFrequency: 820, duration: 0.26, wave: "sine", volume: 0.055 },
       defeat: { frequency: 220, endFrequency: 130, duration: 0.28, wave: "sawtooth", volume: 0.05 }
     };
-    const preset = presets[type] || presets.hit;
+    const preset = Object.assign({}, presets[type] || presets.hit);
+    const terrainTuning = {
+      forest: { frequencyScale: 0.92, endScale: 0.9, volumeScale: 0.95 },
+      hill: { frequencyScale: 1.12, endScale: 1.08, volumeScale: 1.04 },
+      wall: { frequencyScale: 0.78, endScale: 0.76, volumeScale: 1.08 }
+    };
+    const tuning = terrainTuning[terrainType] || { frequencyScale: 1, endScale: 1, volumeScale: 1 };
 
     oscillator.type = preset.wave;
-    oscillator.frequency.setValueAtTime(preset.frequency, now);
-    oscillator.frequency.exponentialRampToValueAtTime(Math.max(50, preset.endFrequency), now + preset.duration);
+    oscillator.frequency.setValueAtTime(preset.frequency * tuning.frequencyScale, now);
+    oscillator.frequency.exponentialRampToValueAtTime(Math.max(50, preset.endFrequency * tuning.endScale), now + preset.duration);
     gain.gain.setValueAtTime(0.0001, now);
-    gain.gain.exponentialRampToValueAtTime(preset.volume, now + 0.02);
+    gain.gain.exponentialRampToValueAtTime(preset.volume * tuning.volumeScale, now + 0.02);
     gain.gain.exponentialRampToValueAtTime(0.0001, now + preset.duration);
     oscillator.connect(gain);
     gain.connect(context.destination);
@@ -240,6 +252,46 @@
     return null;
   }
 
+  function findUnitByName(units, name) {
+    return (units || []).find((unit) => unit.name === name) || null;
+  }
+
+  function getTerrainTypeAt(snapshot, x, y) {
+    return snapshot && snapshot.battle && snapshot.battle.map && snapshot.battle.map.tiles[y]
+      ? snapshot.battle.map.tiles[y][x]
+      : "plain";
+  }
+
+  function getTerrainVariantFromLogs(logs, snapshot) {
+    const joined = (logs || []).join(" ");
+    const attackMatch = joined.match(/([^\s]+)\s->\s([^\s:]+)/);
+
+    if (attackMatch) {
+      const attacker = findUnitByName(snapshot.battle.units, attackMatch[1]);
+      const defender = findUnitByName(snapshot.battle.units, attackMatch[2]);
+
+      if (defender) {
+        return getTerrainTypeAt(snapshot, defender.x, defender.y);
+      }
+
+      if (attacker) {
+        return getTerrainTypeAt(snapshot, attacker.x, attacker.y);
+      }
+    }
+
+    const moveMatch = joined.match(/([^\s]+)\s이동/);
+
+    if (moveMatch) {
+      const mover = findUnitByName(snapshot.battle.units, moveMatch[1]);
+
+      if (mover) {
+        return getTerrainTypeAt(snapshot, mover.x, mover.y);
+      }
+    }
+
+    return "plain";
+  }
+
   function processSnapshotEffects(previousSnapshot, nextSnapshot) {
     if (!nextSnapshot || !nextSnapshot.battle) {
       return;
@@ -287,6 +339,7 @@
     }
 
     const joined = nextLogs.join(" ");
+    const terrainVariant = getTerrainVariantFromLogs(nextLogs, nextSnapshot);
     const specialActor = findSpecialActorFromLogs(nextLogs, nextSnapshot.battle.units);
 
     if (/정예 반응 감지/.test(joined)) {
@@ -312,19 +365,24 @@
     }
 
     if (/회복/.test(joined)) {
-      playUiTone("heal");
+      playUiTone("heal", terrainVariant);
       pulseBattleScene("heal", "HEAL");
       return;
     }
 
     if (/부여|강화|전장 규칙|유물 획득/.test(joined)) {
-      playUiTone(/유물 획득|전리품|아이템 획득/.test(joined) ? "loot" : "buff");
+      playUiTone(/유물 획득|전리품|아이템 획득/.test(joined) ? "loot" : "buff", terrainVariant);
       pulseBattleScene(/유물 획득|전리품|아이템 획득/.test(joined) ? "loot" : "buff", /유물 획득|전리품|아이템 획득/.test(joined) ? "LOOT" : "BUFF");
       return;
     }
 
+    if (/이동:|\s이동/.test(joined)) {
+      playUiTone("buff", terrainVariant);
+      return;
+    }
+
     if (/피해|격파|빗나갔습니다/.test(joined)) {
-      playUiTone("hit");
+      playUiTone("hit", terrainVariant);
       pulseBattleScene("hit", /격파/.test(joined) ? "BREAK" : "HIT");
     }
   }
@@ -374,86 +432,67 @@
       return;
     }
 
-    if (event.key === "q" || event.key === "Q") {
-      rotateCamera(-90);
-    }
-
-    if (event.key === "e" || event.key === "E") {
-      rotateCamera(90);
-    }
-
     if (event.key === "Escape") {
       closeModal();
     }
   }
 
+  function handleScenePointerDown(event) {
+    const scene = getElement("battle-scene");
+
+    if (!scene || event.button !== 2) {
+      return;
+    }
+
+    viewState.panState.active = true;
+    viewState.panState.startClientX = event.clientX;
+    viewState.panState.startClientY = event.clientY;
+    viewState.panState.startScrollLeft = scene.scrollLeft;
+    viewState.panState.startScrollTop = scene.scrollTop;
+    scene.classList.add("is-panning");
+    hideHoverPreview();
+    clearMovePathPreview();
+    event.preventDefault();
+  }
+
+  function handleScenePointerMove(event) {
+    const scene = getElement("battle-scene");
+
+    if (!scene || !viewState.panState.active) {
+      return;
+    }
+
+    const deltaX = event.clientX - viewState.panState.startClientX;
+    const deltaY = event.clientY - viewState.panState.startClientY;
+    scene.scrollLeft = viewState.panState.startScrollLeft - deltaX;
+    scene.scrollTop = viewState.panState.startScrollTop - deltaY;
+    event.preventDefault();
+  }
+
+  function handleScenePointerUp(event) {
+    if (event.button !== 2 || !viewState.panState.active) {
+      return;
+    }
+
+    const scene = getElement("battle-scene");
+    viewState.panState.active = false;
+
+    if (scene) {
+      scene.classList.remove("is-panning");
+    }
+  }
+
+  function handleSceneContextMenu(event) {
+    if (viewState.panState.active) {
+      event.preventDefault();
+      return;
+    }
+
+    event.preventDefault();
+  }
+
   function getLiveSession() {
     return viewState.sessionRef || viewState.config.getSession();
-  }
-
-  function rotateCamera(delta) {
-    const session = getLiveSession();
-    session.settings.cameraRotation = ((session.settings.cameraRotation || 0) + delta + 360) % 360;
-    persistSession(session.saveData, session.settings);
-    render(viewState.snapshot);
-  }
-
-  function resetCamera() {
-    const session = getLiveSession();
-    session.settings.cameraRotation = 0;
-    session.settings.cameraPitch = 58;
-    session.settings.cameraYaw = -45;
-    session.settings.cameraZoom = 1;
-    persistSession(session.saveData, session.settings);
-    render(viewState.snapshot);
-  }
-
-  function beginDrag(event) {
-    const session = getLiveSession();
-
-    if (!session.settings.freeCameraEnabled) {
-      return;
-    }
-
-    viewState.drag = {
-      startX: event.clientX,
-      startY: event.clientY,
-      pitch: session.settings.cameraPitch || 58,
-      yaw: session.settings.cameraYaw || -45
-    };
-  }
-
-  function continueDrag(event) {
-    if (!viewState.drag) {
-      return;
-    }
-
-    const session = getLiveSession();
-    const nextYaw = viewState.drag.yaw + (event.clientX - viewState.drag.startX) * 0.3;
-    const nextPitch = viewState.drag.pitch - (event.clientY - viewState.drag.startY) * 0.18;
-    session.settings.cameraYaw = nextYaw;
-    session.settings.cameraPitch = Math.max(32, Math.min(78, nextPitch));
-    render(viewState.snapshot);
-  }
-
-  function endDrag() {
-    if (!viewState.drag) {
-      return;
-    }
-
-    viewState.drag = null;
-    const session = getLiveSession();
-    persistSession(session.saveData, session.settings);
-  }
-
-  function handleZoom(event) {
-    event.preventDefault();
-
-    const session = getLiveSession();
-    const currentZoom = session.settings.cameraZoom || 1;
-    const delta = event.deltaY < 0 ? 0.08 : -0.08;
-    session.settings.cameraZoom = Math.max(0.75, Math.min(1.35, currentZoom + delta));
-    render(viewState.snapshot);
   }
 
   function render(snapshot) {
@@ -532,25 +571,52 @@
     const activeChain = endlessCurrentRun && endlessCurrentRun.chainState ? endlessCurrentRun.chainState : null;
 
     target.textContent = [
-      `스테이지: ${snapshot.battle.stageName || snapshot.battle.stageId || "-"}`,
-      `상태: ${snapshot.battle.status}`,
-      `층 유형: ${formatFloorType(snapshot.battle.floorType)}`,
       `페이즈: ${snapshot.battle.phase === "player" ? "아군 턴" : "적 턴"}`,
       `턴 수: ${snapshot.battle.turnNumber}`,
-      `목표: ${snapshot.battle.objective}`,
       `진행: ${BattleService.getVictoryProgressText()}`,
-      `전장 규칙: ${snapshot.battle.specialRule ? `${snapshot.battle.specialRule.name} - ${snapshot.battle.specialRule.description}` : "없음"}`,
-      `정예 반응: ${eliteCount > 0 ? `${eliteCount}체` : "없음"}`,
-      `보스: ${bossUnit && bossUnit.alive ? `${bossUnit.name} (${bossUnit.hp}/${bossUnit.maxHp})` : "격파됨 또는 없음"}`,
-      `클리어 보상: ${snapshot.battle.rewardGold || 0}G`,
-      `아군 생존: ${alliesAlive}`,
-      `적 생존: ${enemiesAlive}`,
-      `선택 유닛: ${selectedUnit ? selectedUnit.name : "없음"}`,
-      `연출: ${snapshot.battle.lastEventText || "없음"}`,
-      `엔드리스 유물: ${(snapshot.saveData && snapshot.saveData.endless && snapshot.saveData.endless.relicIds || []).length}`,
+      `전장 규칙: ${snapshot.battle.specialRule ? snapshot.battle.specialRule.name : "없음"}`,
+      `보스: ${bossUnit && bossUnit.alive ? `${bossUnit.name} (${bossUnit.hp}/${bossUnit.maxHp})` : "없음"}`,
+      `생존: 아군 ${alliesAlive} / 적 ${enemiesAlive}`,
       activeChain ? `연속 사건: ${activeChain.name}` : "",
-      endlessCurrentRun ? `현재 런: 처치 ${endlessCurrentRun.enemiesDefeated} / 정예 ${endlessCurrentRun.eliteDefeated} / 피해 ${endlessCurrentRun.damageDealt}` : ""
+      endlessCurrentRun ? `현재 런: 처치 ${endlessCurrentRun.enemiesDefeated} / 정예 ${endlessCurrentRun.eliteDefeated}` : "",
+      selectedUnit ? `선택 유닛: ${selectedUnit.name}` : ""
     ].filter(Boolean).join("\n");
+  }
+
+  function openBattleInfoModal() {
+    const snapshot = viewState.snapshot;
+
+    if (!snapshot || !snapshot.battle) {
+      return;
+    }
+
+    const alliesAlive = snapshot.battle.units.filter((unit) => unit.team === "ally" && unit.alive).length;
+    const enemiesAlive = snapshot.battle.units.filter((unit) => unit.team === "enemy" && unit.alive).length;
+    const eliteCount = snapshot.battle.units.filter((unit) => unit.team === "enemy" && unit.alive && unit.isElite).length;
+    const bossUnit = snapshot.battle.bossUnitId
+      ? snapshot.battle.units.find((unit) => unit.id === snapshot.battle.bossUnitId)
+      : null;
+    const endlessCurrentRun = snapshot.battle.stageId === "endless-rift" && snapshot.saveData
+      ? BattleService.getEndlessCurrentRunSummary(snapshot.saveData)
+      : null;
+    const activeChain = endlessCurrentRun && endlessCurrentRun.chainState ? endlessCurrentRun.chainState : null;
+
+    showModal([
+      '<article class="modal-card battle-info-card">',
+      `  <h3>${snapshot.battle.stageName || snapshot.battle.stageId || "-"}</h3>`,
+      `  <p>층 유형: ${formatFloorType(snapshot.battle.floorType)}</p>`,
+      `  <p>목표: ${snapshot.battle.objective}</p>`,
+      `  <p>진행: ${BattleService.getVictoryProgressText()}</p>`,
+      `  <p>전장 규칙: ${snapshot.battle.specialRule ? `${snapshot.battle.specialRule.name} - ${snapshot.battle.specialRule.description}` : "없음"}</p>`,
+      `  <p>정예 반응: ${eliteCount > 0 ? `${eliteCount}체` : "없음"}</p>`,
+      `  <p>보스: ${bossUnit && bossUnit.alive ? `${bossUnit.name} (${bossUnit.hp}/${bossUnit.maxHp})` : "격파됨 또는 없음"}</p>`,
+      `  <p>클리어 보상: ${snapshot.battle.rewardGold || 0}G</p>`,
+      `  <p>생존: 아군 ${alliesAlive} / 적 ${enemiesAlive}</p>`,
+      `  <p>최근 연출: ${snapshot.battle.lastEventText || "없음"}</p>`,
+      activeChain ? `  <p>연속 사건: ${activeChain.name}</p>` : "",
+      endlessCurrentRun ? `  <p>현재 런: 처치 ${endlessCurrentRun.enemiesDefeated} / 정예 ${endlessCurrentRun.eliteDefeated} / 피해 ${endlessCurrentRun.damageDealt}</p>` : "",
+      "</article>"
+    ].filter(Boolean).join(""));
   }
 
   function getSelectedUnit(snapshot) {
@@ -582,17 +648,92 @@
     }
 
     const weaponText = selectedUnit.weapon
-      ? `${selectedUnit.weapon.name} / 위력 ${selectedUnit.weapon.might} / 명중 ${selectedUnit.weapon.hit} / 사거리 ${selectedUnit.weapon.rangeMin}-${selectedUnit.weapon.rangeMax} / 내구 ${selectedUnit.weapon.uses}`
+      ? `${selectedUnit.weapon.name} / ${selectedUnit.weapon.rangeMin}-${selectedUnit.weapon.rangeMax}칸 / 내구 ${selectedUnit.weapon.uses}`
       : "무기 없음";
+    const tileType = snapshot.battle.map.tiles[selectedUnit.y] && snapshot.battle.map.tiles[selectedUnit.y][selectedUnit.x]
+      ? snapshot.battle.map.tiles[selectedUnit.y][selectedUnit.x]
+      : "plain";
+    const elevation = snapshot.battle.map.elevations && snapshot.battle.map.elevations[selectedUnit.y]
+      ? snapshot.battle.map.elevations[selectedUnit.y][selectedUnit.x] || 0
+      : 0;
+    const terrainLabel = tileType === "forest" ? "숲" : tileType === "hill" ? "고지" : tileType === "wall" ? "벽" : "평지";
+    const effectiveRange = selectedUnit.weapon
+      ? CombatService.getEffectiveWeaponRange(selectedUnit, {
+        attackerTileType: tileType,
+        attackerElevation: elevation,
+        defenderElevation: 0
+      })
+      : null;
     const activeSkillText = BattleService.getActiveSkills(selectedUnit)
       .map((skill) => `${skill.name}(${skill.cooldownRemaining > 0 ? `${skill.cooldownRemaining}턴` : "준비"})`)
       .join(", ") || "없음";
+    const statusText = formatStatusEffects(selectedUnit);
+    const badgeLine = [
+      `Lv.${selectedUnit.level}`,
+      `HP ${selectedUnit.hp}/${selectedUnit.maxHp}`,
+      `MOV ${selectedUnit.mov}`
+    ].join(" / ");
+    const isAttackMode = !!snapshot.ui.pendingAttack;
+    const attackPreviewText = selectedUnit.team === "ally" && isAttackMode
+      ? (snapshot.ui.attackableTargetIds || []).map((targetId) => {
+          const targetUnit = snapshot.battle.units.find((unit) => unit.id === targetId);
+
+          if (!targetUnit) {
+            return "";
+          }
+
+          const preview = CombatService.calculatePreview(selectedUnit, targetUnit, {
+            attackerTileType: tileType,
+            defenderTileType: snapshot.battle.map.tiles[targetUnit.y][targetUnit.x],
+            attackerElevation: elevation,
+            defenderElevation: snapshot.battle.map.elevations && snapshot.battle.map.elevations[targetUnit.y]
+              ? snapshot.battle.map.elevations[targetUnit.y][targetUnit.x] || 0
+              : 0,
+            phase: snapshot.battle.phase
+          });
+
+          if (!preview.canAttack) {
+            return "";
+          }
+
+          const counterPreview = BattleService.calculateCounterPreview(selectedUnit, targetUnit);
+
+          const terrainText = preview.elevationNote || preview.forestAvoidBonus ? [
+            preview.elevationNote || null,
+            preview.forestAvoidBonus ? "숲 회피" : null
+          ].filter(Boolean).join(" / ") : "보정 없음";
+
+          return [
+            '<div class="preview-row">',
+            `  <strong>${targetUnit.name}</strong>`,
+            `  <span>명중 ${preview.hitRate}%</span>`,
+            `  <span>피해 ${preview.damage}</span>`,
+            `  <span>${terrainText}</span>`,
+            `  <span class="preview-counter">${counterPreview.canCounter ? `반격 ${counterPreview.hitRate}% / ${counterPreview.damage}` : "반격 없음"}</span>`,
+            '</div>'
+          ].join("");
+        }).filter(Boolean).join("")
+      : "";
+    const postMoveHint = snapshot.ui.pendingAttack
+      ? (
+        snapshot.ui.attackableTargetIds.length
+          ? "공격 대상 선택: 적 타일을 클릭하면 기본 공격을 실행합니다."
+          : "공격 취소: 빈 타일을 클릭하거나 공격 버튼을 다시 누르세요."
+      )
+      : snapshot.ui.pendingMove && snapshot.ui.pendingMove.unitId === selectedUnit.id
+        ? (
+          snapshot.ui.attackableTargetIds.length
+            ? "행동 선택: 공격 버튼을 누른 뒤 적 타일을 클릭하세요. 대기, 이동 취소, 스킬도 사용할 수 있습니다."
+            : "행동 선택: 현재 유닛을 한 번 더 클릭하면 대기합니다. 또는 이동 취소/스킬/소모품을 선택하세요."
+        )
+        : "";
 
     const actionButtons = selectedUnit.team === "ally"
       ? (() => {
           const locked = selectedUnit.acted || snapshot.battle.phase !== "player" ? "disabled" : "";
           return [
             '<div class="unit-action-row">',
+            `  <button class="secondary-button small-button" type="button" data-action="attack" ${locked}>${snapshot.ui.pendingAttack ? "공격 취소" : "공격"}</button>`,
             `  <button class="secondary-button small-button" type="button" data-action="wait" ${locked}>대기</button>`,
             `  <button class="ghost-button small-button" type="button" data-action="undo" ${snapshot.ui.pendingMove ? "" : "disabled"}>이동 취소</button>`,
             `  <button class="ghost-button small-button" type="button" data-action="skill" ${locked}>스킬</button>`,
@@ -607,18 +748,23 @@
     target.innerHTML = [
       `<div class="unit-summary ${selectedUnit.team}">`,
       `  <strong>${selectedUnit.name}${selectedUnit.isBoss ? " ★" : selectedUnit.isElite ? " ◆" : ""}</strong> <span>${selectedUnit.className}${selectedUnit.bossTitle ? ` / ${selectedUnit.bossTitle}` : selectedUnit.eliteTitle ? ` / ${selectedUnit.eliteTitle}` : ""}</span>`,
-      `  <p>Lv.${selectedUnit.level} / EXP ${selectedUnit.exp} / HP ${selectedUnit.hp}/${selectedUnit.maxHp}</p>`,
+      `  <p>${badgeLine}</p>`,
+      '  <div class="resource-stack">',
+      `    <div class="resource-bar hp"><span class="bar-fill" style="width:${Math.max(0, Math.min(100, (selectedUnit.hp / Math.max(1, selectedUnit.maxHp)) * 100))}%"></span></div>`,
+      `    <div class="resource-bar exp"><span class="bar-fill" style="width:${Math.max(0, Math.min(100, selectedUnit.exp || 0))}%"></span></div>`,
+      "  </div>",
       `  <p>STR ${selectedUnit.str} / SKL ${selectedUnit.skl} / SPD ${selectedUnit.spd} / DEF ${selectedUnit.def} / MOV ${selectedUnit.mov}</p>`,
-      `  <p>정예 특성: ${selectedUnit.eliteTraitName ? `${selectedUnit.eliteTraitName} - ${selectedUnit.eliteTraitDescription}` : "없음"}</p>`,
+      `  <p>위치: ${terrainLabel}${elevation > 0 ? ` / 고도 ${elevation}` : ""}${effectiveRange && effectiveRange.bonus > 0 ? ` / 사거리 +${effectiveRange.bonus}` : ""}</p>`,
+      selectedUnit.eliteTraitName ? `  <p>정예 특성: ${selectedUnit.eliteTraitName}</p>` : "",
       `  <p>무기: ${weaponText}</p>`,
-      `  <p>스킬: ${SkillsService.describeSkills(selectedUnit)}</p>`,
-      `  <p>액티브: ${SkillsService.describeActiveSkills(selectedUnit)}</p>`,
-      `  <p>쿨다운: ${activeSkillText}</p>`,
-      `  <p>상태 효과: ${formatStatusEffects(selectedUnit)}</p>`,
-      `  <p>남은 스탯 포인트: ${selectedUnit.statPoints || 0}</p>`,
+      activeSkillText !== "없음" ? `  <p>액티브: ${activeSkillText}</p>` : "",
+      statusText !== "없음" ? `  <p>상태: ${statusText}</p>` : "",
+      postMoveHint ? `  <p class="action-hint">${postMoveHint}</p>` : "",
+      attackPreviewText ? `  <div class="preview-list">${attackPreviewText}</div>` : "",
+      (selectedUnit.statPoints || 0) > 0 ? `  <p>남은 스탯 포인트: ${selectedUnit.statPoints || 0}</p>` : "",
       actionButtons,
       "</div>"
-    ].join("");
+    ].filter(Boolean).join("");
 
     target.querySelectorAll("[data-action]").forEach((button) => {
       button.addEventListener("click", (event) => handleUnitAction(event.currentTarget.dataset.action));
@@ -638,6 +784,15 @@
 
     if (action === "wait") {
       BattleService.waitSelectedUnit();
+      return;
+    }
+
+    if (action === "attack") {
+      try {
+        BattleService.setPendingAttack();
+      } catch (error) {
+        viewState.config.showToast(error.message, true);
+      }
       return;
     }
 
@@ -797,16 +952,15 @@
 
     const session = getLiveSession();
     const settings = session.settings;
-    const pitch = settings.cameraPitch || 58;
-    const yaw = (settings.cameraYaw || -45) + (settings.cameraRotation || 0);
-    const zoom = settings.cameraZoom || 1;
 
-    camera.style.transform = `rotateX(${pitch}deg) rotateZ(${yaw}deg) scale(${zoom})`;
+    camera.style.transform = "none";
     grid.style.setProperty("--grid-cols", snapshot.battle.map.width);
     grid.style.setProperty("--grid-rows", snapshot.battle.map.height);
+    grid.style.setProperty("--content-rotation", "0deg");
     grid.classList.toggle("grid-hidden", settings.gridVisible === false);
     scene.className = [
       "battle-scene",
+      "scene-topdown",
       `scene-${snapshot.battle.floorType || "combat"}`,
       snapshot.battle.stageId === "endless-rift" ? "scene-endless" : "scene-story",
       snapshot.battle.specialRule ? "scene-rule" : "",
@@ -820,10 +974,18 @@
       for (let x = 0; x < snapshot.battle.map.width; x += 1) {
         const unit = snapshot.battle.units.find((entry) => entry.alive && entry.x === x && entry.y === y);
         const tileType = snapshot.battle.map.tiles[y][x];
+        const elevation = snapshot.battle.map.elevations && snapshot.battle.map.elevations[y]
+          ? snapshot.battle.map.elevations[y][x] || 0
+          : 0;
         const classes = ["battle-tile", `tile-${tileType}`];
         const isReachable = snapshot.ui.reachableTiles.some((tile) => tile.x === x && tile.y === y);
         const isAttack = snapshot.ui.attackTiles.some((tile) => tile.x === x && tile.y === y);
         const isSkillTarget = unit && snapshot.ui.skillTargetIds.includes(unit.id);
+        const reachableTile = snapshot.ui.reachableTiles.find((tile) => tile.x === x && tile.y === y) || null;
+        const canPreviewAttack = !!(unit && unit.team === "enemy" && snapshot.ui.attackableTargetIds.includes(unit.id) && selectedUnit && selectedUnit.team === "ally");
+        const counterPreview = canPreviewAttack ? BattleService.calculateCounterPreview(selectedUnit, unit) : null;
+        const marker = snapshot.battle.map.markers.find((entry) => entry.x === x && entry.y === y) || null;
+        const tileStyle = [`--tile-level:${elevation}`].join(";");
 
         if (selectedUnit && selectedUnit.x === x && selectedUnit.y === y) {
           classes.push("is-selected");
@@ -837,6 +999,11 @@
           classes.push("is-attack");
         }
 
+        if (canPreviewAttack) {
+          classes.push("is-attackable-enemy");
+          classes.push(counterPreview && counterPreview.canCounter ? "is-counter-threat" : "is-counter-open");
+        }
+
         if (isSkillTarget) {
           classes.push("is-skill-target");
         }
@@ -845,24 +1012,151 @@
           classes.push(unit.team === "ally" ? "has-ally" : "has-enemy");
         }
 
+        if (unit && unit.acted) {
+          classes.push("has-acted-unit");
+        }
+
         tileMarkup.push([
-          `<button class="${classes.join(" ")}" type="button" data-x="${x}" data-y="${y}">`,
+          `<button class="${classes.join(" ")}" type="button" data-x="${x}" data-y="${y}" style="${tileStyle}">`,
           `  <span class="tile-elevation"></span>`,
           `  <span class="tile-top"></span>`,
-          unit ? `  <span class="tile-unit ${unit.team}${unit.isBoss ? " boss" : ""}${unit.isElite ? " elite" : ""}">${unit.name}${unit.isBoss ? "★" : unit.isElite ? "◆" : ""}<small>${unit.hp}</small></span>` : "",
-          tileType === "forest" ? '  <span class="tile-deco">숲</span>' : "",
-          tileType === "wall" ? '  <span class="tile-deco">벽</span>' : "",
+          isReachable && reachableTile ? `  <span class="tile-cost">${reachableTile.cost}</span>` : "",
+          unit ? [
+            `  <span class="tile-unit ${unit.team}${unit.isBoss ? " boss" : ""}${unit.isElite ? " elite" : ""}${unit.acted ? " acted" : ""}">`,
+            `    <span class="tile-unit-name">${unit.name}${unit.isBoss ? "★" : unit.isElite ? "◆" : ""}</span>`,
+            `    <small>${unit.hp}</small>`,
+            `    <span class="tile-unit-bar"><span style="width:${Math.max(0, Math.min(100, (unit.hp / Math.max(1, unit.maxHp)) * 100))}%"></span></span>`,
+            "  </span>"
+          ].join("") : "",
+          marker ? `  <span class="tile-marker tile-marker-${marker.type}">${marker.label}</span>` : "",
+          !marker && tileType === "forest" ? '  <span class="tile-deco">숲</span>' : "",
+          !marker && tileType === "hill" ? '  <span class="tile-deco">고지</span>' : "",
+          !marker && tileType === "wall" ? '  <span class="tile-deco">벽</span>' : "",
           "</button>"
         ].join(""));
       }
     }
 
     grid.innerHTML = tileMarkup.join("");
+    maybeCenterBattleScene(snapshot);
     grid.querySelectorAll(".battle-tile").forEach((button) => {
       button.addEventListener("click", () => {
         BattleService.handleTileSelection(Number(button.dataset.x), Number(button.dataset.y));
       });
+
+      button.addEventListener("mouseenter", () => {
+        const hoveredUnit = snapshot.battle.units.find(
+          (entry) => entry.alive && entry.x === Number(button.dataset.x) && entry.y === Number(button.dataset.y)
+        );
+        const hoveredTile = snapshot.ui.reachableTiles.find(
+          (tile) => tile.x === Number(button.dataset.x) && tile.y === Number(button.dataset.y)
+        );
+
+        applyMovePathPreview(hoveredTile ? hoveredTile.path : []);
+        renderHoverPreview(snapshot, hoveredUnit, button);
+      });
+
+      button.addEventListener("mouseleave", () => {
+        clearMovePathPreview();
+        hideHoverPreview();
+      });
     });
+  }
+
+  function maybeCenterBattleScene(snapshot) {
+    const scene = getElement("battle-scene");
+
+    if (!scene || !snapshot || !snapshot.battle || viewState.centeredBattleId === snapshot.battle.id) {
+      return;
+    }
+
+    viewState.centeredBattleId = snapshot.battle.id;
+    global.requestAnimationFrame(() => {
+      scene.scrollLeft = Math.max(0, (scene.scrollWidth - scene.clientWidth) / 2);
+      scene.scrollTop = Math.max(0, (scene.scrollHeight - scene.clientHeight) / 2);
+    });
+  }
+
+  function renderHoverPreview(snapshot, hoveredUnit, anchorElement) {
+    const target = getElement("battle-hover-preview");
+    const selectedUnit = getSelectedUnit(snapshot);
+
+    if (!target || !selectedUnit || !hoveredUnit || hoveredUnit.team !== "enemy") {
+      hideHoverPreview();
+      return;
+    }
+
+    const canAttack = snapshot.ui.attackableTargetIds.includes(hoveredUnit.id);
+
+    if (!canAttack) {
+      hideHoverPreview();
+      return;
+    }
+
+    const attackerTileType = snapshot.battle.map.tiles[selectedUnit.y][selectedUnit.x];
+    const defenderTileType = snapshot.battle.map.tiles[hoveredUnit.y][hoveredUnit.x];
+    const preview = CombatService.calculatePreview(selectedUnit, hoveredUnit, {
+      attackerTileType,
+      defenderTileType,
+      attackerElevation: snapshot.battle.map.elevations[selectedUnit.y][selectedUnit.x] || 0,
+      defenderElevation: snapshot.battle.map.elevations[hoveredUnit.y][hoveredUnit.x] || 0,
+      phase: snapshot.battle.phase,
+      isInitiator: true
+    });
+    const counterPreview = BattleService.calculateCounterPreview(selectedUnit, hoveredUnit);
+
+    target.classList.remove("hidden");
+    target.innerHTML = [
+      `<strong>${selectedUnit.name} vs ${hoveredUnit.name}</strong>`,
+      `<span>공격: 명중 ${preview.hitRate}% / 피해 ${preview.damage}</span>`,
+      `<span>반격: ${counterPreview.canCounter ? `명중 ${counterPreview.hitRate}% / 피해 ${counterPreview.damage}` : "없음"}</span>`,
+      `<span>보정: ${preview.elevationNote || (preview.forestAvoidBonus ? "숲 회피" : "없음")}</span>`
+    ].join("");
+
+    if (anchorElement) {
+      target.style.left = `${anchorElement.offsetLeft + anchorElement.offsetWidth + 12}px`;
+      target.style.top = `${anchorElement.offsetTop + 6}px`;
+    }
+  }
+
+  function applyMovePathPreview(path) {
+    clearMovePathPreview();
+
+    if (!Array.isArray(path) || !path.length) {
+      return;
+    }
+
+    const pathKeys = new Set(path.map((step) => `${step.x},${step.y}`));
+    const lastStep = path[path.length - 1];
+
+    document.querySelectorAll(".battle-tile").forEach((tile) => {
+      const key = `${tile.dataset.x},${tile.dataset.y}`;
+
+      if (pathKeys.has(key)) {
+        tile.classList.add("is-path");
+      }
+
+      if (lastStep && Number(tile.dataset.x) === lastStep.x && Number(tile.dataset.y) === lastStep.y) {
+        tile.classList.add("is-path-end");
+      }
+    });
+  }
+
+  function clearMovePathPreview() {
+    document.querySelectorAll(".battle-tile.is-path, .battle-tile.is-path-end").forEach((tile) => {
+      tile.classList.remove("is-path", "is-path-end");
+    });
+  }
+
+  function hideHoverPreview() {
+    const target = getElement("battle-hover-preview");
+
+    if (!target) {
+      return;
+    }
+
+    target.classList.add("hidden");
+    target.innerHTML = "";
   }
 
   function renderStatusBanner(snapshot) {
@@ -1052,6 +1346,7 @@
 
   function handleReturnMenu() {
     closeModal();
+    hideHoverPreview();
     BattleService.leaveBattle();
     viewState.aiRunning = false;
     viewState.sessionRef = null;
@@ -1158,7 +1453,11 @@
     } else {
       skills.forEach((skill) => {
         const cooldownText = skill.cooldownRemaining > 0 ? `재사용 ${skill.cooldownRemaining}턴` : "사용 가능";
-        const disabled = skill.cooldownRemaining > 0 ? "disabled" : "";
+        const terrainReady = BattleService.canUseSkillOnCurrentTerrain(unit, skill);
+        const terrainText = skill.requiredTileTypes && skill.requiredTileTypes.length
+          ? `지형: ${skill.requiredTileTypes.map((tile) => tile === "hill" ? "고지" : tile === "forest" ? "숲" : tile).join(", ")} 전용`
+          : "지형 제한 없음";
+        const disabled = skill.cooldownRemaining > 0 || !terrainReady ? "disabled" : "";
         const targetLabel = skill.targetType === "self"
           ? "자신"
           : skill.targetType === "ally"
@@ -1170,6 +1469,7 @@
           `  <div class="item-title-row"><strong>${skill.name}</strong><span>${cooldownText}</span></div>`,
           `  <p>${skill.description}</p>`,
           `  <p>대상: ${targetLabel}</p>`,
+          `  <p>${terrainReady ? terrainText : `${terrainText} / 현재 지형에서 사용 불가`}</p>`,
           `  <button class="secondary-button small-button" type="button" data-skill-id="${skill.id}" ${disabled}>선택</button>`,
           "</article>"
         ].join(""));
