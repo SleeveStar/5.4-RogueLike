@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RogueLike SRPG</title>
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+  <div class="app-shell">
+    <header class="app-header">
+      <div>
+        <p class="eyebrow">Single Player Tactical RPG</p>
+        <h1>RogueLike SRPG</h1>
+      </div>
+      <div class="header-actions">
+        <span id="global-user-badge" class="user-badge hidden"></span>
+        <button id="global-logout-button" class="secondary-button hidden" type="button">로그아웃</button>
+      </div>
+    </header>
+
+    <main class="screen-stack">
+      <section id="screen-start" class="screen active">
+        <div class="hero-panel">
+          <div class="hero-copy">
+            <p class="eyebrow">Browser Only / No Backend</p>
+            <h2>브라우저에서 바로 실행되는 싱글플레이 웹 SRPG</h2>
+            <p class="hero-description">
+              튜토리얼 스테이지를 돌파한 뒤 무한 균열에서 파티를 성장시키고 더 깊은 층을 공략하세요.
+            </p>
+          </div>
+
+          <div class="hero-actions">
+            <button id="go-login-button" class="primary-button" type="button">로그인</button>
+            <button id="go-register-button" class="secondary-button" type="button">회원가입</button>
+            <button id="continue-session-button" class="ghost-button hidden" type="button">이전 세션으로 이동</button>
+          </div>
+
+          <div class="info-grid">
+            <article class="info-card">
+              <h3>튜토리얼</h3>
+              <p>가벼운 고정 스테이지로 기본 전투 흐름을 익힐 수 있습니다.</p>
+            </article>
+            <article class="info-card">
+              <h3>무한 균열</h3>
+              <p>랜덤 지형, 랜덤 이벤트, 유물, 엘리트 적이 이어지는 메인 콘텐츠입니다.</p>
+            </article>
+            <article class="info-card">
+              <h3>성장</h3>
+              <p>장비, 스탯 분배, 전직, 드롭 파밍으로 파티를 강화할 수 있습니다.</p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section id="screen-login" class="screen">
+        <div class="panel auth-panel">
+          <div class="panel-header">
+            <p class="eyebrow">Login</p>
+            <h2>로그인</h2>
+          </div>
+
+          <form id="login-form" class="form-stack" autocomplete="on">
+            <label class="field">
+              <span>아이디</span>
+              <input id="login-user-id" name="userId" type="text" maxlength="20" required>
+            </label>
+
+            <label class="field">
+              <span>비밀번호</span>
+              <input id="login-password" name="password" type="password" minlength="8" required>
+            </label>
+
+            <div class="button-row">
+              <button class="primary-button" type="submit">로그인</button>
+              <button id="back-from-login-button" class="ghost-button" type="button">뒤로</button>
+            </div>
+          </form>
+
+          <p class="muted-text">이전 진행 상황이 있으면 바로 이어서 플레이할 수 있습니다.</p>
+        </div>
+      </section>
+
+      <section id="screen-register" class="screen">
+        <div class="panel auth-panel">
+          <div class="panel-header">
+            <p class="eyebrow">Register</p>
+            <h2>회원가입</h2>
+          </div>
+
+          <form id="register-form" class="form-stack" autocomplete="off">
+            <label class="field">
+              <span>아이디</span>
+              <input id="register-user-id" name="userId" type="text" maxlength="20" required>
+            </label>
+
+            <label class="field">
+              <span>비밀번호</span>
+              <input id="register-password" name="password" type="password" minlength="8" required>
+            </label>
+
+            <label class="field">
+              <span>비밀번호 확인</span>
+              <input id="register-password-confirm" name="passwordConfirm" type="password" minlength="8" required>
+            </label>
+
+            <div class="button-row">
+              <button class="primary-button" type="submit">계정 생성</button>
+              <button id="back-from-register-button" class="ghost-button" type="button">뒤로</button>
+            </div>
+          </form>
+
+          <p class="muted-text">새 계정을 만들면 바로 파티와 기본 장비가 준비됩니다.</p>
+        </div>
+      </section>
+
+      <section id="screen-main-menu" class="screen">
+        <div class="menu-layout">
+          <section class="panel">
+            <div class="panel-header">
+              <p class="eyebrow">Main Menu</p>
+              <h2>플레이어 정보</h2>
+            </div>
+            <div id="player-summary" class="summary-card"></div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-header">
+              <p class="eyebrow">Save Slot</p>
+              <h2>기본 저장 슬롯</h2>
+            </div>
+            <div id="save-summary" class="summary-card"></div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-header">
+              <p class="eyebrow">Party</p>
+              <h2>파티 관리</h2>
+            </div>
+            <div class="party-management">
+              <div id="menu-roster-list" class="roster-list"></div>
+              <div id="menu-unit-detail" class="summary-card unit-detail-card"></div>
+            </div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-header">
+              <p class="eyebrow">Stages</p>
+              <h2>작전 지도</h2>
+            </div>
+            <div id="menu-stage-list" class="stage-list"></div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-header">
+              <p class="eyebrow">Inventory</p>
+              <h2>공유 인벤토리</h2>
+            </div>
+            <div class="inventory-toolbar">
+              <label class="field compact-field">
+                <span>정렬</span>
+                <select id="menu-inventory-sort">
+                  <option value="rarity">희귀도</option>
+                  <option value="type">타입</option>
+                  <option value="equipped">장착 상태</option>
+                  <option value="name">이름</option>
+                </select>
+              </label>
+              <label class="field compact-field">
+                <span>타입</span>
+                <select id="menu-inventory-type-filter">
+                  <option value="all">전체</option>
+                  <option value="sword">검</option>
+                  <option value="lance">창</option>
+                  <option value="bow">활</option>
+                  <option value="axe">도끼</option>
+                  <option value="accessory">장신구</option>
+                </select>
+              </label>
+              <label class="field compact-field">
+                <span>장착 여부</span>
+                <select id="menu-inventory-equipped-filter">
+                  <option value="all">전체</option>
+                  <option value="equipped">장착 중</option>
+                  <option value="unequipped">미장착</option>
+                </select>
+              </label>
+              <label class="field compact-field">
+                <span>희귀도</span>
+                <select id="menu-inventory-rarity-filter">
+                  <option value="all">전체</option>
+                  <option value="common">커먼</option>
+                  <option value="uncommon">언커먼</option>
+                  <option value="rare">레어</option>
+                  <option value="unique">유니크</option>
+                  <option value="legendary">레전더리</option>
+                  <option value="epic">에픽</option>
+                  <option value="mystic">미스틱</option>
+                </select>
+              </label>
+            </div>
+            <div id="menu-inventory-list" class="inventory-list"></div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-header">
+              <p class="eyebrow">Settings</p>
+              <h2>전투 설정</h2>
+            </div>
+            <div id="menu-settings-list" class="settings-list"></div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-header">
+              <p class="eyebrow">Shop</p>
+              <h2>보급 상점</h2>
+            </div>
+            <div id="menu-shop-list" class="shop-list"></div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-header">
+              <p class="eyebrow">Codex</p>
+              <h2>보스 드롭 도감</h2>
+            </div>
+            <div id="menu-reward-codex" class="reward-codex-list"></div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-header">
+              <p class="eyebrow">System</p>
+              <h2>출격 명령</h2>
+            </div>
+            <div class="menu-actions">
+              <button id="start-battle-button" class="primary-button" type="button">새 전투 시작</button>
+              <button id="resume-battle-button" class="secondary-button" type="button">이어하기</button>
+              <button id="refresh-save-button" class="ghost-button" type="button">세이브 새로고침</button>
+            </div>
+            <ul class="status-list">
+              <li>전투 시작 전 자동 저장</li>
+              <li>스테이지 클리어 시 자동 저장</li>
+              <li>선택 유닛에서 장비/스탯 분배 가능</li>
+            </ul>
+          </section>
+        </div>
+      </section>
+
+      <section id="screen-battle" class="screen">
+        <div class="battle-layout">
+          <section class="panel battle-map-panel">
+            <div class="panel-header">
+              <p class="eyebrow">Battlefield</p>
+              <h2>전투 맵</h2>
+            </div>
+            <div id="battle-map-root" class="battle-map-root"></div>
+          </section>
+
+          <aside class="battle-sidebar">
+            <section class="panel">
+              <div class="panel-header">
+                <p class="eyebrow">Turn</p>
+                <h2>턴 정보</h2>
+              </div>
+              <div id="turn-info" class="summary-card"></div>
+            </section>
+
+            <section class="panel">
+              <div class="panel-header">
+                <p class="eyebrow">Unit</p>
+                <h2>선택 유닛</h2>
+              </div>
+              <div id="selected-unit-info" class="summary-card"></div>
+            </section>
+
+            <section class="panel">
+              <div class="panel-header">
+                <p class="eyebrow">Log</p>
+                <h2>행동 로그</h2>
+              </div>
+              <div id="battle-log" class="log-box"></div>
+            </section>
+          </aside>
+        </div>
+      </section>
+    </main>
+
+    <div id="toast" class="toast" aria-live="polite"></div>
+  </div>
+
+  <script src="./js/storage.js"></script>
+  <script src="./js/crypto.js"></script>
+  <script src="./js/inventory.js"></script>
+  <script src="./js/stats.js"></script>
+  <script src="./js/skills.js"></script>
+  <script src="./js/combat.js"></script>
+  <script src="./js/ai.js"></script>
+  <script src="./js/battle.js"></script>
+  <script src="./js/battleView.js"></script>
+  <script src="./js/auth.js"></script>
+</body>
+</html>
