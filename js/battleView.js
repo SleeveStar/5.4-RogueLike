@@ -1020,6 +1020,7 @@
           `<button class="${classes.join(" ")}" type="button" data-x="${x}" data-y="${y}" style="${tileStyle}">`,
           `  <span class="tile-elevation"></span>`,
           `  <span class="tile-top"></span>`,
+          `  <span class="tile-overlay"></span>`,
           isReachable && reachableTile ? `  <span class="tile-cost">${reachableTile.cost}</span>` : "",
           unit ? [
             `  <span class="tile-unit ${unit.team}${unit.isBoss ? " boss" : ""}${unit.isElite ? " elite" : ""}${unit.acted ? " acted" : ""}">`,

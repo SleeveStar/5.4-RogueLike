@@ -44,11 +44,139 @@
   ];
 
   const ENEMY_ARCHETYPES = [
-    { className: "검사", weaponType: "sword", namePool: ["루크", "바젤", "이안"] },
-    { className: "브리건드", weaponType: "axe", namePool: ["그론", "마르크", "헤일"] },
-    { className: "헌터", weaponType: "bow", namePool: ["스카", "린트", "가온"] },
-    { className: "솔저", weaponType: "lance", namePool: ["칼론", "브란", "카제"] }
+    {
+      id: "raider_swordsman",
+      className: "검사",
+      weaponType: "sword",
+      namePool: ["루크", "바젤", "이안"],
+      weaponProfile: { name: "적 철검" }
+    },
+    {
+      id: "raider_brute",
+      className: "브리건드",
+      weaponType: "axe",
+      namePool: ["그론", "마르크", "헤일"],
+      weaponProfile: { name: "적 철도끼" }
+    },
+    {
+      id: "raider_hunter",
+      className: "헌터",
+      weaponType: "bow",
+      namePool: ["스카", "린트", "가온"],
+      weaponProfile: { name: "적 사냥활" }
+    },
+    {
+      id: "raider_soldier",
+      className: "솔저",
+      weaponType: "lance",
+      namePool: ["칼론", "브란", "카제"],
+      weaponProfile: { name: "적 철창" }
+    },
+    {
+      id: "goblin_skirmisher",
+      className: "고블린 척후병",
+      weaponType: "sword",
+      namePool: ["재깍", "칼귀", "핏송곳"],
+      mov: 6,
+      statBonuses: { skl: 1, spd: 2, def: -1 },
+      weaponProfile: { name: "녹슨 단검", might: 4, hit: 90, uses: 42 }
+    },
+    {
+      id: "slime_mass",
+      className: "점액괴물",
+      weaponType: "sword",
+      namePool: ["청록 점액", "흉포 점액", "늪 점액"],
+      mov: 4,
+      statBonuses: { maxHp: 4, str: 1, spd: -2, def: 1 },
+      weaponProfile: { name: "점액 촉수", might: 5, hit: 80, uses: 50 }
+    },
+    {
+      id: "dire_wolf",
+      className: "흉포 늑대",
+      weaponType: "sword",
+      namePool: ["회색 송곳니", "붉은 송곳니", "검은 갈기"],
+      mov: 7,
+      statBonuses: { str: 1, spd: 2, def: -1 },
+      weaponProfile: { name: "찢는 송곳니", might: 6, hit: 88, uses: 40 }
+    },
+    {
+      id: "ghoul",
+      className: "구울",
+      weaponType: "axe",
+      namePool: ["썩은 망령", "무덤 포식자", "검은 구울"],
+      mov: 5,
+      statBonuses: { maxHp: 2, str: 2, skl: -1, spd: -1 },
+      weaponProfile: { name: "시체 갈퀴", might: 8, hit: 70, uses: 34 }
+    },
+    {
+      id: "harpy",
+      className: "하피",
+      weaponType: "bow",
+      namePool: ["비명 날개", "회오리 깃", "갈퀴 하피"],
+      mov: 6,
+      statBonuses: { skl: 2, spd: 2, def: -1 },
+      weaponProfile: { name: "깃칼 탄막", might: 5, hit: 90, uses: 32 }
+    },
+    {
+      id: "orc_reaver",
+      className: "오크 파쇄병",
+      weaponType: "axe",
+      namePool: ["부러진 엄니", "검은 어깨", "붉은 주먹"],
+      mov: 4,
+      statBonuses: { maxHp: 3, str: 3, skl: -1, spd: -1, def: 1 },
+      weaponProfile: { name: "전투 절단도끼", might: 9, hit: 72, uses: 32 }
+    },
+    {
+      id: "skeleton_pikeman",
+      className: "스켈레톤 창병",
+      weaponType: "lance",
+      namePool: ["백골 수비병", "부서진 척추", "공허 창수"],
+      mov: 5,
+      statBonuses: { skl: 1, def: 1 },
+      weaponProfile: { name: "녹슨 뼈창", might: 6, hit: 82, uses: 38 }
+    },
+    {
+      id: "gargoyle",
+      className: "가고일",
+      weaponType: "lance",
+      namePool: ["석익", "암회 날개", "파수 괴조"],
+      mov: 5,
+      statBonuses: { maxHp: 2, skl: 1, spd: 1, def: 2 },
+      weaponProfile: { name: "석창 날개", might: 7, hit: 78, uses: 36 }
+    },
+    {
+      id: "basilisk",
+      className: "바실리스크",
+      weaponType: "bow",
+      namePool: ["황혼 독안", "석화 눈동자", "늪의 응시"],
+      mov: 4,
+      statBonuses: { maxHp: 1, str: 1, skl: 3, spd: -1 },
+      weaponProfile: { name: "석화 침", might: 6, hit: 92, uses: 30 },
+      specialActiveSkillIds: ["marked_shot"]
+    }
   ];
+
+  const ENEMY_ARCHETYPE_POOLS = {
+    default: ["raider_swordsman", "raider_brute", "raider_hunter", "raider_soldier"],
+    "prologue-field": ["goblin_skirmisher", "slime_mass", "dire_wolf"],
+    "timber-ridge": ["goblin_skirmisher", "ghoul", "harpy"],
+    "red-fort": ["orc_reaver", "skeleton_pikeman", "gargoyle", "basilisk"],
+    "endless-rift": [
+      "raider_swordsman",
+      "raider_brute",
+      "raider_hunter",
+      "raider_soldier",
+      "goblin_skirmisher",
+      "slime_mass",
+      "dire_wolf",
+      "ghoul",
+      "harpy",
+      "orc_reaver",
+      "skeleton_pikeman",
+      "gargoyle",
+      "basilisk"
+    ]
+  };
 
   const ENDLESS_STAGE_META = {
     id: ENDLESS_STAGE_ID,
@@ -705,7 +833,11 @@
 
   function getSelectedPartyUnits() {
     const selectedIds = (state.saveData.selectedPartyIds || []).slice(0, ALLY_SPAWNS.length);
-    const selectedUnits = selectedIds
+    const leaderId = state.saveData.leaderUnitId;
+    const orderedIds = leaderId && selectedIds.includes(leaderId)
+      ? [leaderId].concat(selectedIds.filter((unitId) => unitId !== leaderId))
+      : selectedIds;
+    const selectedUnits = orderedIds
       .map((unitId) => getPersistentUnit(unitId))
       .filter(Boolean);
 
@@ -1695,7 +1827,22 @@
     });
   }
 
-  function buildEnemyWeapon(type, level) {
+  function getEnemyArchetypeById(archetypeId) {
+    return ENEMY_ARCHETYPES.find((entry) => entry.id === archetypeId) || ENEMY_ARCHETYPES[0];
+  }
+
+  function pickEnemyArchetype(stageDefinition) {
+    const poolIds = stageDefinition.id === ENDLESS_STAGE_ID
+      ? ENEMY_ARCHETYPE_POOLS[ENDLESS_STAGE_ID]
+      : ENEMY_ARCHETYPE_POOLS.default.concat(ENEMY_ARCHETYPE_POOLS[stageDefinition.id] || []);
+    const pool = poolIds
+      .map((archetypeId) => getEnemyArchetypeById(archetypeId))
+      .filter(Boolean);
+
+    return pool[Math.floor(Math.random() * pool.length)] || ENEMY_ARCHETYPES[0];
+  }
+
+  function buildEnemyWeapon(type, level, overrides) {
     const rarity = level >= 3 ? "uncommon" : "common";
     const baseByType = {
       sword: { name: "적 철검", might: 5, hit: 82, rangeMin: 1, rangeMax: 1, uses: 40 },
@@ -1704,7 +1851,7 @@
       lance: { name: "적 철창", might: 6, hit: 80, rangeMin: 1, rangeMax: 1, uses: 38 }
     };
 
-    const base = baseByType[type];
+    const base = Object.assign({}, baseByType[type], clone(overrides || {}));
 
     return {
       id: `enemy-${type}-${Math.floor(Math.random() * 100000)}`,
@@ -1833,9 +1980,10 @@
       Math.max(2, allyCount + (earlyEndless ? 0 : 1) + bonusEnemy - (stageDefinition.boss ? 1 : 0))
     );
     const enemies = stageDefinition.enemySpawns.slice(0, enemyCount).map((spawn, index) => {
-      const archetype = ENEMY_ARCHETYPES[Math.floor(Math.random() * ENEMY_ARCHETYPES.length)];
+      const archetype = pickEnemyArchetype(stageDefinition);
+      const statBonuses = archetype.statBonuses || {};
       const level = 1 + stageDefinition.enemyBonus + Math.floor(Math.random() * 2);
-      const maxHp = 11 + level * 2 + (archetype.weaponType === "axe" ? 1 : 0);
+      const maxHp = Math.max(8, 11 + level * 2 + (archetype.weaponType === "axe" ? 1 : 0) + (statBonuses.maxHp || 0));
       const openingHp = index === enemyCount - 1 ? Math.max(8, maxHp - 3) : maxHp;
 
       return {
@@ -1847,18 +1995,20 @@
         exp: 0,
         hp: openingHp,
         maxHp,
-        str: 3 + level,
-        skl: 3 + level,
-        spd: 2 + level,
-        def: 1 + level,
-        mov: archetype.weaponType === "axe" ? 4 : 5,
+        str: Math.max(1, 3 + level + (statBonuses.str || 0)),
+        skl: Math.max(1, 3 + level + (statBonuses.skl || 0)),
+        spd: Math.max(1, 2 + level + (statBonuses.spd || 0)),
+        def: Math.max(0, 1 + level + (statBonuses.def || 0)),
+        mov: Math.max(3, archetype.mov || (archetype.weaponType === "axe" ? 4 : 5)),
         x: spawn.x,
         y: spawn.y,
         acted: false,
         alive: true,
-        weapon: buildEnemyWeapon(archetype.weaponType, level),
+        weapon: buildEnemyWeapon(archetype.weaponType, level, archetype.weaponProfile),
         statusEffects: [],
-        skillCooldowns: {}
+        skillCooldowns: {},
+        specialSkillIds: clone(archetype.specialSkillIds || []),
+        specialActiveSkillIds: clone(archetype.specialActiveSkillIds || [])
       };
     });
 
@@ -3675,15 +3825,31 @@
       return;
     }
 
+    if (occupant && occupant.team === "enemy") {
+      if (state.ui.pendingMove || state.ui.pendingAttack || state.ui.pendingSkillId) {
+        return;
+      }
+
+      selectUnit(occupant.id);
+      return;
+    }
+
     if (!occupant && state.ui.selectedUnitId && !state.ui.pendingMove) {
+      const unit = getUnitById(state.ui.selectedUnitId);
+
       if (state.ui.pendingAttack) {
-        const unit = getUnitById(state.ui.selectedUnitId);
         state.ui.pendingAttack = false;
         state.ui.attackTiles = [];
         state.ui.attackableTargetIds = [];
         if (unit) {
           refreshSelectionState(unit);
         }
+        notify();
+        return;
+      }
+
+      if (!canPlayerControl(unit)) {
+        resetUiState();
         notify();
         return;
       }

@@ -8,6 +8,7 @@
   const InventoryService = global.InventoryService;
   const SkillsService = global.SkillsService;
   const StatsService = global.StatsService;
+  const TavernService = global.TavernService;
 
   const appState = {
     currentUserId: null,
@@ -21,7 +22,8 @@
       rarity: "all",
       equipped: "all"
     },
-    toastTimer: null
+    toastTimer: null,
+    menuClockTimer: null
   };
 
   const screenIds = [
@@ -60,11 +62,55 @@
 
   const MAIN_PANEL_META = {
     party: { eyebrow: "Party", title: "파티 관리" },
+    tavern: { eyebrow: "Tavern", title: "주점 / 모험가 길드" },
     inventory: { eyebrow: "Inventory", title: "공유 인벤토리" },
     shop: { eyebrow: "Shop", title: "보급 상점" },
     settings: { eyebrow: "Settings", title: "전투 설정" },
     codex: { eyebrow: "Codex", title: "보스 드롭 도감" }
   };
+
+  function getLeaderUnit(saveData) {
+    if (!saveData || !saveData.roster || !saveData.roster.length) {
+      return null;
+    }
+
+    return saveData.roster.find((unit) => unit.id === saveData.leaderUnitId) || saveData.roster[0] || null;
+  }
+
+  function formatRankBadge(rank) {
+    const rankMeta = TavernService.getRankMeta(rank);
+    return `${rankMeta.label} / ${rankMeta.title}`;
+  }
+
+  function formatRemainingRefresh(nextRefreshAt) {
+    if (!nextRefreshAt) {
+      return "갱신 정보 없음";
+    }
+
+    const remainingMs = Math.max(0, new Date(nextRefreshAt).getTime() - Date.now());
+    const totalMinutes = Math.floor(remainingMs / 60000);
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+    return `${hours}시간 ${minutes}분`;
+  }
+
+  function syncTavernState(showRefreshToast) {
+    if (!appState.saveData || !TavernService) {
+      return null;
+    }
+
+    const syncResult = TavernService.syncTavern(appState.saveData);
+
+    if (syncResult && syncResult.changed && appState.currentUserId) {
+      appState.saveData = StorageService.setUserSave(appState.currentUserId, appState.saveData);
+
+      if (showRefreshToast) {
+        showToast("주점 명단이 새로 교체되었습니다.");
+      }
+    }
+
+    return syncResult ? syncResult.tavern : null;
+  }
 
   function normalizeUserId(rawUserId) {
     return rawUserId.trim().toLowerCase();
@@ -104,6 +150,7 @@
     const selectedStage = BattleService.getStageCatalog(saveData).find((stage) => stage.selected);
     const endlessRun = BattleService.getEndlessRunSummary(saveData);
     const endlessCurrentRun = BattleService.getEndlessCurrentRunSummary(saveData);
+    const leaderUnit = getLeaderUnit(saveData);
     const lastResult = campaign.lastResult
       ? `${campaign.lastResult.stageName} / ${campaign.lastResult.result === "victory" ? "승리" : "패배"}`
       : "없음";
@@ -112,11 +159,13 @@
       `슬롯: ${saveData.slotId}`,
       `스테이지: ${selectedStage ? selectedStage.name : saveData.stageId}`,
       `상태: ${saveData.stageStatus}`,
+      `리더: ${leaderUnit ? `${leaderUnit.name} (${leaderUnit.guildRank || "D"})` : "없음"}`,
       `클리어 수: ${(campaign.clearedStageIds || []).length}`,
       `출전 인원: ${(saveData.selectedPartyIds || []).length}/3`,
       `최근 결과: ${lastResult}`,
       `최근 균열 런: ${endlessRun ? `${endlessRun.floor}층 / ${endlessRun.result === "defeat" ? "패배" : "돌파"}` : "없음"}`,
       `진행 중 런: ${endlessCurrentRun ? `${endlessCurrentRun.highestFloor}층 도달 / 정예 ${endlessCurrentRun.eliteDefeated} / 피해 ${endlessCurrentRun.damageDealt}` : "없음"}`,
+      `주점 교대: ${saveData.tavern && saveData.tavern.nextRefreshAt ? new Date(saveData.tavern.nextRefreshAt).toLocaleString("ko-KR") : "미정"}`,
       `보유 골드: ${saveData.partyGold}`,
       `마지막 저장: ${new Date(saveData.lastSavedAt).toLocaleString("ko-KR")}`
     ].join("\n");
@@ -127,13 +176,13 @@
       return "로그인된 사용자가 없습니다.";
     }
 
-    const leadUnit = saveData && saveData.roster ? saveData.roster[0] : null;
+    const leadUnit = getLeaderUnit(saveData);
     const selectedStage = saveData ? BattleService.getStageCatalog(saveData).find((stage) => stage.selected) : null;
     const endlessCurrentRun = saveData ? BattleService.getEndlessCurrentRunSummary(saveData) : null;
 
     return [
       `아이디: ${userId}`,
-      `대표 유닛: ${leadUnit ? `${leadUnit.name} (${leadUnit.className})` : "없음"}`,
+      `대표 유닛: ${leadUnit ? `${leadUnit.name} (${leadUnit.className} / ${leadUnit.guildRank || "D"})` : "없음"}`,
       `현재 출격지: ${selectedStage ? selectedStage.name : (saveData ? saveData.stageId : "미정")}`,
       `무한 균열 최고 층: ${saveData && saveData.endless ? saveData.endless.bestFloor : 1}`,
       `보유 유물 수: ${saveData && saveData.endless && saveData.endless.relicIds ? saveData.endless.relicIds.length : 0}`,
@@ -203,7 +252,7 @@
     }
 
     const selectedUnit = appState.saveData.roster.find((unit) => unit.id === appState.selectedMenuUnitId);
-    return selectedUnit || appState.saveData.roster[0] || null;
+    return selectedUnit || getLeaderUnit(appState.saveData) || appState.saveData.roster[0] || null;
   }
 
   function ensureSelectedMenuUnit() {
@@ -264,6 +313,7 @@
     rosterTarget.innerHTML = appState.saveData.roster.map((unit) => {
       const weapon = InventoryService.getItemById(appState.saveData, unit.weapon);
       const classes = ["roster-button"];
+      const isLeader = appState.saveData.leaderUnitId === unit.id;
 
       if (unit.id === appState.selectedMenuUnitId) {
         classes.push("active");
@@ -273,9 +323,11 @@
         `<button class="${classes.join(" ")}" type="button" data-menu-unit="${unit.id}">`,
         `  <div class="item-title-row"><strong class="card-title">${unit.name}</strong><span class="card-subtitle">${unit.className}</span></div>`,
         '  <div class="roster-meta">',
+        `    <span class="meta-pill rank-${String(unit.guildRank || "D").toLowerCase().replace("+", "plus")}">${unit.guildRank || "D"}</span>`,
         `    <span class="meta-pill">Lv.${unit.level}</span>`,
         `    <span class="meta-pill">HP ${unit.maxHp}</span>`,
         `    <span class="meta-pill">${unit.statPoints || 0}P</span>`,
+        `    <span class="meta-pill ${isLeader ? "is-gold" : "is-muted"}">${isLeader ? "리더" : "일반"}</span>`,
         `    <span class="meta-pill ${isUnitSelectedForSortie(unit.id) ? "is-cyan" : "is-muted"}">${isUnitSelectedForSortie(unit.id) ? "출전 중" : "후방 대기"}</span>`,
         `    <span class="meta-pill ${weapon ? "is-gold" : "is-muted"}">${weapon ? weapon.name : "무기 없음"}</span>`,
         "  </div>",
@@ -319,12 +371,14 @@
       `    <span class="meta-pill">DEF ${selectedUnit.def}</span>`,
       `    <span class="meta-pill">MOV ${selectedUnit.mov}</span>`,
       "  </div>",
+      `  <p>길드 등급: <span class="meta-pill rank-${String(selectedUnit.guildRank || "D").toLowerCase().replace("+", "plus")}">${formatRankBadge(selectedUnit.guildRank || "D")}</span></p>`,
       `  <p>장착 중: ${equippedItems || "없음"}</p>`,
-      `  <p>출전 상태: ${isUnitSelectedForSortie(selectedUnit.id) ? "출전 파티" : "대기 인원"}</p>`,
+      `  <p>출전 상태: ${isUnitSelectedForSortie(selectedUnit.id) ? "출전 파티" : "대기 인원"} / ${appState.saveData.leaderUnitId === selectedUnit.id ? "현재 리더" : "일반 멤버"}</p>`,
       `  <p>전직: ${promotionSummary}</p>`,
       `  <p>스킬: ${SkillsService.describeSkills(selectedUnit)}</p>`,
       `  <p>액티브: ${SkillsService.describeActiveSkills(selectedUnit)}</p>`,
       '  <div class="detail-actions">',
+      `    <button class="secondary-button small-button" type="button" data-set-leader="true" ${appState.saveData.leaderUnitId === selectedUnit.id ? "disabled" : ""}>리더 지정</button>`,
       '    <button class="secondary-button small-button" type="button" data-unequip-all="true">전체 해제</button>',
       `    <button class="secondary-button small-button" type="button" data-toggle-sortie="true">${isUnitSelectedForSortie(selectedUnit.id) ? "후방 대기" : "출전 등록"}</button>`,
       promotionOptions.map((promotion) => (
@@ -384,6 +438,18 @@
           const added = toggleSortieUnit(selectedUnit.id);
           persistSession(appState.saveData, appState.settings);
           showToast(added ? `${selectedUnit.name} 출전 등록` : `${selectedUnit.name} 후방 대기 전환`);
+        } catch (error) {
+          showToast(error.message, true);
+        }
+      });
+    });
+
+    detailTarget.querySelectorAll("[data-set-leader]").forEach((button) => {
+      button.addEventListener("click", () => {
+        try {
+          TavernService.setLeader(appState.saveData, selectedUnit.id);
+          persistSession(appState.saveData, appState.settings);
+          showToast(`${selectedUnit.name}을(를) 파티 리더로 지정했습니다.`);
         } catch (error) {
           showToast(error.message, true);
         }
@@ -498,6 +564,82 @@
           const item = InventoryService.purchaseItem(appState.saveData, button.dataset.shopBuy);
           persistSession(appState.saveData, appState.settings);
           showToast(`${item.name} 구매 완료`);
+        } catch (error) {
+          showToast(error.message, true);
+        }
+      });
+    });
+  }
+
+  function renderTavern() {
+    const statusTarget = getElement("menu-tavern-status");
+    const listTarget = getElement("menu-tavern-list");
+
+    if (!appState.saveData || !TavernService) {
+      if (statusTarget) {
+        statusTarget.textContent = "주점 정보를 불러올 수 없습니다.";
+      }
+      if (listTarget) {
+        listTarget.innerHTML = '<article class="shop-card"><p>주점 데이터가 없습니다.</p></article>';
+      }
+      return;
+    }
+
+    const tavern = appState.saveData.tavern;
+    const nextRefreshText = tavern && tavern.nextRefreshAt
+      ? `${new Date(tavern.nextRefreshAt).toLocaleString("ko-KR")} (${formatRemainingRefresh(tavern.nextRefreshAt)} 후)`
+      : "알 수 없음";
+
+    if (statusTarget) {
+      statusTarget.textContent = [
+        `보유 골드: ${appState.saveData.partyGold}G`,
+        `파티 리더: ${getLeaderUnit(appState.saveData) ? getLeaderUnit(appState.saveData).name : "없음"}`,
+        `현재 명단: ${(tavern && tavern.lineup ? tavern.lineup.length : 0)}명`,
+        `다음 교대: ${nextRefreshText}`
+      ].join("\n");
+    }
+
+    const lineup = (tavern && tavern.lineup) || [];
+
+    if (!lineup.length) {
+      listTarget.innerHTML = '<article class="shop-card"><p>현재 주점에 머무는 모험가가 없습니다.</p></article>';
+      return;
+    }
+
+    listTarget.innerHTML = lineup.map((candidate) => {
+      const unit = candidate.unit;
+      const rankClass = `rank-${String(candidate.guildRank || "D").toLowerCase().replace("+", "plus")}`;
+      const recruited = !!candidate.recruitedAt;
+      const passiveSkillText = SkillsService.describeSkills(unit);
+      const activeSkillText = SkillsService.describeActiveSkills(unit);
+
+      return [
+        `<article class="shop-card tavern-card rarity-${candidate.rarity}">`,
+        `  <div class="item-title-row"><strong class="card-title">${unit.name}</strong><span class="card-subtitle">${unit.className}</span></div>`,
+        '  <div class="inventory-meta">',
+        `    <span class="meta-pill ${rankClass}">${candidate.guildRank}</span>`,
+        `    <span class="meta-pill">Lv.${unit.level}</span>`,
+        `    <span class="meta-pill is-gold">${candidate.hireCost}G</span>`,
+        `    <span class="meta-pill">${candidate.rankTitle}</span>`,
+        "  </div>",
+        `  <p>기본 전력: HP ${unit.maxHp} / STR ${unit.str} / SKL ${unit.skl} / SPD ${unit.spd} / DEF ${unit.def} / MOV ${unit.mov}</p>`,
+        `  <p>시작 장비: ${candidate.startingWeapon.name}</p>`,
+        `  <p>패시브: ${passiveSkillText}</p>`,
+        `  <p>액티브: ${activeSkillText}</p>`,
+        '  <div class="button-row">',
+        `    <button class="primary-button small-button" type="button" data-recruit-adventurer="${candidate.id}" ${recruited ? "disabled" : ""}>${recruited ? "영입 완료" : "영입"}</button>`,
+        "  </div>",
+        "</article>"
+      ].join("");
+    }).join("");
+
+    listTarget.querySelectorAll("[data-recruit-adventurer]").forEach((button) => {
+      button.addEventListener("click", () => {
+        try {
+          const result = TavernService.recruitAdventurer(appState.saveData, button.dataset.recruitAdventurer);
+          appState.selectedMenuUnitId = result.unit.id;
+          persistSession(appState.saveData, appState.settings);
+          showToast(`${result.unit.name} 영입 완료`);
         } catch (error) {
           showToast(error.message, true);
         }
@@ -651,6 +793,7 @@
   }
 
   function renderMainMenu() {
+    syncTavernState(false);
     getElement("player-summary").textContent = formatPlayerSummary(
       appState.currentUserId,
       appState.saveData,
@@ -662,6 +805,7 @@
     renderInventoryList();
     renderSettingsList();
     renderShopList();
+    renderTavern();
     renderRewardCodex();
     setActiveMainPanel(appState.activeMainPanel);
     getElement("menu-inventory-sort").value = appState.inventoryView.sort;
@@ -706,7 +850,12 @@
     appState.currentUserId = userId;
     appState.saveData = bundle.saveData;
     appState.settings = bundle.settings;
+    syncTavernState(false);
     ensureSelectedMenuUnit();
+
+    if (!appState.menuClockTimer) {
+      appState.menuClockTimer = setInterval(handleMenuClockTick, 60000);
+    }
 
     StorageService.setCurrentUser(userId);
     renderSessionChrome();
@@ -878,6 +1027,15 @@
     });
   }
 
+  function handleMenuClockTick() {
+    if (!appState.currentUserId || !getElement("screen-main-menu").classList.contains("active")) {
+      return;
+    }
+
+    syncTavernState(true);
+    renderMainMenu();
+  }
+
   function bootstrapSession() {
     const currentUserId = StorageService.getCurrentUser();
 
@@ -911,6 +1069,7 @@
       }
     });
     bindEvents();
+    appState.menuClockTimer = setInterval(handleMenuClockTick, 60000);
     bootstrapSession();
   }
 

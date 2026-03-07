@@ -681,7 +681,8 @@ button:disabled {
 }
 
 .stage-focus-card,
-.shop-status-card {
+.shop-status-card,
+.tavern-status-card {
   min-height: 120px;
 }
 
@@ -879,6 +880,42 @@ button:disabled {
   border-color: rgba(136, 160, 188, 0.16);
   background: rgba(136, 160, 188, 0.08);
   color: var(--text-faint);
+}
+
+.meta-pill.rank-d {
+  border-color: rgba(161, 177, 198, 0.24);
+  background: rgba(161, 177, 198, 0.14);
+  color: #c8d3e4;
+}
+
+.meta-pill.rank-c {
+  border-color: rgba(103, 215, 232, 0.26);
+  background: rgba(103, 215, 232, 0.14);
+  color: var(--cyan-300);
+}
+
+.meta-pill.rank-b {
+  border-color: rgba(176, 133, 255, 0.26);
+  background: rgba(176, 133, 255, 0.14);
+  color: var(--rare);
+}
+
+.meta-pill.rank-a {
+  border-color: rgba(255, 142, 201, 0.28);
+  background: rgba(255, 142, 201, 0.14);
+  color: var(--unique);
+}
+
+.meta-pill.rank-s {
+  border-color: rgba(255, 174, 66, 0.3);
+  background: rgba(255, 174, 66, 0.16);
+  color: var(--legendary);
+}
+
+.meta-pill.rank-splus {
+  border-color: rgba(255, 227, 109, 0.32);
+  background: rgba(255, 227, 109, 0.16);
+  color: var(--epic);
 }
 
 .meta-pill.rarity-common {
@@ -1091,6 +1128,7 @@ button:disabled {
 .command-stage-panel .stage-list,
 .command-detail-panel .inventory-list,
 .command-detail-panel .shop-list,
+.command-detail-panel .tavern-list,
 .command-detail-panel .reward-codex-list,
 .command-detail-panel .settings-list,
 .command-detail-panel .roster-list {
@@ -1105,6 +1143,10 @@ button:disabled {
 .settings-card .button-row,
 .shop-card .button-row {
   margin-top: 0;
+}
+
+.tavern-card p + p {
+  margin-top: var(--space-8);
 }
 
 .battle-layout {
@@ -1527,7 +1569,8 @@ button:disabled {
 }
 
 .tile-top,
-.tile-elevation {
+.tile-elevation,
+.tile-overlay {
   position: absolute;
   inset: 0;
   border-radius: 12px;
@@ -1567,6 +1610,12 @@ button:disabled {
 
 .tile-elevation::after {
   background: linear-gradient(315deg, rgba(0, 0, 0, 0.18), transparent 38%);
+}
+
+.tile-overlay {
+  z-index: 2;
+  opacity: 0;
+  transition: opacity var(--transition-fast), box-shadow var(--transition-fast), background var(--transition-fast);
 }
 
 .tile-plain .tile-top {
@@ -1635,70 +1684,133 @@ button:disabled {
 
 .battle-tile.is-reachable .tile-top {
   box-shadow:
-    inset 0 0 0 999px var(--tile-move),
     inset 0 10px 16px rgba(255, 255, 255, 0.08),
     0 0 0 2px rgba(103, 215, 232, 0.46),
     0 0 20px rgba(53, 191, 214, 0.24);
 }
 
+.battle-tile.is-reachable .tile-overlay {
+  opacity: 1;
+  background: linear-gradient(180deg, rgba(74, 227, 255, 0.74), rgba(26, 122, 150, 0.8));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.16),
+    inset 0 -14px 22px rgba(4, 24, 31, 0.24);
+}
+
 .battle-tile.is-path .tile-top {
   box-shadow:
-    inset 0 0 0 999px rgba(103, 215, 232, 0.34),
     inset 0 10px 16px rgba(255, 255, 255, 0.08),
     0 0 0 2px rgba(103, 215, 232, 0.52),
     0 0 24px rgba(53, 191, 214, 0.26);
 }
 
+.battle-tile.is-path .tile-overlay {
+  opacity: 1;
+  background: linear-gradient(180deg, rgba(92, 233, 255, 0.82), rgba(31, 149, 184, 0.88));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    inset 0 -14px 24px rgba(4, 24, 31, 0.26);
+}
+
 .battle-tile.is-path-end .tile-top {
   box-shadow:
-    inset 0 0 0 999px rgba(245, 208, 113, 0.42),
     inset 0 10px 16px rgba(255, 255, 255, 0.08),
     0 0 0 2px rgba(245, 208, 113, 0.58),
     0 0 24px rgba(245, 208, 113, 0.24);
 }
 
+.battle-tile.is-path-end .tile-overlay {
+  opacity: 1;
+  background: linear-gradient(180deg, rgba(255, 226, 136, 0.82), rgba(178, 129, 27, 0.88));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    inset 0 -14px 24px rgba(57, 39, 6, 0.26);
+}
+
 .battle-tile.is-attack .tile-top {
   box-shadow:
-    inset 0 0 0 999px var(--tile-attack),
     inset 0 10px 16px rgba(255, 255, 255, 0.06),
     0 0 0 2px rgba(255, 107, 124, 0.44),
     0 0 22px rgba(216, 76, 102, 0.22);
 }
 
+.battle-tile.is-attack .tile-overlay {
+  opacity: 1;
+  background: linear-gradient(180deg, rgba(255, 118, 138, 0.82), rgba(153, 24, 52, 0.9));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    inset 0 -14px 24px rgba(52, 5, 14, 0.32);
+}
+
 .battle-tile.is-counter-threat .tile-top {
   box-shadow:
-    inset 0 0 0 999px rgba(216, 76, 102, 0.36),
     0 0 0 2px rgba(216, 76, 102, 0.46),
     0 0 20px rgba(216, 76, 102, 0.24);
 }
 
+.battle-tile.is-counter-threat .tile-overlay {
+  opacity: 1;
+  background: linear-gradient(180deg, rgba(255, 92, 118, 0.88), rgba(120, 9, 33, 0.92));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.16),
+    inset 0 -14px 24px rgba(52, 5, 14, 0.36);
+}
+
 .battle-tile.is-counter-open .tile-top {
   box-shadow:
-    inset 0 0 0 999px rgba(53, 191, 214, 0.26),
     0 0 0 2px rgba(53, 191, 214, 0.36),
     0 0 18px rgba(53, 191, 214, 0.2);
 }
 
+.battle-tile.is-counter-open .tile-overlay {
+  opacity: 1;
+  background: linear-gradient(180deg, rgba(78, 215, 236, 0.74), rgba(24, 109, 136, 0.82));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    inset 0 -14px 24px rgba(4, 24, 31, 0.28);
+}
+
 .battle-tile.is-selected .tile-top {
   box-shadow:
-    inset 0 0 0 999px var(--tile-selected),
     inset 0 10px 16px rgba(255, 255, 255, 0.08),
     0 0 0 2px rgba(245, 208, 113, 0.6),
     0 0 24px rgba(245, 208, 113, 0.26);
 }
 
+.battle-tile.is-selected .tile-overlay {
+  opacity: 1;
+  background: linear-gradient(180deg, rgba(255, 228, 132, 0.78), rgba(175, 122, 20, 0.84));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    inset 0 -14px 24px rgba(57, 39, 6, 0.24);
+}
+
 .battle-tile.is-skill-target .tile-top {
   box-shadow:
-    inset 0 0 0 999px var(--tile-skill),
     inset 0 10px 16px rgba(255, 255, 255, 0.06),
     0 0 0 2px rgba(153, 240, 207, 0.46),
     0 0 20px rgba(153, 240, 207, 0.22);
 }
 
+.battle-tile.is-skill-target .tile-overlay {
+  opacity: 1;
+  background: linear-gradient(180deg, rgba(170, 255, 221, 0.76), rgba(43, 138, 107, 0.84));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.16),
+    inset 0 -14px 24px rgba(6, 39, 30, 0.24);
+}
+
 .battle-tile.has-acted-unit .tile-top {
   box-shadow:
-    inset 0 0 0 999px var(--tile-acted),
     0 0 0 1px rgba(136, 160, 188, 0.28);
+}
+
+.battle-tile.has-acted-unit .tile-overlay {
+  opacity: 1;
+  background: linear-gradient(180deg, rgba(150, 164, 182, 0.58), rgba(82, 94, 110, 0.7));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    inset 0 -12px 20px rgba(12, 17, 26, 0.22);
 }
 
 .tile-unit,
@@ -1706,7 +1818,7 @@ button:disabled {
 .tile-marker {
   position: absolute;
   left: 50%;
-  z-index: 2;
+  z-index: 3;
   pointer-events: none;
 }
 

@@ -130,6 +130,7 @@
             </div>
             <nav class="menu-sidebar-nav" aria-label="메인 메뉴 탭">
               <button class="sidebar-tab active" type="button" data-menu-panel="party">파티 관리</button>
+              <button class="sidebar-tab" type="button" data-menu-panel="tavern">주점</button>
               <button class="sidebar-tab" type="button" data-menu-panel="inventory">인벤토리</button>
               <button class="sidebar-tab" type="button" data-menu-panel="shop">보급 상점</button>
               <button class="sidebar-tab" type="button" data-menu-panel="settings">전투 설정</button>
@@ -157,6 +158,11 @@
                 <div id="menu-roster-list" class="roster-list"></div>
                 <div id="menu-unit-detail" class="summary-card unit-detail-card"></div>
               </div>
+            </div>
+
+            <div id="menu-panel-tavern" class="menu-panel-view">
+              <div id="menu-tavern-status" class="summary-card tavern-status-card"></div>
+              <div id="menu-tavern-list" class="shop-list tavern-list"></div>
             </div>
 
             <div id="menu-panel-inventory" class="menu-panel-view">
@@ -271,6 +277,7 @@
   <script src="./js/inventory.js"></script>
   <script src="./js/stats.js"></script>
   <script src="./js/skills.js"></script>
+  <script src="./js/tavern.js"></script>
   <script src="./js/combat.js"></script>
   <script src="./js/ai.js"></script>
   <script src="./js/battle.js"></script>

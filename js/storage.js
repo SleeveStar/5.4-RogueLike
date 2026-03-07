@@ -39,6 +39,13 @@
     collection: {
       discoveredRewardIds: []
     },
+    leaderUnitId: "hero-1",
+    tavern: {
+      refreshBlock: null,
+      lastRefreshAt: null,
+      nextRefreshAt: null,
+      lineup: []
+    },
     selectedPartyIds: ["hero-1", "ally-2", "ally-3"],
     inventory: [
       {
@@ -124,6 +131,7 @@
         acted: false,
         alive: true,
         weapon: "iron-sword-01",
+        guildRank: "A",
         statPoints: 2,
         equippedItemIds: ["iron-sword-01"]
       },
@@ -146,6 +154,7 @@
         acted: false,
         alive: true,
         weapon: "iron-lance-01",
+        guildRank: "B",
         statPoints: 1,
         equippedItemIds: ["iron-lance-01"]
       },
@@ -168,6 +177,7 @@
         acted: false,
         alive: true,
         weapon: "practice-bow-01",
+        guildRank: "B",
         statPoints: 1,
         equippedItemIds: ["practice-bow-01"]
       }
@@ -255,6 +265,8 @@
     normalized.endless.lastRun = cloneValue(normalized.endless.lastRun || null);
     normalized.collection = Object.assign({}, cloneValue(DEFAULT_SAVE.collection), normalized.collection || {});
     normalized.collection.discoveredRewardIds = cloneValue(normalized.collection.discoveredRewardIds || []);
+    normalized.tavern = Object.assign({}, cloneValue(DEFAULT_SAVE.tavern), normalized.tavern || {});
+    normalized.tavern.lineup = cloneValue(normalized.tavern.lineup || []);
     normalized.inventory = cloneValue(normalized.inventory || []);
     normalized.roster = cloneValue(normalized.roster || []);
     normalized.selectedPartyIds = cloneValue(normalized.selectedPartyIds || []);
@@ -271,6 +283,12 @@
     }
 
     normalized.selectedPartyIds = normalized.selectedPartyIds.slice(0, 3);
+    normalized.leaderUnitId = rosterIds.includes(normalized.leaderUnitId)
+      ? normalized.leaderUnitId
+      : (rosterIds.includes("hero-1") ? "hero-1" : rosterIds[0] || null);
+    normalized.roster = normalized.roster.map((unit) => Object.assign({
+      guildRank: unit.id === "hero-1" ? "A" : "C"
+    }, unit));
     normalized.battleState = normalized.battleState || null;
     return normalized;
   }
