@@ -241,19 +241,20 @@
     if (!stage) {
       return [
         '<div class="stage-focus-body is-empty">',
-        '  <div class="detail-hero-label">MISSION FOCUS</div>',
-        '  <strong class="stage-focus-title">선택된 스테이지 없음</strong>',
-        '  <p class="stage-focus-copy">좌측 작전 카드에서 스테이지를 선택하면 여기에 핵심 정보가 정리됩니다.</p>',
+        '  <div class="stage-focus-topline">',
+        '    <div><div class="detail-hero-label">MISSION FOCUS</div><strong class="stage-focus-title">선택된 스테이지 없음</strong></div>',
+        "  </div>",
+        '  <p class="stage-focus-copy">좌측 작전 카드에서 선택하면 핵심 정보가 여기에 표시됩니다.</p>',
         "</div>"
       ].join("");
     }
 
     const statusText = stage.inProgress ? "진행 중" : stage.cleared ? "클리어" : "준비";
     const stageFlavor = stage.id === "endless-rift"
-      ? "층마다 지형과 적 구성이 재편되는 장기전 콘텐츠입니다."
+      ? "층마다 지형과 적 구성이 재편되는 장기전."
       : stage.category === "main"
-        ? "핵심 작전 목표에 맞춰 편성과 장비를 조정해야 하는 메인 전장입니다."
-        : "전투 흐름과 규칙을 익히기 좋은 프롤로그 작전입니다.";
+        ? "편성과 장비 조정이 중요한 메인 전장."
+        : "전투 흐름을 익히기 좋은 프롤로그.";
 
     return [
       `<div class="stage-focus-body ${stage.category === "main" ? "is-main" : "is-tutorial"} ${stage.id === "endless-rift" ? "is-endless" : ""}">`,
@@ -266,12 +267,11 @@
       `    <span class="meta-pill ${stage.available ? "is-cyan" : "is-muted"}">${stage.available ? "개방" : "잠김"}</span>`,
       `    <span class="meta-pill is-gold">${stage.rewardGold}G</span>`,
       `    <span class="meta-pill ${stage.cleared ? "is-cyan" : "is-muted"}">${stage.cleared ? "클리어" : "미클리어"}</span>`,
+      `    <span class="meta-pill ${stage.selected ? "is-violet" : "is-muted"}">${stage.selected ? "현재 출격 대상" : "대기 중"}</span>`,
       "  </div>",
       '  <div class="stage-focus-grid">',
       `    ${buildDetailKeyValue("승리 조건", stage.victoryLabel, "gold")}`,
       `    ${buildDetailKeyValue("임무 목표", stage.objective, "cyan")}`,
-      `    ${buildDetailKeyValue("작전 상태", statusText, stage.inProgress ? "gold" : stage.cleared ? "cyan" : "muted")}`,
-      `    ${buildDetailKeyValue("선택 상태", stage.selected ? "현재 출격 대상" : "대기 중", stage.selected ? "violet" : "muted")}`,
       "  </div>",
       `  <p class="stage-focus-copy">${stageFlavor}</p>`,
       "</div>"
