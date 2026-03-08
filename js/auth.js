@@ -284,6 +284,11 @@
     const meta = MAIN_PANEL_META[appState.activeMainPanel];
     getElement("menu-detail-eyebrow").textContent = meta.eyebrow;
     getElement("menu-detail-title").textContent = meta.title;
+
+    const sortieStrip = getElement("menu-sortie-strip");
+    if (sortieStrip) {
+      sortieStrip.classList.toggle("hidden", appState.activeMainPanel !== "party");
+    }
   }
 
   function getSelectedMenuUnit() {
