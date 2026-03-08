@@ -12,6 +12,7 @@
   const MAX_SORTIE_SIZE = 5;
   const SHOP_PAGE_SIZE = 3;
   const INVENTORY_PAGE_SIZE = 3;
+  const SORTIE_MANAGER_PAGE_SIZE = 6;
 
   const appState = {
     currentUserId: null,
@@ -44,6 +45,10 @@
     detailModal: {
       type: null,
       id: null
+    },
+    quickSwapSlotIndex: null,
+    sortieManagerView: {
+      page: 1
     },
     activeStageTab: "all",
     cachedUnitDetailUnitId: null,
@@ -247,16 +252,19 @@
     return BattleService.getStageCatalog(appState.saveData).find((stage) => stage.selected) || null;
   }
 
-  function setActiveMainPanel(panelKey) {
-    if (appState.equipmentModal.unitId && panelKey !== "party") {
+  function setActiveMainPanel(panelKey, options) {
+    const nextOptions = options || {};
+    const preserveModals = !!nextOptions.preserveModals;
+
+    if (!preserveModals && appState.equipmentModal.unitId && panelKey !== "party") {
       closeEquipmentModal();
     }
 
-    if (appState.skillModal.unitId && panelKey !== "party") {
+    if (!preserveModals && appState.skillModal.unitId && panelKey !== "party") {
       closeSkillModal();
     }
 
-    if (appState.detailModal.type) {
+    if (!preserveModals && appState.detailModal.type) {
       closeDetailModal();
     }
 
@@ -327,6 +335,61 @@
     return true;
   }
 
+  function removeSortieSlot(slotIndex) {
+    const selectedPartyIds = getSelectedPartyIds().slice();
+
+    if (slotIndex < 0 || slotIndex >= selectedPartyIds.length) {
+      return null;
+    }
+
+    const removedUnitId = selectedPartyIds[slotIndex];
+    selectedPartyIds.splice(slotIndex, 1);
+    appState.saveData.selectedPartyIds = selectedPartyIds;
+
+    if (appState.quickSwapSlotIndex === slotIndex) {
+      appState.quickSwapSlotIndex = null;
+    } else if (appState.quickSwapSlotIndex !== null && appState.quickSwapSlotIndex > slotIndex) {
+      appState.quickSwapSlotIndex -= 1;
+    }
+
+    return removedUnitId;
+  }
+
+  function assignUnitToSortieSlot(unitId, slotIndex) {
+    const unit = appState.saveData && appState.saveData.roster
+      ? appState.saveData.roster.find((entry) => entry.id === unitId)
+      : null;
+
+    if (!unit) {
+      throw new Error("배치할 캐릭터를 찾을 수 없습니다.");
+    }
+
+    const selectedPartyIds = getSelectedPartyIds().slice();
+    const existingIndex = selectedPartyIds.indexOf(unitId);
+    let targetSlotIndex = Number(slotIndex || 0);
+
+    if (existingIndex !== -1) {
+      selectedPartyIds.splice(existingIndex, 1);
+
+      if (existingIndex < targetSlotIndex) {
+        targetSlotIndex -= 1;
+      }
+    }
+
+    if (targetSlotIndex < 0) {
+      targetSlotIndex = 0;
+    }
+
+    if (targetSlotIndex < selectedPartyIds.length) {
+      selectedPartyIds[targetSlotIndex] = unitId;
+    } else {
+      selectedPartyIds.push(unitId);
+    }
+
+    appState.saveData.selectedPartyIds = selectedPartyIds.slice(0, MAX_SORTIE_SIZE);
+    return unit;
+  }
+
   function getEquipmentModalHost() {
     return getElement("menu-modal-host");
   }
@@ -365,6 +428,7 @@
 
     appState.detailModal.type = null;
     appState.detailModal.id = null;
+    appState.quickSwapSlotIndex = null;
   }
 
   function closeMenuModals() {
@@ -401,6 +465,142 @@
     const rarity = InventoryService.getRarityMeta(item.rarity);
     const slotLabel = InventoryService.getSlotLabel(item.equippedSlotKey || InventoryService.getCompatibleSlotKeys(item)[0] || item.slot);
     return `<span class="meta-pill rarity-${item.rarity}">${slotLabel}: ${item.name} (${rarity.label})</span>`;
+  }
+
+  function buildSortieManagementMarkup() {
+    const roster = (appState.saveData && appState.saveData.roster) || [];
+    const selectedPartyIds = getSelectedPartyIds().slice(0, MAX_SORTIE_SIZE);
+    const selectedPartyMap = new Map(selectedPartyIds.map((unitId, index) => [unitId, index]));
+    const totalPages = Math.max(1, Math.ceil(roster.length / SORTIE_MANAGER_PAGE_SIZE));
+    const currentPage = Math.max(1, Math.min(totalPages, Number(appState.sortieManagerView.page || 1)));
+    const pageStart = (currentPage - 1) * SORTIE_MANAGER_PAGE_SIZE;
+    const visibleRoster = roster.slice(pageStart, pageStart + SORTIE_MANAGER_PAGE_SIZE);
+
+    appState.sortieManagerView.page = currentPage;
+
+    return [
+      [
+        '<div class="item-title-row sortie-manager-header-row">',
+        '  <strong class="card-title">출전 파티 편성</strong>',
+        '  <div class="inventory-meta sortie-manager-header-meta">',
+        `    <span class="meta-pill is-gold">출전 ${selectedPartyIds.length}/${MAX_SORTIE_SIZE}</span>`,
+        `    <span class="meta-pill ${appState.quickSwapSlotIndex !== null ? "is-cyan" : "is-muted"}">${appState.quickSwapSlotIndex !== null ? `${appState.quickSwapSlotIndex + 1}번 슬롯 선택 중` : "슬롯을 선택한 뒤 아래 캐릭터를 배치"}</span>`,
+        "  </div>",
+        "</div>"
+      ].join(""),
+      '  <div class="sortie-manager-layout">',
+      '    <section class="sortie-manager-section">',
+      '      <div class="item-title-row"><strong class="card-title">현재 슬롯</strong><span class="card-subtitle">교체 / 제외</span></div>',
+      '      <div class="sortie-slot-grid">',
+      Array.from({ length: MAX_SORTIE_SIZE }, (_, index) => {
+        const unitId = selectedPartyIds[index] || null;
+        const unit = unitId ? roster.find((entry) => entry.id === unitId) : null;
+        const weapon = unit && unit.weapon ? InventoryService.getItemById(appState.saveData, unit.weapon) : null;
+        const classes = ["sortie-slot-card"];
+
+        if (unit) {
+          classes.push("is-filled");
+        } else {
+          classes.push("is-empty");
+        }
+
+        if (appState.quickSwapSlotIndex === index) {
+          classes.push("is-armed");
+        }
+
+        return [
+          `<article class="${classes.join(" ")}">`,
+          `  <div class="item-title-row"><strong class="card-title">${unit ? unit.name : `${index + 1}번 슬롯`}</strong><span class="card-subtitle">${unit ? `${index + 1}번 슬롯 · ${unit.className}` : "EMPTY"}</span></div>`,
+          unit
+            ? `  <div class="roster-meta"><span class="meta-pill rank-${String(unit.guildRank || "D").toLowerCase().replace("+", "plus")}">${unit.guildRank || "D"}</span><span class="meta-pill">Lv.${unit.level}</span><span class="meta-pill ${appState.saveData.leaderUnitId === unit.id ? "is-gold" : "is-muted"}">${appState.saveData.leaderUnitId === unit.id ? "리더" : "일반"}</span><span class="meta-pill ${weapon ? "is-cyan" : "is-muted"}">${weapon ? `주무기 ${weapon.name}` : "주무기 없음"}</span></div>`
+            : '  <div class="roster-meta"><span class="meta-pill is-muted">비어 있음</span></div>',
+          '  <div class="button-row">',
+          `    <button class="${appState.quickSwapSlotIndex === index ? "primary-button" : "secondary-button"} small-button" type="button" data-sortie-swap="${index}">${appState.quickSwapSlotIndex === index ? "선택 중" : unit ? "교체" : "추가"}</button>`,
+          unit ? `    <button class="ghost-button small-button" type="button" data-sortie-remove="${index}">제외</button>` : "",
+          unit ? `    <button class="ghost-button small-button" type="button" data-sortie-focus="${unit.id}">상세</button>` : "",
+          "  </div>",
+          "</article>"
+        ].filter(Boolean).join("");
+      }).join(""),
+      "      </div>",
+      "    </section>",
+      '    <section class="sortie-manager-section">',
+      `      <div class="item-title-row"><strong class="card-title">보유 모험가</strong><span class="card-subtitle">${currentPage} / ${totalPages} 페이지</span></div>`,
+      '      <div class="sortie-candidate-list">',
+      visibleRoster.map((unit) => {
+        const currentSlot = selectedPartyMap.has(unit.id) ? selectedPartyMap.get(unit.id) + 1 : null;
+        const isTarget = appState.quickSwapSlotIndex !== null;
+        return [
+          `<article class="inventory-card sortie-candidate-card ${currentSlot ? "is-in-party" : ""}">`,
+          '  <div>',
+          `    <div class="item-title-row"><strong class="card-title">${unit.name}</strong><span class="card-subtitle">${unit.className}</span></div>`,
+          `    <div class="inventory-meta"><span class="meta-pill">Lv.${unit.level}</span><span class="meta-pill ${currentSlot ? "is-cyan" : "is-muted"}">${currentSlot ? `${currentSlot}번 슬롯` : "후방 대기"}</span></div>`,
+          "  </div>",
+          '  <div class="button-row">',
+          `    <button class="ghost-button small-button" type="button" data-sortie-focus="${unit.id}">상세</button>`,
+          `    <button class="${isTarget ? "primary-button" : "secondary-button"} small-button" type="button" data-sortie-assign="${unit.id}" ${isTarget ? "" : "disabled"}>${isTarget ? "여기에 배치" : "슬롯 선택 필요"}</button>`,
+          "  </div>",
+          "</article>"
+        ].join("");
+      }).join(""),
+      "      </div>",
+      '      <div class="list-pagination">',
+      `        <button class="ghost-button small-button" type="button" data-sortie-page="prev" ${currentPage <= 1 ? "disabled" : ""}>이전</button>`,
+      `        <span class="pagination-label">${currentPage} / ${totalPages}</span>`,
+      `        <button class="ghost-button small-button" type="button" data-sortie-page="next" ${currentPage >= totalPages ? "disabled" : ""}>다음</button>`,
+      "      </div>",
+      "    </section>",
+      "  </div>"
+    ].join("");
+  }
+
+  function renderSortieQuickBar() {
+    const target = getElement("menu-sortie-strip");
+
+    if (!target || !appState.saveData) {
+      return;
+    }
+
+    const roster = appState.saveData.roster || [];
+    const selectedPartyIds = getSelectedPartyIds().slice(0, MAX_SORTIE_SIZE);
+    const selectedUnits = selectedPartyIds
+      .map((unitId) => roster.find((entry) => entry.id === unitId))
+      .filter(Boolean);
+
+    target.innerHTML = [
+      '<div class="summary-card sortie-strip-card interactive-summary-card" data-open-sortie-manager="true">',
+      '  <div class="item-title-row">',
+      '    <strong class="card-title">현재 출전 파티</strong>',
+      `    <span class="card-subtitle">${selectedUnits.length}/${MAX_SORTIE_SIZE}</span>`,
+      "  </div>",
+      '  <div class="inventory-meta sortie-strip-meta">',
+      selectedUnits.length
+        ? selectedUnits.map((unit, index) => `<span class="meta-pill ${appState.selectedMenuUnitId === unit.id ? "is-gold" : ""}">${index + 1}. ${unit.name}</span>`).join("")
+        : '<span class="meta-pill is-muted">아직 출전 파티가 비어 있습니다.</span>',
+      '    <button class="primary-button small-button inventory-meta-action" type="button" data-open-sortie-manager="true">편성 관리</button>',
+      "  </div>",
+      '  <p class="sortie-strip-helper">상단 바는 요약만 보여주고, 편성 교체는 중앙 모달에서 진행합니다.</p>',
+      "</div>"
+    ].join("");
+
+    target.querySelectorAll("[data-open-sortie-manager]").forEach((button) => {
+      button.addEventListener("click", (event) => {
+        event.stopPropagation();
+        openDetailModal("sortie", "party");
+      });
+    });
+
+    const card = target.querySelector("[data-open-sortie-manager]");
+
+    if (card) {
+      card.addEventListener("click", (event) => {
+        if (event.target.closest("button")) {
+          return;
+        }
+
+        openDetailModal("sortie", "party");
+      });
+    }
   }
 
   function createEmptyProgressionDraft() {
@@ -929,6 +1129,14 @@
       };
     }
 
+    if (type === "sortie") {
+      return {
+        title: "출전 파티 관리",
+        bodyMarkup: buildSortieManagementMarkup(),
+        actions: []
+      };
+    }
+
     if (type === "shop") {
       const product = InventoryService.SHOP_CATALOG.find((entry) => entry.id === id);
 
@@ -1116,7 +1324,7 @@
       });
     });
 
-    if (appState.detailModal.type === "unit" || appState.detailModal.type === "equip-target") {
+    if (appState.detailModal.type === "unit" || appState.detailModal.type === "equip-target" || appState.detailModal.type === "sortie") {
       const detailCard = host.querySelector(".menu-detail-card");
 
       if (detailCard) {
@@ -1126,7 +1334,12 @@
             return;
           }
 
-          handleEquipTargetModalInteraction(event, String(appState.detailModal.id));
+          if (appState.detailModal.type === "equip-target") {
+            handleEquipTargetModalInteraction(event, String(appState.detailModal.id));
+            return;
+          }
+
+          handleSortieManagementModalInteraction(event);
         });
       }
     }
@@ -1285,6 +1498,76 @@
     appState.selectedMenuUnitId = unit.id;
     closeDetailModal();
     openEquipmentModal(unit.id, { initialItemId: item.id });
+  }
+
+  function handleSortieManagementModalInteraction(event) {
+    const button = event.target.closest("button");
+
+    if (!button || !appState.saveData) {
+      return;
+    }
+
+    if (button.dataset.sortieFocus) {
+      const unitId = String(button.dataset.sortieFocus);
+      appState.selectedMenuUnitId = unitId;
+      renderMainMenu();
+      openDetailModal("unit", unitId);
+      return;
+    }
+
+    if (button.dataset.sortieSwap) {
+      const slotIndex = Number(button.dataset.sortieSwap || 0);
+      appState.quickSwapSlotIndex = appState.quickSwapSlotIndex === slotIndex ? null : slotIndex;
+      renderMainMenu();
+      renderDetailModal();
+      return;
+    }
+
+    if (button.dataset.sortieRemove) {
+      try {
+        const roster = appState.saveData.roster || [];
+        const slotIndex = Number(button.dataset.sortieRemove || 0);
+        const removedUnitId = removeSortieSlot(slotIndex);
+        const removedUnit = removedUnitId ? roster.find((entry) => entry.id === removedUnitId) : null;
+        persistSession(appState.saveData, appState.settings);
+        openDetailModal("sortie", "party");
+        showToast(removedUnit ? `${removedUnit.name}을(를) 출전 파티에서 제외했습니다.` : "슬롯에서 캐릭터를 제외했습니다.");
+      } catch (error) {
+        showToast(error.message, true);
+      }
+      return;
+    }
+
+    if (button.dataset.sortieAssign) {
+      try {
+        const unitId = String(button.dataset.sortieAssign);
+
+        if (appState.quickSwapSlotIndex === null) {
+          showToast("먼저 바꿀 슬롯을 선택하세요.", true);
+          return;
+        }
+
+        const slotLabel = `${appState.quickSwapSlotIndex + 1}번 슬롯`;
+        const unit = assignUnitToSortieSlot(unitId, appState.quickSwapSlotIndex);
+        appState.selectedMenuUnitId = unit.id;
+        appState.quickSwapSlotIndex = null;
+        persistSession(appState.saveData, appState.settings);
+        openDetailModal("sortie", "party");
+        showToast(`${unit.name}을(를) ${slotLabel}에 배치했습니다.`);
+      } catch (error) {
+        showToast(error.message, true);
+      }
+      return;
+    }
+
+    if (button.dataset.sortiePage) {
+      const roster = (appState.saveData && appState.saveData.roster) || [];
+      const totalPages = Math.max(1, Math.ceil(roster.length / SORTIE_MANAGER_PAGE_SIZE));
+      appState.sortieManagerView.page = button.dataset.sortiePage === "next"
+        ? Math.min(totalPages, Number(appState.sortieManagerView.page || 1) + 1)
+        : Math.max(1, Number(appState.sortieManagerView.page || 1) - 1);
+      renderDetailModal();
+    }
   }
 
   function buildEquipmentDetailMarkup(unit, item, slotKey) {
@@ -1964,9 +2247,11 @@
 
     rosterTarget.querySelectorAll("[data-menu-unit]").forEach((button) => {
       button.addEventListener("click", () => {
-        appState.selectedMenuUnitId = button.dataset.menuUnit;
+        const unitId = button.dataset.menuUnit;
+        appState.selectedMenuUnitId = unitId;
+
         renderMainMenu();
-        openDetailModal("unit", button.dataset.menuUnit);
+        openDetailModal("unit", unitId);
       });
     });
   }
@@ -2482,6 +2767,7 @@
     StatsService.normalizeRosterProgression(appState.saveData);
     SkillsService.normalizeRosterLearnedSkills(appState.saveData);
     syncTavernState(false);
+    renderSortieQuickBar();
     renderPartyManagement();
     renderStageList();
     renderInventoryList();
@@ -2489,7 +2775,7 @@
     renderShopList();
     renderTavern();
     renderRewardCodex();
-    setActiveMainPanel(appState.activeMainPanel);
+    setActiveMainPanel(appState.activeMainPanel, { preserveModals: true });
     getElement("menu-inventory-sort").value = appState.inventoryView.sort;
     getElement("menu-inventory-type-filter").value = appState.inventoryView.type;
     getElement("menu-inventory-rarity-filter").value = appState.inventoryView.rarity;
@@ -2537,6 +2823,8 @@
     appState.saveData = bundle.saveData;
     appState.settings = bundle.settings;
     appState.progressionDrafts = {};
+    appState.quickSwapSlotIndex = null;
+    appState.sortieManagerView.page = 1;
     appState.inventoryView.page = 1;
     appState.shopView.page = 1;
     InventoryService.normalizeInventoryState(appState.saveData);
@@ -2647,8 +2935,10 @@
     appState.saveData = null;
     appState.settings = null;
     appState.selectedMenuUnitId = null;
+    appState.quickSwapSlotIndex = null;
     appState.progressionDrafts = {};
     appState.activeMainPanel = "party";
+    appState.sortieManagerView.page = 1;
     appState.inventoryView.sort = "rarity";
     appState.inventoryView.type = "all";
     appState.inventoryView.rarity = "all";

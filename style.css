@@ -696,7 +696,163 @@ button:disabled {
 }
 
 .command-detail-panel {
-  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-rows: auto auto minmax(0, 1fr);
+}
+
+.menu-sortie-strip {
+  min-height: 0;
+}
+
+.sortie-strip-card {
+  min-height: 0;
+  padding: 10px 14px;
+  white-space: normal;
+}
+
+.sortie-strip-helper {
+  margin: 2px 0 0;
+  color: var(--text-muted);
+  font-size: 0.74rem;
+}
+
+.sortie-strip-meta {
+  align-items: center;
+  gap: var(--space-8);
+}
+
+.sortie-strip-card .meta-pill {
+  min-height: 24px;
+  padding: 0 8px;
+  font-size: 0.74rem;
+}
+
+.sortie-manager-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
+  gap: var(--space-14);
+}
+
+.sortie-manager-section {
+  display: grid;
+  align-content: start;
+  gap: 4px;
+}
+
+.sortie-manager-section > .item-title-row {
+  /*align-items: center;*/
+  align-content: center;
+  gap: 4px;
+  min-height: 26px;
+  line-height: 1.05;
+}
+
+.sortie-manager-section > .item-title-row .card-title {
+  font-size: 0.82rem;
+  line-height: 1.05;
+}
+
+.sortie-manager-section > .item-title-row .card-subtitle {
+  font-size: 0.58rem;
+  line-height: 1.05;
+}
+
+.sortie-manager-header-row {
+  align-items: center;
+}
+
+.sortie-manager-header-meta {
+  margin-left: auto;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 6px;
+}
+
+.sortie-slot-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: var(--space-10);
+  margin-top: 0;
+}
+
+.sortie-slot-card {
+  display: grid;
+  gap: 4px;
+  min-height: 0;
+  padding: 10px;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(103, 215, 232, 0.14);
+  background: linear-gradient(180deg, rgba(17, 27, 41, 0.94), rgba(10, 16, 26, 0.98));
+}
+
+.sortie-slot-card.is-empty {
+  border-style: dashed;
+  opacity: 0.88;
+}
+
+.sortie-slot-card.is-armed {
+  border-color: rgba(245, 208, 113, 0.4);
+  box-shadow: var(--shadow-glow-gold);
+}
+
+.sortie-slot-card.is-selected {
+  border-color: rgba(103, 215, 232, 0.34);
+  box-shadow: var(--shadow-glow-cyan);
+}
+
+.sortie-slot-card .card-title {
+  font-size: 0.82rem;
+}
+
+.sortie-slot-card .card-subtitle {
+  font-size: 0.6rem;
+}
+
+.sortie-slot-card .roster-meta {
+  gap: 4px;
+}
+
+.sortie-slot-card .meta-pill {
+  min-height: 22px;
+  padding: 0 7px;
+  font-size: 0.7rem;
+}
+
+.sortie-slot-card .button-row {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 4px;
+}
+
+.sortie-slot-card .small-button {
+  min-height: 27px;
+  padding-inline: 6px;
+  font-size: 0.74rem;
+}
+
+.sortie-candidate-list {
+  display: grid;
+  gap: var(--space-10);
+  min-height: 0;
+  margin-top: 0;
+  max-height: 56vh;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.sortie-candidate-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-12);
+  padding: 12px 14px;
+}
+
+.sortie-candidate-card .button-row {
+  margin-top: 0;
+}
+
+.sortie-candidate-card.is-in-party {
+  border-color: rgba(103, 215, 232, 0.24);
 }
 
 .stage-focus-card,
@@ -2792,7 +2948,7 @@ button:disabled {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px 18px;
-  min-height: 0;
+  min-height: clamp(440px, 58vh, 680px);
   font-size: 0.94rem;
   line-height: 1.45;
   overflow: visible;
@@ -2804,7 +2960,8 @@ button:disabled {
 
 .menu-detail-card > .item-title-row,
 .menu-detail-card > .inventory-meta,
-.menu-detail-card > .detail-stats {
+.menu-detail-card > .detail-stats,
+.menu-detail-card > .sortie-manager-layout {
   grid-column: 1 / -1;
 }
 
@@ -3097,6 +3254,14 @@ button:disabled {
   .command-layout {
     grid-template-columns: minmax(240px, 280px) minmax(360px, 1fr) minmax(360px, 0.95fr);
   }
+
+  .sortie-slot-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .sortie-manager-layout {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 1120px) {
@@ -3120,6 +3285,14 @@ button:disabled {
 
   .command-detail-panel {
     grid-column: 1 / -1;
+  }
+
+  .sortie-slot-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .sortie-candidate-card {
+    grid-template-columns: 1fr;
   }
 
   .command-sidebar {
@@ -3175,7 +3348,8 @@ button:disabled {
   .info-grid,
   .party-management,
   .inventory-toolbar,
-  .battle-sidebar {
+  .battle-sidebar,
+  .sortie-slot-grid {
     grid-template-columns: 1fr;
   }
 
