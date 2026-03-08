@@ -22,7 +22,7 @@
       activeSkills: 0,
       signaturePassiveChance: 0,
       partySlots: 1,
-      classPool: ["검사", "브리건드", "헌터", "솔저", "클레릭"],
+      classPool: ["검사", "브리건드", "헌터", "솔저", "클레릭", "메이지"],
       bonusStats: {}
     },
     C: {
@@ -36,7 +36,7 @@
       activeSkills: 0,
       signaturePassiveChance: 0.04,
       partySlots: 1,
-      classPool: ["검사", "브리건드", "헌터", "솔저", "랜서", "아처", "클레릭"],
+      classPool: ["검사", "브리건드", "헌터", "솔저", "랜서", "아처", "클레릭", "메이지"],
       bonusStats: { maxHp: 1 }
     },
     B: {
@@ -50,7 +50,7 @@
       activeSkills: 1,
       signaturePassiveChance: 0.12,
       partySlots: 2,
-      classPool: ["검사", "브리건드", "헌터", "솔저", "랜서", "아처", "클레릭"],
+      classPool: ["검사", "브리건드", "헌터", "솔저", "랜서", "아처", "클레릭", "메이지"],
       bonusStats: { maxHp: 1, str: 1, skl: 1 }
     },
     A: {
@@ -64,7 +64,7 @@
       activeSkills: 1,
       signaturePassiveChance: 0.28,
       partySlots: 3,
-      classPool: ["로드", "랜서", "아처", "검사", "브리건드", "헌터", "솔저", "클레릭"],
+      classPool: ["로드", "랜서", "아처", "검사", "브리건드", "헌터", "솔저", "클레릭", "메이지"],
       bonusStats: { maxHp: 2, str: 1, skl: 1, spd: 1, def: 1 }
     },
     S: {
@@ -78,7 +78,7 @@
       activeSkills: 2,
       signaturePassiveChance: 0.56,
       partySlots: 4,
-      classPool: ["로드", "랜서", "아처", "하이로드", "팔라딘", "스나이퍼", "클레릭", "비숍"],
+      classPool: ["로드", "랜서", "아처", "하이로드", "팔라딘", "스나이퍼", "클레릭", "비숍", "위저드", "소서러"],
       bonusStats: { maxHp: 3, str: 2, skl: 2, spd: 1, def: 1 }
     },
     "S+": {
@@ -92,7 +92,7 @@
       activeSkills: 2,
       signaturePassiveChance: 0.82,
       partySlots: 5,
-      classPool: ["하이로드", "팔라딘", "스나이퍼", "비숍"],
+      classPool: ["하이로드", "팔라딘", "스나이퍼", "비숍", "위저드", "소서러"],
       bonusStats: { maxHp: 4, str: 2, skl: 2, spd: 2, def: 2, mov: 1 }
     }
   };
@@ -126,6 +126,21 @@
       weaponType: "focus",
       baseStats: { maxHp: 18, str: 4, skl: 9, spd: 7, def: 4, mov: 5 },
       namePool: ["루시아", "에스텔", "라온", "미카"]
+    },
+    메이지: {
+      weaponType: "staff",
+      baseStats: { maxHp: 14, str: 3, skl: 9, spd: 6, def: 2, mov: 5 },
+      namePool: ["리안", "시아", "유엘", "노아"]
+    },
+    위저드: {
+      weaponType: "staff",
+      baseStats: { maxHp: 16, str: 4, skl: 11, spd: 7, def: 3, mov: 5 },
+      namePool: ["아린", "테아", "에린", "다온"]
+    },
+    소서러: {
+      weaponType: "staff",
+      baseStats: { maxHp: 15, str: 4, skl: 10, spd: 8, def: 2, mov: 5 },
+      namePool: ["세온", "리브", "카엘", "하린"]
     },
     랜서: {
       weaponType: "lance",
@@ -174,7 +189,8 @@
     lance: { name: "길드 장창", might: 6, hit: 82, rangeMin: 1, rangeMax: 1, uses: 38 },
     bow: { name: "길드 장궁", might: 5, hit: 90, rangeMin: 2, rangeMax: 2, uses: 34 },
     axe: { name: "길드 전투도끼", might: 7, hit: 76, rangeMin: 1, rangeMax: 1, uses: 36 },
-    focus: { name: "길드 성구", might: 4, hit: 92, rangeMin: 1, rangeMax: 2, uses: 34 }
+    focus: { name: "길드 성구", might: 4, hit: 92, rangeMin: 1, rangeMax: 2, uses: 34 },
+    staff: { name: "길드 마도지팡이", might: 5, hit: 90, rangeMin: 1, rangeMax: 3, uses: 30 }
   };
 
   const PASSIVE_SKILL_POOL = {
@@ -182,7 +198,8 @@
     lance: ["fortress_heart", "warlord_presence"],
     bow: ["eagle_commander", "warlord_presence"],
     axe: ["warlord_presence", "fortress_heart"],
-    focus: ["eagle_commander", "fortress_heart"]
+    focus: ["saint_guard", "oracle_insight", "mystic_barrier"],
+    staff: ["mana_well", "spell_overflow", "mystic_barrier"]
   };
 
   const ACTIVE_SKILL_POOL = {
@@ -190,7 +207,8 @@
     lance: ["guard_roar", "adamant_guard", "boss_cleave"],
     bow: ["rain_of_arrows", "marked_shot", "adamant_guard"],
     axe: ["frenzy_assault", "boss_cleave", "adamant_guard"],
-    focus: ["marked_shot", "adamant_guard", "rain_of_arrows"]
+    focus: ["sanctuary_wave", "oracle_ray", "holy_lance"],
+    staff: ["arcane_orb", "nova_burst", "ether_spear"]
   };
 
   const SIGNATURE_PASSIVE_POOL_BY_CLASS = {
@@ -227,11 +245,18 @@
     월드이터: ["doom_mark", "berserk_blood"],
     클레릭: ["saint_guard"],
     비숍: ["saint_guard", "oracle_insight"],
+    메이지: ["mana_well", "mystic_barrier"],
+    위저드: ["mana_well", "spell_overflow"],
+    소서러: ["spell_overflow", "mystic_barrier"],
     오라클: ["oracle_insight", "saint_guard"],
     세라핌: ["saint_guard"],
     인퀴지터: ["oracle_insight", "saint_guard"],
     성녀: ["saint_guard"],
-    아크저지: ["oracle_insight", "saint_guard"]
+    아크저지: ["oracle_insight", "saint_guard"],
+    아크메이지: ["mana_well", "mystic_barrier"],
+    워록: ["spell_overflow", "mystic_barrier"],
+    대현자: ["mana_well", "spell_overflow"],
+    보이드로드: ["spell_overflow", "mystic_barrier"]
   };
 
   function clone(value) {

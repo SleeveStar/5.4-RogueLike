@@ -10,8 +10,10 @@
   const StatsService = global.StatsService;
   const TavernService = global.TavernService;
   const MAX_SORTIE_SIZE = 5;
+  const ROSTER_PAGE_SIZE = 3;
   const SHOP_PAGE_SIZE = 3;
   const INVENTORY_PAGE_SIZE = 3;
+  const EQUIPMENT_MODAL_PAGE_SIZE = 4;
   const SORTIE_MANAGER_PAGE_SIZE = 6;
 
   const appState = {
@@ -20,6 +22,9 @@
     settings: null,
     selectedMenuUnitId: null,
     activeMainPanel: "party",
+    rosterView: {
+      page: 1
+    },
     inventoryView: {
       sort: "rarity",
       type: "all",
@@ -35,7 +40,8 @@
       unitId: null,
       hoveredItemId: null,
       hoveredSlotKey: null,
-      dragItemId: null
+      dragItemId: null,
+      page: 1
     },
     skillModal: {
       unitId: null,
@@ -46,6 +52,7 @@
       type: null,
       id: null
     },
+    pendingEquipAction: null,
     quickSwapSlotIndex: null,
     sortieManagerView: {
       page: 1
@@ -410,6 +417,7 @@
     appState.equipmentModal.hoveredItemId = null;
     appState.equipmentModal.hoveredSlotKey = null;
     appState.equipmentModal.dragItemId = null;
+    appState.equipmentModal.page = 1;
   }
 
   function closeSkillModal() {
@@ -433,6 +441,7 @@
 
     appState.detailModal.type = null;
     appState.detailModal.id = null;
+    appState.pendingEquipAction = null;
     appState.quickSwapSlotIndex = null;
   }
 
@@ -447,9 +456,18 @@
     return `<span class="meta-pill ${bonus > 0 ? "is-gold" : ""}">${label} ${effectiveValue}${bonus > 0 ? ` (+${bonus})` : ""}</span>`;
   }
 
+  function escapeAttribute(value) {
+    return String(value || "")
+      .replace(/&/g, "&amp;")
+      .replace(/"/g, "&quot;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;");
+  }
+
   function buildPrimaryStatPill(statName, baseValue, previewValue, options) {
     const nextOptions = options || {};
     const label = StatsService.PRIMARY_STAT_LABELS[statName] || statName.toUpperCase();
+    const description = StatsService.getPrimaryStatDescription(statName);
     const delta = previewValue - baseValue;
     const equipmentBonus = Number(nextOptions.equipmentBonus || 0);
     const draftDelta = Number(nextOptions.draftDelta || 0);
@@ -463,7 +481,7 @@
       bonusParts.push(`예약 +${draftDelta}`);
     }
 
-    return `<span class="meta-pill ${delta > 0 ? "is-preview-up" : ""}">${label} ${previewValue}${bonusParts.length ? ` (${bonusParts.join(" / ")})` : ""}</span>`;
+    return `<span class="meta-pill stat-tooltip-pill ${delta > 0 ? "is-preview-up" : ""}" data-stat-tooltip="${escapeAttribute(description)}">${label} ${previewValue}${bonusParts.length ? ` (${bonusParts.join(" / ")})` : ""}</span>`;
   }
 
   function buildEquippedItemBadge(item) {
@@ -818,13 +836,81 @@
   }
 
   function buildUnitStatSummary(unit) {
+    const primaryStats = StatsService.getPrimaryStats(unit);
+    return StatsService.PRIMARY_STATS.map((statName) => (
+      `<span class="meta-pill stat-tooltip-pill" data-stat-tooltip="${escapeAttribute(StatsService.getPrimaryStatDescription(statName))}">${StatsService.PRIMARY_STAT_LABELS[statName]} ${primaryStats[statName]}</span>`
+    )).join("");
+  }
+
+  function buildDetailKeyValue(label, value, tone) {
     return [
-      buildUnitStatPill("HP", unit.maxHp, unit.maxHp),
-      buildUnitStatPill("ATK", unit.str, unit.str),
-      buildUnitStatPill("ACC", unit.skl, unit.skl),
-      buildUnitStatPill("SPD", unit.spd, unit.spd),
-      buildUnitStatPill("DEF", unit.def, unit.def),
-      buildUnitStatPill("MOV", unit.mov, unit.mov)
+      `<div class="detail-kv${tone ? ` is-${tone}` : ""}">`,
+      `  <span class="detail-kv-label">${label}</span>`,
+      `  <strong class="detail-kv-value">${value}</strong>`,
+      "</div>"
+    ].join("");
+  }
+
+  function buildItemFeatureSection(title, bodyMarkup, toneClass) {
+    if (!bodyMarkup) {
+      return "";
+    }
+
+    return [
+      `<section class="detail-feature-card${toneClass ? ` ${toneClass}` : ""}">`,
+      `  <div class="detail-feature-title">${title}</div>`,
+      `  <div class="detail-feature-body">${bodyMarkup}</div>`,
+      "</section>"
+    ].join("");
+  }
+
+  function buildItemMetricGrid(item, extraEntries) {
+    const metrics = [];
+
+    if (InventoryService.isWeapon(item)) {
+      metrics.push(buildDetailKeyValue("위력", item.might || 0, "gold"));
+      metrics.push(buildDetailKeyValue("명중", item.hit || 0, "cyan"));
+      metrics.push(buildDetailKeyValue("사거리", `${item.rangeMin}-${item.rangeMax}`, "violet"));
+      metrics.push(buildDetailKeyValue("내구", item.uses || 0, "muted"));
+    } else if (InventoryService.isConsumable(item)) {
+      metrics.push(buildDetailKeyValue("분류", "소모품", "gold"));
+    } else {
+      metrics.push(buildDetailKeyValue("장비 부위", InventoryService.getSlotLabel(item.equippedSlotKey || InventoryService.getCompatibleSlotKeys(item)[0] || item.slot), "gold"));
+      metrics.push(buildDetailKeyValue("종류", InventoryService.getTypeLabel(item.type || item.slot), "cyan"));
+    }
+
+    (extraEntries || []).forEach((entry) => {
+      metrics.push(buildDetailKeyValue(entry.label, entry.value, entry.tone));
+    });
+
+    return metrics.join("");
+  }
+
+  function buildAffixListMarkup(item) {
+    if (!item.affixes || !item.affixes.length) {
+      return '<div class="detail-token-list"><span class="detail-token is-muted">추가 옵션 없음</span></div>';
+    }
+
+    return [
+      '<div class="detail-token-list">',
+      item.affixes.map((affix) => (
+        `<span class="detail-token ${affix.isUnique ? "is-unique" : "is-normal"}"><strong>${affix.isUnique ? "고유" : "옵션"}</strong> ${affix.label}<small>${affix.description}</small></span>`
+      )).join(""),
+      "</div>"
+    ].join("");
+  }
+
+  function buildSetDetailMarkup(setDefinition) {
+    if (!setDefinition) {
+      return "";
+    }
+
+    return [
+      '<div class="detail-set-list">',
+      setDefinition.bonuses.map((bonus) => (
+        `<div class="detail-set-row"><span class="detail-set-count">${bonus.pieces}세트</span><span class="detail-set-text">${bonus.description}</span></div>`
+      )).join(""),
+      "</div>"
     ].join("");
   }
 
@@ -833,18 +919,33 @@
     const ownerText = item.equippedBy
       ? `${getUnitNameById(item.equippedBy)} / ${InventoryService.getSlotLabel(item.equippedSlotKey || InventoryService.getCompatibleSlotKeys(item)[0] || item.slot)}`
       : "미장착";
+    const setDefinition = item.setId ? InventoryService.getSetDefinition(item.setId) : null;
+    const statSummary = InventoryService.formatStatBonusLine(item);
 
     return [
       `<div class="item-title-row"><strong class="card-title">${item.name}</strong><span class="card-subtitle">${rarity.label}</span></div>`,
-      '  <div class="inventory-meta">',
+      '  <div class="inventory-meta detail-hero-meta">',
       `    <span class="meta-pill">${InventoryService.getTypeLabel(item.type || item.slot)}</span>`,
       `    <span class="meta-pill ${item.equippedBy ? "is-cyan" : "is-muted"}">${ownerText}</span>`,
-      InventoryService.isEquipment(item) ? '    <span class="meta-pill is-gold">장착 대상 선택 후 바로 장착 창으로 이동</span>' : "",
+      setDefinition ? `    <span class="meta-pill is-gold">${setDefinition.name}</span>` : "",
       "  </div>",
-      `  <p>${InventoryService.describeItem(item)}</p>`,
-      InventoryService.formatStatBonusLine(item) !== "추가 능력치 없음" ? `  <p>추가 능력치: ${InventoryService.formatStatBonusLine(item)}</p>` : "",
-      item.affixes && item.affixes.length ? `  <p>옵션: ${item.affixes.map((affix) => `${affix.label} (${affix.description})`).join(" / ")}</p>` : "",
-      item.description ? `  <p>${item.description}</p>` : ""
+      `<section class="detail-hero-card rarity-${item.rarity}">`,
+      `  <div class="detail-hero-copy">`,
+      `    <div class="detail-hero-label">ITEM PROFILE</div>`,
+      `    <h3>${item.baseName || item.name}</h3>`,
+      `    <p>${item.description || (InventoryService.isConsumable(item) ? "즉시 사용하는 전투 소모품입니다." : "전투 빌드를 만드는 핵심 장비입니다.")}</p>`,
+      "  </div>",
+      `  <div class="detail-metric-grid">${buildItemMetricGrid(item, InventoryService.isEquipment(item) ? [
+        { label: "희귀도", value: rarity.label, tone: "gold" },
+        { label: "장착", value: ownerText, tone: item.equippedBy ? "cyan" : "muted" }
+      ] : [{ label: "희귀도", value: rarity.label, tone: "gold" }])}</div>`,
+      "</section>",
+      buildItemFeatureSection("기본 요약", `<p class="detail-summary-copy">${InventoryService.describeItem(item)}</p>`, "is-summary"),
+      buildItemFeatureSection("능력치", statSummary !== "추가 능력치 없음"
+        ? `<div class="detail-token-list">${statSummary.split(" / ").map((entry) => `<span class="detail-token is-stat">${entry}</span>`).join("")}</div>`
+        : '<div class="detail-token-list"><span class="detail-token is-muted">추가 능력치 없음</span></div>', "is-stats"),
+      buildItemFeatureSection("추가 옵션", buildAffixListMarkup(item), "is-affix"),
+      setDefinition ? buildItemFeatureSection("세트 효과", buildSetDetailMarkup(setDefinition), "is-set") : ""
     ].filter(Boolean).join("");
   }
 
@@ -868,26 +969,59 @@
           `      <div class="item-title-row"><strong class="card-title">${unit.name}</strong><span class="card-subtitle">${unit.className}</span></div>`,
           `      <div class="inventory-meta"><span class="meta-pill">Lv.${unit.level}</span><span class="meta-pill ${isUnitSelectedForSortie(unit.id) ? "is-cyan" : "is-muted"}">${isUnitSelectedForSortie(unit.id) ? "출전 중" : "후방 대기"}</span><span class="meta-pill ${isSelected ? "is-gold" : "is-muted"}">${isSelected ? "현재 선택" : "선택 가능"}</span></div>`,
           "    </div>",
-          `    <button class="${canEquip ? "primary-button" : "ghost-button"} small-button" type="button" data-equip-target-unit="${unit.id}" ${canEquip ? "" : "disabled"}>${canEquip ? "이 캐릭터로 열기" : "장착 불가"}</button>`,
+          '    <div class="button-row">',
+          `      <button class="${canEquip ? "primary-button" : "ghost-button"} small-button" type="button" data-equip-now-unit="${unit.id}" ${canEquip ? "" : "disabled"}>${canEquip ? "바로 장착" : "장착 불가"}</button>`,
+          `      <button class="${canEquip ? "secondary-button" : "ghost-button"} small-button" type="button" data-equip-target-unit="${unit.id}" ${canEquip ? "" : "disabled"}>${canEquip ? "장착 창" : "열기 불가"}</button>`,
+          "    </div>",
           "  </article>"
         ].join("");
       })
     ].join("");
   }
 
+  function resolveEquipAction(unit, item) {
+    const loadout = InventoryService.getEquipmentLoadout(appState.saveData, unit.id);
+    const compatibleSlotKeys = InventoryService.getCompatibleSlotKeys(item)
+      .filter((slotKey) => InventoryService.canEquipIntoSlot(unit, item, slotKey));
+    const targetSlotKey = compatibleSlotKeys.find((slotKey) => {
+      const equippedItem = loadout[slotKey];
+      return !equippedItem || equippedItem.id === item.id;
+    }) || compatibleSlotKeys[0] || null;
+    const replacedItem = targetSlotKey ? loadout[targetSlotKey] : null;
+
+    return {
+      targetSlotKey,
+      replacedItem: replacedItem && replacedItem.id !== item.id ? replacedItem : null
+    };
+  }
+
   function buildShopProductDetailMarkup(product) {
     const rarity = InventoryService.getRarityMeta(product.rarity);
+    const statSummary = InventoryService.formatStatBonusLine(product);
 
     return [
       `<div class="item-title-row"><strong class="card-title">${product.name}</strong><span class="card-subtitle">${rarity.label}</span></div>`,
-      '  <div class="inventory-meta">',
+      '  <div class="inventory-meta detail-hero-meta">',
       `    <span class="meta-pill">${InventoryService.getTypeLabel(product.type || product.slot)}</span>`,
       `    <span class="meta-pill is-gold">${product.price}G</span>`,
       `    <span class="meta-pill ${appState.saveData && (appState.saveData.partyGold || 0) >= product.price ? "is-cyan" : "is-muted"}">${appState.saveData && (appState.saveData.partyGold || 0) >= product.price ? "구매 가능" : "골드 부족"}</span>`,
       "  </div>",
-      `  <p>${InventoryService.describeItem(product)}</p>`,
-      product.description ? `  <p>${product.description}</p>` : "",
-      InventoryService.formatStatBonusLine(product) !== "추가 능력치 없음" ? `  <p>추가 능력치: ${InventoryService.formatStatBonusLine(product)}</p>` : ""
+      `<section class="detail-hero-card rarity-${product.rarity}">`,
+      `  <div class="detail-hero-copy">`,
+      '    <div class="detail-hero-label">SUPPLY ISSUE</div>',
+      `    <h3>${product.name}</h3>`,
+      `    <p>${product.description || "보급 상점에서 구매 가능한 장비입니다."}</p>`,
+      "  </div>",
+      `  <div class="detail-metric-grid">${buildItemMetricGrid(product, [
+        { label: "희귀도", value: rarity.label, tone: "gold" },
+        { label: "가격", value: `${product.price}G`, tone: "gold" },
+        { label: "상태", value: appState.saveData && (appState.saveData.partyGold || 0) >= product.price ? "구매 가능" : "골드 부족", tone: appState.saveData && (appState.saveData.partyGold || 0) >= product.price ? "cyan" : "muted" }
+      ])}</div>`,
+      "</section>",
+      buildItemFeatureSection("기본 요약", `<p class="detail-summary-copy">${InventoryService.describeItem(product)}</p>`, "is-summary"),
+      buildItemFeatureSection("능력치", statSummary !== "추가 능력치 없음"
+        ? `<div class="detail-token-list">${statSummary.split(" / ").map((entry) => `<span class="detail-token is-stat">${entry}</span>`).join("")}</div>`
+        : '<div class="detail-token-list"><span class="detail-token is-muted">추가 능력치 없음</span></div>', "is-stats")
     ].filter(Boolean).join("");
   }
 
@@ -898,6 +1032,9 @@
     const signaturePassive = candidate.signaturePassiveId
       ? SkillsService.getSkillDefinition(unit, candidate.signaturePassiveId)
       : null;
+    const startingWeaponLabel = candidate.startingWeapon
+      ? candidate.startingWeapon.name
+      : "없음";
 
     return [
       `<div class="item-title-row"><strong class="card-title">${unit.name}</strong><span class="card-subtitle">${unit.className}</span></div>`,
@@ -911,7 +1048,7 @@
       "  </div>",
       `  <p>${classProfile.role} / ${classProfile.summary}</p>`,
       `  <div class="detail-stats">${buildUnitStatSummary(unit)}</div>`,
-      `  <p>시작 장비: ${candidate.startingWeapon.name}</p>`,
+      `  <p>시작 장비: ${startingWeaponLabel}</p>`,
       signaturePassive ? `  <p>고유 패시브: ${signaturePassive.name} - ${signaturePassive.description}</p>` : "",
       `  <p>패시브: ${SkillsService.describeSkills(unit)}</p>`,
       `  <p>액티브: ${SkillsService.describeActiveSkills(unit)}</p>`,
@@ -942,6 +1079,9 @@
     const learnedSkills = SkillsService.getSkillsForUnit(unit);
     const learnedActiveSkills = SkillsService.getActiveSkillsForUnit(unit);
     const equippedActiveSkills = SkillsService.getActiveSkillLoadout(unit);
+    const activeSets = effectivePreviewUnit && effectivePreviewUnit.equipmentBonus && effectivePreviewUnit.equipmentBonus.sets
+      ? effectivePreviewUnit.equipmentBonus.sets
+      : [];
     const promotionOptions = SkillsService.getPromotionOptions(unit);
     const lockedPromotions = SkillsService.PROMOTION_TREE[unit.className] || [];
     let promotionSummary = "전직 완료";
@@ -987,6 +1127,8 @@
       `  <p>상성 가이드: ${classProfile.matchup}</p>`,
       `  <p>주의점: ${classProfile.caution}</p>`,
       `  <p>장착 중: ${equippedItems || "없음"}</p>`,
+      activeSets.length ? `  <p>활성 세트: ${activeSets.map((setEntry) => `${setEntry.setName} ${setEntry.pieces}세트`).join(" / ")}</p>` : "",
+      activeSets.length ? `  <p>세트 효과: ${activeSets.map((setEntry) => setEntry.activeBonuses.map((bonus) => `${setEntry.setName} ${bonus.pieces}세트 - ${bonus.description}`).join(" / ")).join(" / ")}</p>` : "",
       `  <p>전직: ${promotionSummary}</p>`,
       `  <p>습득 패시브: ${learnedSkills.length ? learnedSkills.map((skill) => skill.name).join(", ") : "없음"}</p>`,
       learnedSkills.length ? `  <div class="detail-stats">${learnedSkills.map((skill) => buildKnownSkillBadge(skill, false)).join("")}</div>` : "",
@@ -1131,6 +1273,60 @@
         title: "장착 대상 선택",
         bodyMarkup: buildEquipTargetPickerMarkup(item),
         actions: []
+      };
+    }
+
+    if (type === "equip-confirm") {
+      const pendingAction = appState.pendingEquipAction;
+      const item = pendingAction ? InventoryService.getItemById(appState.saveData, pendingAction.itemId) : null;
+      const unit = pendingAction && appState.saveData
+        ? (appState.saveData.roster || []).find((entry) => entry.id === pendingAction.unitId)
+        : null;
+      const replacedItem = pendingAction ? InventoryService.getItemById(appState.saveData, pendingAction.replacedItemId) : null;
+
+      if (!pendingAction || !item || !unit || !replacedItem) {
+        return null;
+      }
+
+      return {
+        title: "장착 교체 확인",
+        bodyMarkup: [
+          `<div class="item-title-row"><strong class="card-title">${unit.name}</strong><span class="card-subtitle">${InventoryService.getSlotLabel(pendingAction.slotKey)}</span></div>`,
+          '  <div class="inventory-meta">',
+          `    <span class="meta-pill is-gold">새 장비 ${item.name}</span>`,
+          `    <span class="meta-pill is-muted">현재 장비 ${replacedItem.name}</span>`,
+          "  </div>",
+          "  <p>장착중인 아이템이 있습니다. 교체하시겠습니까?</p>"
+        ].join(""),
+        actions: [
+          {
+            id: "confirm-equip-replace",
+            label: "교체 장착",
+            className: "primary-button",
+            disabled: false,
+            onClick() {
+              const equippedItem = InventoryService.equipItemToUnit(
+                appState.saveData,
+                pendingAction.unitId,
+                pendingAction.itemId,
+                pendingAction.slotKey
+              );
+              appState.selectedMenuUnitId = pendingAction.unitId;
+              persistSession(appState.saveData, appState.settings);
+              openEquipmentModal(unit.id, { initialItemId: equippedItem.id });
+              showToast(`${unit.name}이(가) ${equippedItem.name} 장착`);
+            }
+          },
+          {
+            id: "cancel-equip-replace",
+            label: "취소",
+            className: "ghost-button",
+            disabled: false,
+            onClick() {
+              openDetailModal("equip-target", pendingAction.itemId);
+            }
+          }
+        ]
       };
     }
 
@@ -1480,14 +1676,14 @@
   }
 
   function handleEquipTargetModalInteraction(event, itemId) {
-    const button = event.target.closest("button[data-equip-target-unit]");
+    const button = event.target.closest("button[data-equip-target-unit], button[data-equip-now-unit]");
     const item = InventoryService.getItemById(appState.saveData, itemId);
 
     if (!button || !item || !InventoryService.isEquipment(item)) {
       return;
     }
 
-    const unitId = String(button.dataset.equipTargetUnit || "");
+    const unitId = String(button.dataset.equipTargetUnit || button.dataset.equipNowUnit || "");
     const unit = (appState.saveData && appState.saveData.roster || []).find((entry) => entry.id === unitId);
 
     if (!unit) {
@@ -1501,8 +1697,39 @@
     }
 
     appState.selectedMenuUnitId = unit.id;
-    closeDetailModal();
-    openEquipmentModal(unit.id, { initialItemId: item.id });
+
+    if (button.dataset.equipTargetUnit) {
+      closeDetailModal();
+      openEquipmentModal(unit.id, { initialItemId: item.id });
+      return;
+    }
+
+    const equipAction = resolveEquipAction(unit, item);
+
+    if (!equipAction.targetSlotKey) {
+      showToast(`${unit.className}은 ${InventoryService.getTypeLabel(item.type || item.slot)}을(를) 장착할 수 없습니다.`, true);
+      return;
+    }
+
+    if (equipAction.replacedItem) {
+      appState.pendingEquipAction = {
+        itemId: item.id,
+        unitId: unit.id,
+        slotKey: equipAction.targetSlotKey,
+        replacedItemId: equipAction.replacedItem.id
+      };
+      openDetailModal("equip-confirm", item.id);
+      return;
+    }
+
+    try {
+      const equippedItem = InventoryService.equipItemToUnit(appState.saveData, unit.id, item.id, equipAction.targetSlotKey);
+      persistSession(appState.saveData, appState.settings);
+      openEquipmentModal(unit.id, { initialItemId: equippedItem.id });
+      showToast(`${unit.name}이(가) ${equippedItem.name} 장착`);
+    } catch (error) {
+      showToast(error.message, true);
+    }
   }
 
   function handleSortieManagementModalInteraction(event) {
@@ -1658,6 +1885,20 @@
       (appState.saveData.inventory || []).filter((item) => InventoryService.isEquipment(item) && InventoryService.canEquip(unit, item)),
       "equipped"
     );
+    const totalPages = Math.max(1, Math.ceil(items.length / EQUIPMENT_MODAL_PAGE_SIZE));
+    let currentPage = Math.max(1, Math.min(totalPages, Number(appState.equipmentModal.page || 1)));
+
+    if (appState.equipmentModal.hoveredItemId) {
+      const hoveredIndex = items.findIndex((item) => item.id === appState.equipmentModal.hoveredItemId);
+
+      if (hoveredIndex >= 0) {
+        currentPage = Math.floor(hoveredIndex / EQUIPMENT_MODAL_PAGE_SIZE) + 1;
+      }
+    }
+
+    appState.equipmentModal.page = currentPage;
+    const pageStart = (currentPage - 1) * EQUIPMENT_MODAL_PAGE_SIZE;
+    const visibleItems = items.slice(pageStart, pageStart + EQUIPMENT_MODAL_PAGE_SIZE);
 
     host.innerHTML = [
       '<div class="modal-backdrop menu-modal-backdrop">',
@@ -1690,10 +1931,10 @@
       '        <section class="equipment-inventory-column">',
       '          <div class="item-title-row">',
       '            <h3>보유 장비</h3>',
-      '            <span class="meta-pill is-gold">더블클릭 또는 드래그</span>',
+      `            <span class="meta-pill is-gold">${currentPage} / ${totalPages} 페이지 · 더블클릭 또는 드래그</span>`,
       "          </div>",
       items.length
-        ? `          <div class="equipment-inventory-list">${items.map((item) => {
+        ? `          <div class="equipment-inventory-list">${visibleItems.map((item) => {
             const rarity = InventoryService.getRarityMeta(item.rarity);
             const ownerText = item.equippedBy ? `${getUnitNameById(item.equippedBy)} / ${InventoryService.getSlotLabel(item.equippedSlotKey || InventoryService.getCompatibleSlotKeys(item)[0] || item.slot)}` : "미장착";
             const equipLabel = item.equippedBy === unit.id ? "재장착" : item.equippedBy ? "교체 장착" : "장착";
@@ -1712,7 +1953,12 @@
               "  </div>",
               "</article>"
             ].join("");
-          }).join("")}</div>`
+          }).join("")}</div>
+          <div class="list-pagination">
+            <button class="ghost-button small-button" type="button" data-equipment-page="prev" ${currentPage <= 1 ? "disabled" : ""}>이전</button>
+            <span class="pagination-label">${currentPage} / ${totalPages}</span>
+            <button class="ghost-button small-button" type="button" data-equipment-page="next" ${currentPage >= totalPages ? "disabled" : ""}>다음</button>
+          </div>`
         : '          <div class="inventory-card"><p>이 유닛이 장착 가능한 장비가 인벤토리에 없습니다.</p></div>',
       "        </section>",
       "      </div>",
@@ -1815,6 +2061,15 @@
       });
     });
 
+    host.querySelectorAll("[data-equipment-page]").forEach((button) => {
+      button.addEventListener("click", () => {
+        appState.equipmentModal.page = button.dataset.equipmentPage === "next"
+          ? Math.min(totalPages, currentPage + 1)
+          : Math.max(1, currentPage - 1);
+        renderEquipmentModal();
+      });
+    });
+
     host.querySelectorAll("[data-modal-equip]").forEach((button) => {
       button.addEventListener("click", () => {
         try {
@@ -1855,6 +2110,7 @@
     appState.equipmentModal.hoveredItemId = nextOptions.initialItemId || null;
     appState.equipmentModal.hoveredSlotKey = null;
     appState.equipmentModal.dragItemId = null;
+    appState.equipmentModal.page = 1;
     renderEquipmentModal();
   }
 
@@ -2106,14 +2362,22 @@
     const rosterTarget = getElement("menu-roster-list");
     const detailTarget = getElement("menu-unit-detail") || document.createElement("div");
     const selectedUnit = ensureSelectedMenuUnit();
+    const roster = (appState.saveData && appState.saveData.roster) || [];
 
-    if (!appState.saveData || !appState.saveData.roster || !appState.saveData.roster.length) {
+    if (!appState.saveData || !roster.length) {
       rosterTarget.innerHTML = "";
       detailTarget.textContent = "파티 데이터가 없습니다.";
       return;
     }
 
-    rosterTarget.innerHTML = appState.saveData.roster.map((unit) => {
+    const totalPages = Math.max(1, Math.ceil(roster.length / ROSTER_PAGE_SIZE));
+    let currentPage = Math.max(1, Math.min(totalPages, Number(appState.rosterView.page || 1)));
+
+    appState.rosterView.page = currentPage;
+    const pageStart = (currentPage - 1) * ROSTER_PAGE_SIZE;
+    const visibleRoster = roster.slice(pageStart, pageStart + ROSTER_PAGE_SIZE);
+
+    rosterTarget.innerHTML = visibleRoster.map((unit) => {
       const weapon = InventoryService.getItemById(appState.saveData, unit.weapon);
       const equippedCount = (unit.equippedItemIds || []).length;
       const classes = ["roster-button"];
@@ -2145,7 +2409,13 @@
         "  <p>클릭하면 중앙 상세 창이 열립니다.</p>",
         "</button>"
       ].filter(Boolean).join("");
-    }).join("");
+    }).join("") + [
+      '<div class="list-pagination roster-pagination">',
+      `  <button class="ghost-button small-button" type="button" data-roster-page="prev" ${currentPage <= 1 ? "disabled" : ""}>이전</button>`,
+      `  <span class="pagination-label">${currentPage} / ${totalPages}</span>`,
+      `  <button class="ghost-button small-button" type="button" data-roster-page="next" ${currentPage >= totalPages ? "disabled" : ""}>다음</button>`,
+      "</div>"
+    ].join("");
 
     const draft = getProgressionDraft(selectedUnit.id);
     const previewUnit = StatsService.previewUnitWithStatDraft(selectedUnit, draft.stats);
@@ -2257,6 +2527,15 @@
 
         renderMainMenu();
         openDetailModal("unit", unitId);
+      });
+    });
+
+    rosterTarget.querySelectorAll("[data-roster-page]").forEach((button) => {
+      button.addEventListener("click", () => {
+        appState.rosterView.page = button.dataset.rosterPage === "next"
+          ? Math.min(totalPages, currentPage + 1)
+          : Math.max(1, currentPage - 1);
+        renderPartyManagement();
       });
     });
   }
@@ -2829,6 +3108,7 @@
     appState.settings = bundle.settings;
     appState.progressionDrafts = {};
     appState.quickSwapSlotIndex = null;
+    appState.rosterView.page = 1;
     appState.sortieManagerView.page = 1;
     appState.inventoryView.page = 1;
     appState.shopView.page = 1;
@@ -2943,6 +3223,7 @@
     appState.quickSwapSlotIndex = null;
     appState.progressionDrafts = {};
     appState.activeMainPanel = "party";
+    appState.rosterView.page = 1;
     appState.sortieManagerView.page = 1;
     appState.inventoryView.sort = "rarity";
     appState.inventoryView.type = "all";

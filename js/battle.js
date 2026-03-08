@@ -2704,7 +2704,8 @@
       attackerElevation: getTileElevation(defender.x, defender.y),
       defenderElevation: getTileElevation(attacker.x, attacker.y),
       phase: state.battle.phase,
-      isInitiator: false
+      isInitiator: false,
+      isCounter: true
     });
 
     return Object.assign({ canCounter: preview.canAttack }, preview);
@@ -2723,11 +2724,13 @@
       attackerElevation: getTileElevation(defender.x, defender.y),
       defenderElevation: getTileElevation(attacker.x, attacker.y),
       phase: state.battle.phase,
-      isInitiator: false
+      isInitiator: false,
+      isCounter: true
     });
 
     if (result.didHit) {
       addLog(`반격: ${defender.name} -> ${attacker.name}: ${result.damageDealt} 피해${result.didCrit ? " / 치명타!" : ""}`);
+      applyOnHitAilments(defender, attacker, `${defender.name}의 반격`);
       updateEndlessRunStat((currentRun) => {
         if (defender.team === "ally") {
           currentRun.damageDealt += result.damageDealt;
@@ -2999,6 +3002,7 @@
     const origin = committedMove ? committedMove.origin : { x: unit.x, y: unit.y };
     unit.x = preview.x;
     unit.y = preview.y;
+    unit.movedThisTurn = true;
     state.ui.pendingMove = {
       unitId: unit.id,
       origin,
@@ -3047,6 +3051,7 @@
 
     unit.x = state.ui.pendingMove.origin.x;
     unit.y = state.ui.pendingMove.origin.y;
+    unit.movedThisTurn = false;
     state.ui.pendingMove = null;
     clearMovePreview();
     selectUnit(unit.id);
@@ -3095,13 +3100,16 @@
 
     const guaranteed = !!defeatedUnit.isElite;
     const attackerDropBonus = attacker && attacker.hiddenStats ? Number(attacker.hiddenStats.dropRateBonus || 0) : 0;
+    const attackerQualityBonus = attacker && attacker.hiddenStats ? Number(attacker.hiddenStats.lootQualityBonus || 0) : 0;
     const dropRate = defeatedUnit.isElite ? 1 : Math.min(0.97, 0.72 + attackerDropBonus);
 
     if (Math.random() > dropRate) {
       return null;
     }
 
-    const item = InventoryService.createLootDrop(defeatedUnit.level + (defeatedUnit.rewardBias || 0));
+    const item = InventoryService.createLootDrop(defeatedUnit.level + (defeatedUnit.rewardBias || 0), {
+      qualityBias: attackerQualityBonus
+    });
     InventoryService.addItemToInventory(state.saveData, item);
     state.battle.rewardHistory.push(item);
     updateEndlessRunStat((currentRun) => {
@@ -3109,6 +3117,93 @@
     });
     addLog(`${guaranteed ? "정예 전리품 획득" : "아이템 획득"}: ${item.name} (${InventoryService.getRarityMeta(item.rarity).label})`);
     return item;
+  }
+
+  function resetTurnCombatFlags(unit) {
+    if (!unit) {
+      return;
+    }
+
+    unit.turnAttackCount = 0;
+    unit.movedThisTurn = false;
+    unit.usedSkillThisTurn = false;
+  }
+
+  function applyOnHitAilments(attacker, target, sourceLabel) {
+    if (!attacker || !target || !attacker.hiddenStats || !target.alive) {
+      return;
+    }
+
+    const attackerHidden = attacker.hiddenStats || {};
+    const defenderHidden = target.hiddenStats || {};
+    const resistChance = Math.max(0, Math.min(0.75, Number(defenderHidden.statusResistChance || 0)));
+    const durationBonus = Math.round(Number(attackerHidden.statusDurationBonus || 0) * 2);
+    const ailmentTemplates = [
+      {
+        id: "bleed",
+        label: "출혈",
+        chance: Number(attackerHidden.bleedChance || 0),
+        effect: {
+          id: "bleed",
+          kind: "ailment",
+          name: "출혈",
+          remainingOwnPhases: 2 + durationBonus,
+          tickDamagePercent: 0.08
+        }
+      },
+      {
+        id: "burn",
+        label: "화상",
+        chance: Number(attackerHidden.burnChance || 0),
+        effect: {
+          id: "burn",
+          kind: "ailment",
+          name: "화상",
+          remainingOwnPhases: 2 + durationBonus,
+          tickDamagePercent: 0.06,
+          defenseBonus: -1
+        }
+      },
+      {
+        id: "poison",
+        label: "중독",
+        chance: Number(attackerHidden.poisonChance || 0),
+        effect: {
+          id: "poison",
+          kind: "ailment",
+          name: "중독",
+          remainingOwnPhases: 3 + durationBonus,
+          tickDamagePercent: 0.05,
+          hitBonus: -6
+        }
+      },
+      {
+        id: "freeze",
+        label: "빙결",
+        chance: Number(attackerHidden.freezeChance || 0),
+        effect: {
+          id: "freeze",
+          kind: "ailment",
+          name: "빙결",
+          remainingOwnPhases: 1 + Math.min(1, durationBonus),
+          defenseBonus: -1,
+          avoidBonus: -10
+        }
+      }
+    ];
+
+    ailmentTemplates.forEach((template) => {
+      const finalChance = Math.max(0, template.chance - resistChance);
+
+      if (finalChance <= 0 || Math.random() > finalChance) {
+        return;
+      }
+
+      target.statusEffects = (target.statusEffects || []).filter((effect) => effect.id !== template.id);
+      const nextEffect = Object.assign({}, template.effect, { sourceUnitId: attacker.id });
+      target.statusEffects.push(nextEffect);
+      addLog(`${sourceLabel}: ${target.name} ${template.label} 부여`);
+    });
   }
 
   function decrementTeamEffects(team) {
@@ -3126,6 +3221,22 @@
       });
 
       unit.statusEffects = (unit.statusEffects || []).filter((effect) => {
+        if (effect && effect.kind === "ailment") {
+          const tickDamage = Math.max(0, Math.floor(unit.maxHp * Number(effect.tickDamagePercent || 0)) + Number(effect.tickDamageFlat || 0));
+
+          if (tickDamage > 0) {
+            unit.hp = Math.max(0, unit.hp - tickDamage);
+            addLog(`${unit.name} ${effect.name} 피해 ${tickDamage}`);
+
+            if (unit.hp <= 0) {
+              const sourceUnit = effect.sourceUnitId ? getUnitById(effect.sourceUnitId) : null;
+              handleUnitDefeat(unit);
+              maybeGrantLoot(unit, sourceUnit);
+              return false;
+            }
+          }
+        }
+
         if (typeof effect.remainingOwnPhases !== "number") {
           return true;
         }
@@ -3178,7 +3289,8 @@
 
   function setSkillCooldown(unit, skill) {
     unit.skillCooldowns = unit.skillCooldowns || {};
-    unit.skillCooldowns[skill.id] = skill.cooldown;
+    const reduction = Math.max(0, Number(unit.hiddenStats && unit.hiddenStats.cooldownReduction || 0));
+    unit.skillCooldowns[skill.id] = Math.max(0, Number(skill.cooldown || 0) - reduction);
   }
 
   function hasStatusEffect(unit, effectId) {
@@ -3243,7 +3355,8 @@
         defenderTileType: getTileType(target.x, target.y),
         attackerElevation: getTileElevation(unit.x, unit.y),
         defenderElevation: getTileElevation(target.x, target.y),
-        phase: state.battle.phase
+        phase: state.battle.phase,
+        damageType: skill.effect.damageType || null
       });
 
       if (!preview.canAttack) {
@@ -3270,6 +3383,7 @@
       if (didHit) {
         target.hp = Math.max(0, target.hp - finalDamage);
         addLog(`${unit.name}의 ${skill.name}: ${target.name}에게 ${finalDamage} 피해${didCrit ? " / 치명타!" : ""}`);
+        applyOnHitAilments(unit, target, `${unit.name}의 ${skill.name}`);
         if (preview.elevationNote) {
           addLog(`지형 보정: ${preview.elevationNote}`);
         }
@@ -3290,6 +3404,8 @@
       }
 
       applyExperience(unit, didHit ? (target.hp <= 0 ? 40 : 14) : 5);
+      unit.turnAttackCount = Number(unit.turnAttackCount || 0) + 1;
+      unit.usedSkillThisTurn = true;
       result = { type: "attack", didHit, didCrit, damage: finalDamage };
     }
 
@@ -3814,6 +3930,7 @@
 
     if (result.didHit) {
       addLog(`${attacker.name} -> ${defender.name}: ${result.damageDealt} 피해${result.didCrit ? " / 치명타!" : ""}`);
+      applyOnHitAilments(attacker, defender, `${attacker.name}의 공격`);
       updateEndlessRunStat((currentRun) => {
         currentRun.damageDealt += result.damageDealt;
       });
@@ -3924,6 +4041,7 @@
     state.battle.units.forEach((unit) => {
       if (unit.team === "enemy" && unit.alive) {
         unit.acted = false;
+        resetTurnCombatFlags(unit);
       }
     });
     addLog("적 턴 시작");
@@ -3938,6 +4056,7 @@
     state.battle.units.forEach((unit) => {
       if (unit.team === "ally" && unit.alive) {
         unit.acted = false;
+        resetTurnCombatFlags(unit);
       }
     });
     addLog(`아군 턴 ${state.battle.turnNumber}`);
@@ -4099,6 +4218,7 @@
       });
 
       if (action.moveTo) {
+        enemy.movedThisTurn = enemy.x !== action.moveTo.x || enemy.y !== action.moveTo.y;
         moveUnit(enemy, action.moveTo);
       }
 
@@ -4122,6 +4242,7 @@
 
         if (result.didHit) {
           addLog(`${enemy.name} -> ${target.name}: ${result.damageDealt} 피해${result.didCrit ? " / 치명타!" : ""}`);
+          applyOnHitAilments(enemy, target, `${enemy.name}의 공격`);
           updateEndlessRunStat((currentRun) => {
             currentRun.damageTaken += result.damageDealt;
           });

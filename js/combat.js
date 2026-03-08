@@ -2,6 +2,7 @@
 
 (function attachCombatService(global) {
   const SkillsService = global.SkillsService;
+  const MAGIC_WEAPON_TYPES = ["focus", "staff"];
   const TERRAIN_MODIFIERS = {
     plain: { avoid: 0, defense: 0, moveCost: 1 },
     forest: { avoid: 12, defense: 1, moveCost: 2 },
@@ -43,6 +44,14 @@
     return unit && unit.weapon ? unit.weapon : null;
   }
 
+  function isMagicWeapon(weapon) {
+    return !!weapon && MAGIC_WEAPON_TYPES.includes(weapon.type);
+  }
+
+  function hasAilment(unit) {
+    return (unit && unit.statusEffects || []).some((effect) => effect && effect.kind === "ailment");
+  }
+
   function getEffectiveWeaponRange(unit, context) {
     const weapon = getWeapon(unit);
 
@@ -58,11 +67,12 @@
     const attackerElevation = context && context.attackerElevation || 0;
     const defenderElevation = context && context.defenderElevation || 0;
     const rangedHighGroundBonus = weapon.type === "bow" && (attackerTileType === "hill" || attackerElevation > defenderElevation) ? 1 : 0;
+    const hiddenRangeBonus = Math.max(0, Number(unit && unit.hiddenStats && unit.hiddenStats.rangeBonus || 0));
 
     return {
       rangeMin: weapon.rangeMin,
-      rangeMax: weapon.rangeMax + rangedHighGroundBonus,
-      bonus: rangedHighGroundBonus
+      rangeMax: weapon.rangeMax + rangedHighGroundBonus + hiddenRangeBonus,
+      bonus: rangedHighGroundBonus + hiddenRangeBonus
     };
   }
 
@@ -120,6 +130,17 @@
     const forestRangedAvoidBonus = context.defenderTileType === "forest" && distance >= 2 ? 6 : 0;
     const attackerHidden = attacker.hiddenStats || {};
     const defenderHidden = defender.hiddenStats || {};
+    const usesMagic = context && context.damageType === "magic"
+      ? true
+      : context && context.damageType === "physical"
+        ? false
+        : isMagicWeapon(weapon);
+    const manaSurgeBonus = usesMagic
+      ? Math.floor(Number(attackerHidden.maxMana || 0) / 18) + Math.floor(Number(attackerHidden.manaRegen || 0) / 2)
+      : 0;
+    const manaWardBonus = usesMagic
+      ? Math.floor(Number(defenderHidden.maxMana || 0) / 30)
+      : 0;
     const skillModifiers = SkillsService.getCombatModifiers({
       attacker,
       defender,
@@ -130,23 +151,52 @@
       phase: context.phase || "player",
       isInitiator: context.isInitiator !== false
     });
-    const attackPower = ((attackerHidden.physicalAttack || attacker.str) + weapon.might + skillModifiers.attackPowerBonus + elevationModifier.damageBonus);
-    const defensePower = ((defenderHidden.physicalDefense || defender.def) + defenderTerrain.defense + skillModifiers.defenseBonus);
+    const attackPower = (
+      (usesMagic ? (attackerHidden.magicAttack || attacker.skl) : (attackerHidden.physicalAttack || attacker.str))
+      + weapon.might
+      + manaSurgeBonus
+      + skillModifiers.attackPowerBonus
+      + elevationModifier.damageBonus
+    );
+    const defensePower = (
+      (usesMagic ? (defenderHidden.magicDefense || defender.def) : (defenderHidden.physicalDefense || defender.def))
+      + manaWardBonus
+      + defenderTerrain.defense
+      + skillModifiers.defenseBonus
+    );
     const rawHit = weapon.hit
       + (attackerHidden.accuracy || (attacker.skl * 5 + attacker.spd * 2))
       + elevationModifier.hitBonus
       + skillModifiers.hitBonus
       - ((defenderHidden.evasion || (defender.spd * 3 + defender.skl * 2)) + defenderTerrain.avoid + forestRangedAvoidBonus + skillModifiers.avoidBonus);
     const critRate = clamp((attackerHidden.critChance || 0) - Math.floor((defenderHidden.critChance || 0) * 0.25), 0, 65);
-    const critMultiplier = attackerHidden.critMultiplier || 1.5;
+    const critMultiplier = Number(attackerHidden.critMultiplier || 1.5) + Number(attackerHidden.critDamageBonus || 0);
+    const isFirstStrike = Number(attacker.turnAttackCount || 0) <= 0;
+    const damagePercentBonus =
+      (usesMagic ? Number(attackerHidden.magicDamagePercent || 0) : Number(attackerHidden.physicalDamagePercent || 0))
+      + (defender.isBoss ? Number(attackerHidden.bossDamagePercent || 0) : 0)
+      + (isFirstStrike ? Number(attackerHidden.firstStrikeDamagePercent || 0) : 0)
+      + (Number(attacker.turnAttackCount || 0) > 0 ? Number(attackerHidden.comboStrikeDamagePercent || 0) : 0)
+      + (context && context.isCounter ? Number(attackerHidden.counterDamagePercent || 0) : 0)
+      + (attacker.movedThisTurn ? Number(attackerHidden.moveThenAttackDamagePercent || 0) : 0)
+      + (attacker.hp <= Math.ceil(attacker.maxHp / 2) ? Number(attackerHidden.lowHpAttackPercent || 0) : 0)
+      + (defender.hp <= Math.ceil(defender.maxHp / 2) ? Number(attackerHidden.executeDamagePercent || 0) : 0)
+      + (hasAilment(defender) ? Number(attackerHidden.statusTargetDamagePercent || 0) : 0);
+    const mitigationPercent =
+      Number(defenderHidden.damageReductionPercent || 0)
+      + (Number(defenderHidden.blockChance || 0) * 0.35);
+    const baseDamage = Math.max(0, attackPower - defensePower);
+    const damageAfterBonus = Math.round(baseDamage * (1 + Math.max(0, damagePercentBonus)));
+    const finalDamage = Math.max(0, Math.round(damageAfterBonus * (1 - Math.min(0.8, Math.max(0, mitigationPercent)))));
 
     return {
       canAttack: true,
       hitRate: clamp(rawHit, 5, 100),
-      damage: Math.max(0, attackPower - defensePower),
+      damage: finalDamage,
       critRate,
       critMultiplier,
-      critDamage: Math.max(0, Math.round(Math.max(0, attackPower - defensePower) * critMultiplier)),
+      critDamage: Math.max(0, Math.round(finalDamage * critMultiplier)),
+      damageType: usesMagic ? "magic" : "physical",
       weaponUsesLeft: weapon.uses,
       effectiveRangeMax: effectiveRange.rangeMax,
       rangeBonus: effectiveRange.bonus,
@@ -155,6 +205,8 @@
       forestAvoidBonus: forestRangedAvoidBonus,
       elevationDelta: elevationModifier.delta,
       elevationNote: elevationModifier.note,
+      damagePercentBonus,
+      mitigationPercent,
       triggeredSkills: skillModifiers.triggeredSkills
     };
   }
@@ -182,6 +234,7 @@
 
     weapon.uses = Math.max(0, weapon.uses - 1);
     defender.hp = Math.max(0, defender.hp - damageDealt);
+    attacker.turnAttackCount = Number(attacker.turnAttackCount || 0) + 1;
 
     return {
       canAttack: true,
@@ -202,6 +255,7 @@
     calculatePreview,
     resolveAttack,
     getTerrainModifier,
-    getElevationModifier
+    getElevationModifier,
+    isMagicWeapon
   };
 })(window);

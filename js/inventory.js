@@ -11,7 +11,8 @@
     "unique",
     "legendary",
     "epic",
-    "mystic"
+    "mystic",
+    "primordial"
   ];
 
   const RARITY_META = {
@@ -21,7 +22,8 @@
     unique: { label: "유니크", colorVar: "--unique", weight: 8 },
     legendary: { label: "레전더리", colorVar: "--legendary", weight: 5 },
     epic: { label: "에픽", colorVar: "--epic", weight: 2.2 },
-    mystic: { label: "미스틱", colorVar: "--mystic", weight: 0.8 }
+    mystic: { label: "신화", colorVar: "--mystic", weight: 0.7 },
+    primordial: { label: "태초", colorVar: "--primordial", weight: 0.18 }
   };
 
   const EQUIP_SLOT_LAYOUT = [
@@ -49,6 +51,7 @@
     lance: "창",
     bow: "활",
     axe: "도끼",
+    staff: "지팡이",
     shield: "방패",
     quiver: "화살통",
     focus: "성구",
@@ -89,18 +92,74 @@
     physicalAttack: "물공",
     skillPower: "스킬 위력",
     healPower: "회복력",
+    magicAttack: "마공",
+    magicDefense: "마방",
+    maxMana: "마나",
+    manaRegen: "마나 회복",
     accuracy: "명중",
     evasion: "회피",
     physicalDefense: "물방",
     critChance: "치명",
-    dropRateBonus: "드랍률"
+    critDamageBonus: "치명 피해",
+    physicalDamagePercent: "물리 피해",
+    magicDamagePercent: "마법 피해",
+    bossDamagePercent: "보스 피해",
+    firstStrikeDamagePercent: "선공 피해",
+    comboStrikeDamagePercent: "연속 공격 피해",
+    counterDamagePercent: "반격 피해",
+    damageReductionPercent: "피해 감소",
+    blockChance: "막기",
+    statusResistChance: "상태 저항",
+    cooldownReduction: "재사용 감소",
+    goldGainBonus: "골드 획득",
+    rangeBonus: "사거리",
+    bleedChance: "출혈 확률",
+    burnChance: "화상 확률",
+    poisonChance: "중독 확률",
+    freezeChance: "빙결 확률",
+    statusDurationBonus: "상태 지속",
+    statusTargetDamagePercent: "상태 적 피해",
+    moveThenAttackDamagePercent: "이동 후 피해",
+    lowHpAttackPercent: "저체력 공격",
+    executeDamagePercent: "마무리 피해",
+    dropRateBonus: "드랍률",
+    lootQualityBonus: "희귀도 운"
   };
+
+  const PERCENT_HIDDEN_BONUS_KEYS = new Set([
+    "critChance",
+    "critDamageBonus",
+    "physicalDamagePercent",
+    "magicDamagePercent",
+    "bossDamagePercent",
+    "firstStrikeDamagePercent",
+    "comboStrikeDamagePercent",
+    "counterDamagePercent",
+    "damageReductionPercent",
+    "blockChance",
+    "statusResistChance",
+    "goldGainBonus",
+    "bleedChance",
+    "burnChance",
+    "poisonChance",
+    "freezeChance",
+    "statusDurationBonus",
+    "statusTargetDamagePercent",
+    "moveThenAttackDamagePercent",
+    "lowHpAttackPercent",
+    "executeDamagePercent",
+    "dropRateBonus",
+    "lootQualityBonus"
+  ]);
 
   const CLASS_WEAPONS = {
     로드: ["sword"],
     하이로드: ["sword"],
     클레릭: ["focus"],
     비숍: ["focus"],
+    메이지: ["staff"],
+    위저드: ["staff"],
+    소서러: ["staff"],
     랜서: ["lance"],
     팔라딘: ["lance"],
     아처: ["bow"],
@@ -138,7 +197,11 @@
     세라핌: ["focus"],
     인퀴지터: ["focus"],
     성녀: ["focus"],
-    아크저지: ["focus"]
+    아크저지: ["focus"],
+    아크메이지: ["staff"],
+    워록: ["staff"],
+    대현자: ["staff"],
+    보이드로드: ["staff"]
   });
 
   const LOOT_TEMPLATES = [
@@ -151,7 +214,8 @@
         unique: "매혹검",
         legendary: "태양검",
         epic: "황혼검",
-        mystic: "심연검"
+        mystic: "아르카디아",
+        primordial: "여명개벽"
       },
       slot: "weapon",
       type: "sword",
@@ -166,7 +230,8 @@
         unique: "장미창",
         legendary: "폭열창",
         epic: "성광창",
-        mystic: "멸망창"
+        mystic: "롱기누스",
+        primordial: "창세의 못"
       },
       slot: "weapon",
       type: "lance",
@@ -181,11 +246,28 @@
         unique: "장미 활",
         legendary: "화염 활",
         epic: "태양 활",
-        mystic: "재앙 활"
+        mystic: "아르테미스",
+        primordial: "새벽의 활현"
       },
       slot: "weapon",
       type: "bow",
       base: { might: 5, hit: 88, rangeMin: 2, rangeMax: 2, uses: 30 }
+    },
+    {
+      key: "staff",
+      names: {
+        common: "견습 지팡이",
+        uncommon: "마력 지팡이",
+        rare: "청명 지팡이",
+        unique: "현자의 지팡이",
+        legendary: "별빛 지팡이",
+        epic: "천공 지팡이",
+        mystic: "헤르메스의 지팡이",
+        primordial: "원초의 성간목"
+      },
+      slot: "weapon",
+      type: "staff",
+      base: { might: 5, hit: 90, rangeMin: 1, rangeMax: 3, uses: 30 }
     },
     {
       key: "axe",
@@ -196,7 +278,8 @@
         unique: "분홍 도끼",
         legendary: "폭염 도끼",
         epic: "천광 도끼",
-        mystic: "혈월 도끼"
+        mystic: "기가스 파쇄도",
+        primordial: "반고의 파편"
       },
       slot: "weapon",
       type: "axe",
@@ -211,7 +294,8 @@
         unique: "성광 촉매",
         legendary: "대사제의 성구",
         epic: "천상의 촉매",
-        mystic: "계시의 성구"
+        mystic: "요한의 계시록",
+        primordial: "첫 빛의 잔"
       },
       slot: "weapon",
       type: "focus",
@@ -226,7 +310,8 @@
         unique: "사자 왕관",
         legendary: "태양 투구",
         epic: "천공 면갑",
-        mystic: "성좌 관"
+        mystic: "솔로몬의 관",
+        primordial: "무명의 원관"
       },
       slot: "head",
       type: "helmet",
@@ -241,7 +326,8 @@
         unique: "사령관 견갑",
         legendary: "불꽃 견갑",
         epic: "천광 견갑",
-        mystic: "별조각 견갑"
+        mystic: "헤라클레스의 어깨",
+        primordial: "태동의 견갑"
       },
       slot: "shoulder",
       type: "shoulder_guard",
@@ -256,7 +342,8 @@
         unique: "수호 로브",
         legendary: "황금 흉갑",
         epic: "천공 갑주",
-        mystic: "심연 법의"
+        mystic: "아이기스의 성의",
+        primordial: "무구의 첫 갑주"
       },
       slot: "chest",
       type: "armor",
@@ -271,7 +358,8 @@
         unique: "비호 각반",
         legendary: "질풍 경갑",
         epic: "성운 하의",
-        mystic: "그림자 각반"
+        mystic: "아탈란테의 각반",
+        primordial: "개벽의 보행"
       },
       slot: "legs",
       type: "leggings",
@@ -286,7 +374,8 @@
         unique: "전령 군화",
         legendary: "금빛 장화",
         epic: "혜성 부츠",
-        mystic: "차원 군화"
+        mystic: "헤르메스의 비익",
+        primordial: "시원의 발자취"
       },
       slot: "boots",
       type: "boots",
@@ -301,7 +390,8 @@
         unique: "기사 팔찌",
         legendary: "태양 팔찌",
         epic: "천뢰 팔찌",
-        mystic: "운명 팔찌"
+        mystic: "모이라의 매듭",
+        primordial: "태초의 환대"
       },
       slot: "bracelet",
       type: "bracelet",
@@ -316,7 +406,8 @@
         unique: "군주의 반지",
         legendary: "광휘 반지",
         epic: "혜성 반지",
-        mystic: "운명 반지"
+        mystic: "안드바리나우트",
+        primordial: "무한의 첫 고리"
       },
       slot: "ring",
       type: "ring",
@@ -331,7 +422,8 @@
         unique: "요새 방패",
         legendary: "성광 방패",
         epic: "천벽 방패",
-        mystic: "불멸 방패"
+        mystic: "아테나의 방벽",
+        primordial: "개벽의 편린"
       },
       slot: "subweapon",
       type: "shield",
@@ -346,7 +438,8 @@
         unique: "수호 인장",
         legendary: "황금 인장",
         epic: "성운 인장",
-        mystic: "심연 인장"
+        mystic: "야훼의 인장",
+        primordial: "처음의 문양"
       },
       slot: "charm",
       type: "charm",
@@ -418,13 +511,27 @@
       uses: 32
     },
     {
+      id: "shop-apprentice-staff",
+      name: "견습 지팡이",
+      type: "staff",
+      slot: "weapon",
+      rarity: "common",
+      price: 134,
+      description: "메이지 계열이 사용하는 마도 지팡이. 긴 사거리와 마법 화력을 지원한다.",
+      might: 5,
+      hit: 90,
+      rangeMin: 1,
+      rangeMax: 3,
+      uses: 30
+    },
+    {
       id: "shop-sanctified-focus",
       name: "축성 성구",
       type: "focus",
       slot: "weapon",
       rarity: "uncommon",
       price: 146,
-      description: "클레릭과 비숍이 사용하는 성광 촉매. 짧은 사거리 공격과 스킬 운용을 돕는다.",
+      description: "클레릭과 비숍이 사용하는 성광 촉매. 회복과 성광 마법 운용을 돕는다.",
       might: 4,
       hit: 92,
       rangeMin: 1,
@@ -525,85 +632,554 @@
 
   const AFFIX_COUNT_BY_RARITY = {
     common: [0, 1],
-    uncommon: [1, 1],
-    rare: [1, 2],
-    unique: [2, 2],
-    legendary: [2, 3],
-    epic: [3, 3],
-    mystic: [3, 4]
+    uncommon: [1, 2],
+    rare: [2, 3],
+    unique: [3, 4],
+    legendary: [4, 4],
+    epic: [4, 4],
+    mystic: [4, 4],
+    primordial: [4, 4]
   };
 
   const ITEM_AFFIXES = [
     {
       id: "mighty",
       prefix: "강인한",
+      family: "power",
+      slotWeights: { weapon: 6, subweapon: 2, chest: 2, bracelet: 1, ring: 1 },
       primaryStatBonus: { str: 1 },
       hiddenBonus: { physicalAttack: 2 }
     },
     {
       id: "keen",
       prefix: "예리한",
+      family: "precision",
+      slotWeights: { weapon: 4, head: 2, bracelet: 3, ring: 2, boots: 1 },
       primaryStatBonus: { dex: 1 },
       hiddenBonus: { accuracy: 5 }
     },
     {
       id: "sturdy",
       prefix: "견고한",
+      family: "guard",
+      slotWeights: { chest: 6, shoulder: 5, head: 4, subweapon: 4, legs: 2 },
       primaryStatBonus: { vit: 1 },
       hiddenBonus: { physicalDefense: 2 }
     },
     {
       id: "wise",
       prefix: "현명한",
+      family: "sage",
+      slotWeights: { weapon: 2, charm: 5, ring: 4, bracelet: 3, head: 2 },
       primaryStatBonus: { int: 1 },
-      hiddenBonus: { skillPower: 2, healPower: 1 }
+      hiddenBonus: { skillPower: 2, healPower: 1, magicAttack: 2, maxMana: 4 }
+    },
+    {
+      id: "mystic",
+      prefix: "마도",
+      family: "arcane",
+      tags: ["magic"],
+      forbiddenTags: ["physical"],
+      slotWeights: { weapon: 5, charm: 4, ring: 3, bracelet: 2 },
+      primaryStatBonus: { int: 1 },
+      hiddenBonus: { magicAttack: 3, maxMana: 5 }
     },
     {
       id: "lucky",
       prefix: "행운의",
+      family: "fortune",
+      slotWeights: { ring: 6, bracelet: 4, charm: 4, boots: 2 },
       primaryStatBonus: { luk: 1 },
-      hiddenBonus: { critChance: 2, dropRateBonus: 0.02 }
+      hiddenBonus: { critChance: 2, dropRateBonus: 0.01, lootQualityBonus: 0.006 }
     },
     {
       id: "ferocity",
       suffix: "맹공",
+      family: "ferocity",
       weaponOnly: true,
+      tags: ["physical"],
+      forbiddenTags: ["magic"],
+      slotWeights: { weapon: 7 },
       weaponBonus: { might: 1 },
       hiddenBonus: { physicalAttack: 1 }
     },
     {
       id: "precision",
       suffix: "정조준",
+      family: "marksman",
       weaponOnly: true,
+      slotWeights: { weapon: 6, head: 2, bracelet: 2 },
       weaponBonus: { hit: 4 },
       hiddenBonus: { accuracy: 4 }
     },
     {
       id: "endurance",
       suffix: "내구",
+      family: "endurance",
       weaponOnly: true,
+      slotWeights: { weapon: 5, subweapon: 3 },
       weaponBonus: { uses: 4 }
     },
     {
       id: "guard",
       suffix: "수호",
+      family: "bulwark",
+      slotWeights: { chest: 5, shoulder: 5, subweapon: 4, head: 3 },
       hiddenBonus: { physicalDefense: 3, evasion: 2 }
     },
     {
       id: "focus",
       suffix: "집중",
-      hiddenBonus: { skillPower: 2, accuracy: 3 }
+      family: "focus",
+      slotWeights: { weapon: 4, gloves: 0, head: 2, bracelet: 3, ring: 2, charm: 2 },
+      hiddenBonus: { skillPower: 2, magicAttack: 2, accuracy: 3 }
+    },
+    {
+      id: "warding",
+      suffix: "보호술",
+      family: "ward",
+      slotWeights: { head: 4, shoulder: 3, charm: 4, ring: 2 },
+      hiddenBonus: { magicDefense: 3, manaRegen: 1 }
     },
     {
       id: "swiftness",
       suffix: "질풍",
+      family: "swiftness",
+      slotWeights: { boots: 6, legs: 3, bracelet: 2 },
       primaryStatBonus: { dex: 1 },
       hiddenBonus: { evasion: 4 }
     },
     {
       id: "fortune",
       suffix: "개척",
-      hiddenBonus: { dropRateBonus: 0.03, critChance: 1 }
+      family: "prosperity",
+      slotWeights: { ring: 6, bracelet: 5, charm: 5 },
+      hiddenBonus: { dropRateBonus: 0.015, lootQualityBonus: 0.01, critChance: 1 }
+    },
+    {
+      id: "slayer",
+      suffix: "학살",
+      family: "slayer",
+      tags: ["physical"],
+      forbiddenTags: ["magic"],
+      allowedRarities: ["rare", "unique", "legendary", "epic", "mystic", "primordial"],
+      slotWeights: { weapon: 6, bracelet: 3, ring: 2 },
+      hiddenBonus: { physicalDamagePercent: 0.05, bossDamagePercent: 0.04 }
+    },
+    {
+      id: "arcane_surge",
+      suffix: "비전파",
+      family: "arcane_surge",
+      tags: ["magic"],
+      forbiddenTags: ["physical"],
+      allowedRarities: ["rare", "unique", "legendary", "epic", "mystic", "primordial"],
+      slotWeights: { weapon: 6, charm: 4, ring: 3 },
+      hiddenBonus: { magicDamagePercent: 0.06, cooldownReduction: 1 }
+    },
+    {
+      id: "opening",
+      suffix: "선봉",
+      family: "opening",
+      allowedRarities: ["uncommon", "rare", "unique", "legendary", "epic", "mystic", "primordial"],
+      slotWeights: { weapon: 5, boots: 3, bracelet: 2 },
+      hiddenBonus: { firstStrikeDamagePercent: 0.08 }
+    },
+    {
+      id: "relentless",
+      suffix: "연격",
+      family: "combo",
+      allowedRarities: ["rare", "unique", "legendary", "epic", "mystic", "primordial"],
+      slotWeights: { weapon: 5, bracelet: 3, ring: 2 },
+      hiddenBonus: { comboStrikeDamagePercent: 0.08 }
+    },
+    {
+      id: "riposte",
+      suffix: "반격",
+      family: "riposte",
+      allowedRarities: ["rare", "unique", "legendary", "epic", "mystic", "primordial"],
+      slotWeights: { subweapon: 6, shoulder: 4, chest: 3, weapon: 2 },
+      hiddenBonus: { counterDamagePercent: 0.1, blockChance: 0.04 }
+    },
+    {
+      id: "vital",
+      prefix: "생명",
+      family: "vitality",
+      slotWeights: { chest: 6, legs: 4, shoulder: 3, head: 3 },
+      primaryStatBonus: { vit: 2 },
+      legacyStatBonus: { maxHp: 3 }
+    },
+    {
+      id: "adamant",
+      prefix: "금강",
+      family: "adamant",
+      allowedRarities: ["rare", "unique", "legendary", "epic", "mystic", "primordial"],
+      slotWeights: { chest: 6, shoulder: 5, subweapon: 4, head: 3 },
+      hiddenBonus: { damageReductionPercent: 0.04, blockChance: 0.04 }
+    },
+    {
+      id: "purifying",
+      suffix: "정화",
+      family: "purify",
+      slotWeights: { head: 6, charm: 5, ring: 3, shoulder: 2 },
+      hiddenBonus: { statusResistChance: 0.08, magicDefense: 2 }
+    },
+    {
+      id: "channeling",
+      suffix: "축마",
+      family: "channeling",
+      tags: ["magic"],
+      forbiddenTags: ["physical"],
+      slotWeights: { head: 4, charm: 6, ring: 4, bracelet: 3 },
+      hiddenBonus: { maxMana: 6, manaRegen: 1, magicAttack: 2 }
+    },
+    {
+      id: "quickcast",
+      suffix: "속성",
+      family: "quickcast",
+      allowedRarities: ["rare", "unique", "legendary", "epic", "mystic", "primordial"],
+      slotWeights: { charm: 5, ring: 5, bracelet: 4, head: 3 },
+      hiddenBonus: { cooldownReduction: 1, skillPower: 2 }
+    },
+    {
+      id: "strider",
+      prefix: "질주의",
+      family: "strider",
+      allowedRarities: ["rare", "unique", "legendary", "epic", "mystic", "primordial"],
+      slotWeights: { boots: 7, legs: 4, bracelet: 2 },
+      legacyStatBonus: { mov: 1 },
+      hiddenBonus: { evasion: 3 }
+    },
+    {
+      id: "eagle_eye",
+      suffix: "독안",
+      family: "eagle_eye",
+      allowedRarities: ["rare", "unique", "legendary", "epic", "mystic", "primordial"],
+      slotWeights: { weapon: 5, head: 4, bracelet: 3, ring: 2 },
+      hiddenBonus: { accuracy: 6, rangeBonus: 1 }
+    },
+    {
+      id: "bloodletter",
+      suffix: "혈흔",
+      family: "bleed",
+      allowedRarities: ["unique", "legendary", "epic", "mystic", "primordial"],
+      tags: ["status"],
+      slotWeights: { weapon: 6, bracelet: 4, ring: 2 },
+      hiddenBonus: { bleedChance: 0.1, statusTargetDamagePercent: 0.06 }
+    },
+    {
+      id: "emberbrand",
+      suffix: "열화",
+      family: "burn",
+      allowedRarities: ["unique", "legendary", "epic", "mystic", "primordial"],
+      tags: ["status"],
+      slotWeights: { weapon: 5, charm: 3, bracelet: 3 },
+      hiddenBonus: { burnChance: 0.1, magicDamagePercent: 0.04 }
+    },
+    {
+      id: "venomous",
+      suffix: "맹독",
+      family: "poison",
+      allowedRarities: ["unique", "legendary", "epic", "mystic", "primordial"],
+      tags: ["status"],
+      slotWeights: { weapon: 5, ring: 4, bracelet: 3 },
+      hiddenBonus: { poisonChance: 0.1, statusDurationBonus: 0.1 }
+    },
+    {
+      id: "frostbound",
+      suffix: "서리",
+      family: "freeze",
+      allowedRarities: ["unique", "legendary", "epic", "mystic", "primordial"],
+      tags: ["status", "magic"],
+      forbiddenTags: ["physical"],
+      slotWeights: { weapon: 4, charm: 4, ring: 3 },
+      hiddenBonus: { freezeChance: 0.08, magicDamagePercent: 0.04 }
+    },
+    {
+      id: "skirmish",
+      suffix: "유격",
+      family: "skirmish",
+      allowedRarities: ["unique", "legendary", "epic", "mystic", "primordial"],
+      slotWeights: { boots: 6, weapon: 3, bracelet: 2 },
+      hiddenBonus: { moveThenAttackDamagePercent: 0.1 }
+    },
+    {
+      id: "desperado",
+      suffix: "배수",
+      family: "desperado",
+      allowedRarities: ["unique", "legendary", "epic", "mystic", "primordial"],
+      slotWeights: { weapon: 4, chest: 3, ring: 3 },
+      hiddenBonus: { lowHpAttackPercent: 0.12 }
+    },
+    {
+      id: "executioner",
+      suffix: "처형",
+      family: "executioner",
+      allowedRarities: ["unique", "legendary", "epic", "mystic", "primordial"],
+      slotWeights: { weapon: 5, ring: 3, bracelet: 2 },
+      hiddenBonus: { executeDamagePercent: 0.1 }
+    }
+  ];
+
+  const LEGENDARY_UNIQUE_AFFIXES = [
+    {
+      id: "sunbreaker_vow",
+      suffix: "태양단절",
+      family: "legendary_unique",
+      allowedSlots: ["weapon"],
+      tags: ["physical"],
+      hiddenBonus: { bossDamagePercent: 0.16, firstStrikeDamagePercent: 0.12, critDamageBonus: 0.18 }
+    },
+    {
+      id: "starwell_engine",
+      suffix: "성정기관",
+      family: "legendary_unique",
+      allowedSlots: ["weapon", "charm", "ring"],
+      tags: ["magic"],
+      hiddenBonus: { magicDamagePercent: 0.16, maxMana: 12, manaRegen: 2, cooldownReduction: 1 }
+    },
+    {
+      id: "aegis_heartbeat",
+      suffix: "수호심장",
+      family: "legendary_unique",
+      allowedSlots: ["chest", "shoulder", "subweapon"],
+      hiddenBonus: { damageReductionPercent: 0.1, blockChance: 0.12, counterDamagePercent: 0.14 }
+    },
+    {
+      id: "hunters_march",
+      suffix: "사냥행군",
+      family: "legendary_unique",
+      allowedSlots: ["boots", "weapon", "bracelet"],
+      hiddenBonus: { rangeBonus: 1, moveThenAttackDamagePercent: 0.14 },
+      legacyStatBonus: { mov: 1 }
+    },
+    {
+      id: "nightbloom_hex",
+      suffix: "야화주문",
+      family: "legendary_unique",
+      allowedSlots: ["weapon", "ring", "bracelet", "charm"],
+      tags: ["status"],
+      hiddenBonus: { bleedChance: 0.12, burnChance: 0.12, poisonChance: 0.12, statusTargetDamagePercent: 0.14 }
+    }
+  ];
+
+  const SET_DEFINITIONS = {
+    dawn_guard: {
+      name: "여명 기사단",
+      bonuses: [
+        { pieces: 2, hiddenBonus: { firstStrikeDamagePercent: 0.08, blockChance: 0.06 }, description: "선공 피해와 막기 확률이 오른다." },
+        { pieces: 3, primaryStatBonus: { str: 2, vit: 2 }, hiddenBonus: { bossDamagePercent: 0.08 }, description: "STR/VIT와 보스 피해가 오른다." },
+        { pieces: 4, hiddenBonus: { damageReductionPercent: 0.08, critDamageBonus: 0.12 }, description: "피해 감소와 치명 피해가 크게 오른다." }
+      ]
+    },
+    starweave: {
+      name: "성운 직조",
+      bonuses: [
+        { pieces: 2, hiddenBonus: { magicDamagePercent: 0.1, maxMana: 10 }, description: "마법 피해와 최대 마나가 오른다." },
+        { pieces: 3, primaryStatBonus: { int: 3 }, hiddenBonus: { cooldownReduction: 1, manaRegen: 2 }, description: "INT, 쿨감, 마나 회복이 오른다." },
+        { pieces: 4, hiddenBonus: { statusTargetDamagePercent: 0.1, freezeChance: 0.1 }, description: "상태이상 적 피해와 빙결 확률이 오른다." }
+      ]
+    },
+    sanctuary: {
+      name: "성역 순례",
+      bonuses: [
+        { pieces: 2, hiddenBonus: { healPower: 4, magicDefense: 4 }, description: "회복력과 마방이 오른다." },
+        { pieces: 3, primaryStatBonus: { int: 2, luk: 2 }, hiddenBonus: { statusResistChance: 0.12 }, description: "INT/LUK와 상태 저항이 오른다." },
+        { pieces: 4, hiddenBonus: { damageReductionPercent: 0.08, magicDamagePercent: 0.08 }, description: "피해 감소와 성속성 마도 화력이 오른다." }
+      ]
+    },
+    windrider: {
+      name: "질풍 추격",
+      bonuses: [
+        { pieces: 2, hiddenBonus: { accuracy: 8, critChance: 0.06 }, description: "명중과 치명 확률이 오른다." },
+        { pieces: 3, legacyStatBonus: { mov: 1 }, hiddenBonus: { moveThenAttackDamagePercent: 0.12 }, description: "이동력과 이동 후 공격 피해가 오른다." },
+        { pieces: 4, hiddenBonus: { rangeBonus: 1, executeDamagePercent: 0.12 }, description: "사거리와 마무리 피해가 오른다." }
+      ]
+    }
+  };
+
+  const SET_ITEM_TEMPLATES = [
+    {
+      id: "set-dawn-guard-blade",
+      setId: "dawn_guard",
+      name: "여명 기사단의 장검",
+      rarity: "legendary",
+      slot: "weapon",
+      type: "sword",
+      minLevel: 10,
+      base: { might: 8, hit: 90, rangeMin: 1, rangeMax: 1, uses: 36 },
+      primaryStatBonus: { str: 2, vit: 1 },
+      hiddenBonus: { firstStrikeDamagePercent: 0.08 }
+    },
+    {
+      id: "set-dawn-guard-helm",
+      setId: "dawn_guard",
+      name: "여명 기사단의 투구",
+      rarity: "legendary",
+      slot: "head",
+      type: "helmet",
+      minLevel: 10,
+      primaryStatBonus: { vit: 2 },
+      hiddenBonus: { blockChance: 0.05, accuracy: 4 }
+    },
+    {
+      id: "set-dawn-guard-armor",
+      setId: "dawn_guard",
+      name: "여명 기사단의 흉갑",
+      rarity: "legendary",
+      slot: "chest",
+      type: "armor",
+      minLevel: 10,
+      primaryStatBonus: { vit: 2 },
+      statBonus: { maxHp: 4, def: 2 },
+      hiddenBonus: { damageReductionPercent: 0.04 }
+    },
+    {
+      id: "set-dawn-guard-ring",
+      setId: "dawn_guard",
+      name: "여명 서약 반지",
+      rarity: "epic",
+      slot: "ring",
+      type: "ring",
+      minLevel: 12,
+      primaryStatBonus: { str: 1, vit: 1 },
+      hiddenBonus: { bossDamagePercent: 0.05 }
+    },
+    {
+      id: "set-starweave-staff",
+      setId: "starweave",
+      name: "성운 직조의 마도지팡이",
+      rarity: "mystic",
+      slot: "weapon",
+      type: "staff",
+      minLevel: 16,
+      base: { might: 9, hit: 94, rangeMin: 1, rangeMax: 3, uses: 30 },
+      primaryStatBonus: { int: 3 },
+      hiddenBonus: { magicDamagePercent: 0.08, maxMana: 8 }
+    },
+    {
+      id: "set-starweave-hood",
+      setId: "starweave",
+      name: "성운 직조의 후드",
+      rarity: "epic",
+      slot: "head",
+      type: "hood",
+      minLevel: 16,
+      primaryStatBonus: { int: 2 },
+      hiddenBonus: { manaRegen: 1, accuracy: 4 }
+    },
+    {
+      id: "set-starweave-robe",
+      setId: "starweave",
+      name: "성운 직조의 예복",
+      rarity: "mystic",
+      slot: "chest",
+      type: "robe",
+      minLevel: 16,
+      primaryStatBonus: { int: 2, vit: 1 },
+      statBonus: { maxHp: 2 },
+      hiddenBonus: { magicDefense: 4 }
+    },
+    {
+      id: "set-starweave-charm",
+      setId: "starweave",
+      name: "성운 직조의 성흔",
+      rarity: "legendary",
+      slot: "charm",
+      type: "charm",
+      minLevel: 18,
+      primaryStatBonus: { int: 2, luk: 1 },
+      hiddenBonus: { cooldownReduction: 1, freezeChance: 0.06 }
+    },
+    {
+      id: "set-sanctuary-focus",
+      setId: "sanctuary",
+      name: "성역 순례의 성구",
+      rarity: "legendary",
+      slot: "weapon",
+      type: "focus",
+      minLevel: 12,
+      base: { might: 7, hit: 95, rangeMin: 1, rangeMax: 2, uses: 34 },
+      primaryStatBonus: { int: 2, luk: 1 },
+      hiddenBonus: { healPower: 3, magicDamagePercent: 0.05 }
+    },
+    {
+      id: "set-sanctuary-mantle",
+      setId: "sanctuary",
+      name: "성역 순례의 망토",
+      rarity: "epic",
+      slot: "shoulder",
+      type: "mantle",
+      minLevel: 12,
+      primaryStatBonus: { vit: 1, int: 1 },
+      hiddenBonus: { magicDefense: 3, statusResistChance: 0.06 }
+    },
+    {
+      id: "set-sanctuary-bracelet",
+      setId: "sanctuary",
+      name: "성역 순례의 팔찌",
+      rarity: "legendary",
+      slot: "bracelet",
+      type: "bracelet",
+      minLevel: 14,
+      primaryStatBonus: { int: 1, luk: 1 },
+      hiddenBonus: { healPower: 2, manaRegen: 1 }
+    },
+    {
+      id: "set-sanctuary-ring",
+      setId: "sanctuary",
+      name: "성역 순례의 반지",
+      rarity: "legendary",
+      slot: "ring",
+      type: "ring",
+      minLevel: 14,
+      primaryStatBonus: { luk: 2 },
+      hiddenBonus: { dropRateBonus: 0.02, lootQualityBonus: 0.01 }
+    },
+    {
+      id: "set-windrider-bow",
+      setId: "windrider",
+      name: "질풍 추격의 활",
+      rarity: "legendary",
+      slot: "weapon",
+      type: "bow",
+      minLevel: 10,
+      base: { might: 7, hit: 94, rangeMin: 2, rangeMax: 2, uses: 32 },
+      primaryStatBonus: { dex: 2 },
+      hiddenBonus: { critChance: 0.05, accuracy: 5 }
+    },
+    {
+      id: "set-windrider-leggings",
+      setId: "windrider",
+      name: "질풍 추격의 경갑",
+      rarity: "epic",
+      slot: "legs",
+      type: "leggings",
+      minLevel: 10,
+      primaryStatBonus: { dex: 1, vit: 1 },
+      hiddenBonus: { evasion: 5 }
+    },
+    {
+      id: "set-windrider-boots",
+      setId: "windrider",
+      name: "질풍 추격의 장화",
+      rarity: "legendary",
+      slot: "boots",
+      type: "boots",
+      minLevel: 10,
+      primaryStatBonus: { dex: 1 },
+      statBonus: { mov: 1 },
+      hiddenBonus: { moveThenAttackDamagePercent: 0.08 }
+    },
+    {
+      id: "set-windrider-bracelet",
+      setId: "windrider",
+      name: "질풍 추격의 표식팔찌",
+      rarity: "legendary",
+      slot: "bracelet",
+      type: "bracelet",
+      minLevel: 12,
+      primaryStatBonus: { dex: 1, luk: 1 },
+      hiddenBonus: { executeDamagePercent: 0.08, critChance: 0.04 }
     }
   ];
 
@@ -616,11 +1192,15 @@
   }
 
   function roundHiddenBonus(statName, value) {
-    if (statName === "dropRateBonus") {
+    if (PERCENT_HIDDEN_BONUS_KEYS.has(statName)) {
       return Number(Number(value || 0).toFixed(3));
     }
 
     return Math.round(value || 0);
+  }
+
+  function isPercentHiddenBonus(statName) {
+    return PERCENT_HIDDEN_BONUS_KEYS.has(statName);
   }
 
   function hasAnyBonus(bonusMap) {
@@ -664,11 +1244,38 @@
       physicalAttack: 0,
       skillPower: 0,
       healPower: 0,
+      magicAttack: 0,
+      magicDefense: 0,
+      maxMana: 0,
+      manaRegen: 0,
       accuracy: 0,
       evasion: 0,
       physicalDefense: 0,
       critChance: 0,
-      dropRateBonus: 0
+      critDamageBonus: 0,
+      physicalDamagePercent: 0,
+      magicDamagePercent: 0,
+      bossDamagePercent: 0,
+      firstStrikeDamagePercent: 0,
+      comboStrikeDamagePercent: 0,
+      counterDamagePercent: 0,
+      damageReductionPercent: 0,
+      blockChance: 0,
+      statusResistChance: 0,
+      cooldownReduction: 0,
+      goldGainBonus: 0,
+      rangeBonus: 0,
+      bleedChance: 0,
+      burnChance: 0,
+      poisonChance: 0,
+      freezeChance: 0,
+      statusDurationBonus: 0,
+      statusTargetDamagePercent: 0,
+      moveThenAttackDamagePercent: 0,
+      lowHpAttackPercent: 0,
+      executeDamagePercent: 0,
+      dropRateBonus: 0,
+      lootQualityBonus: 0
     };
   }
 
@@ -711,10 +1318,25 @@
 
     Object.keys(baseBonus || {}).forEach((statName) => {
       const baseValue = Number(baseBonus[statName] || 0);
-      const growth = statName === "dropRateBonus"
-        ? (rarityIndex * 0.004) + (Math.min(8, levelBonus) * 0.001)
+      const growth = isPercentHiddenBonus(statName)
+        ? (rarityIndex * 0.003) + (Math.min(10, levelBonus) * 0.0007)
         : Math.floor((rarityIndex + levelBonus) / 3);
       scaled[statName] = roundHiddenBonus(statName, baseValue + growth);
+    });
+
+    return scaled;
+  }
+
+  function scaleLegacyBonusMap(baseBonus, rarityIndex, level) {
+    const levelBonus = Math.max(0, Number(level || 1) - 1);
+    const scaled = createLegacyBonusMap();
+
+    Object.keys(baseBonus || {}).forEach((statName) => {
+      const baseValue = Number(baseBonus[statName] || 0);
+      const growth = statName === "maxHp"
+        ? Math.floor((rarityIndex + levelBonus) / 4)
+        : Math.floor((rarityIndex + levelBonus) / 6);
+      scaled[statName] = Math.max(0, Math.round(baseValue + growth));
     });
 
     return scaled;
@@ -749,10 +1371,16 @@
         return;
       }
 
-      if (statName === "dropRateBonus") {
+      if (isPercentHiddenBonus(statName)) {
         parts.push(`${HIDDEN_BONUS_LABELS[statName]} +${Math.round(value * 100)}%`);
       } else {
         parts.push(`${HIDDEN_BONUS_LABELS[statName]} +${value}`);
+      }
+    });
+
+    Object.keys(affix.legacyStatBonus || {}).forEach((statName) => {
+      if (affix.legacyStatBonus[statName]) {
+        parts.push(`${STAT_LABELS[statName]} +${affix.legacyStatBonus[statName]}`);
       }
     });
 
@@ -770,21 +1398,118 @@
     return getRandomIntInclusive(range[0], range[1]);
   }
 
+  function getAffixSlotKey(item) {
+    if (!item) {
+      return "misc";
+    }
+
+    if (item.slot === "weapon") {
+      return "weapon";
+    }
+
+    if (item.slot === "subweapon") {
+      return "subweapon";
+    }
+
+    if (item.slot === "bracelet" || item.slot === "ring" || item.slot === "charm") {
+      return item.slot;
+    }
+
+    return item.slot || "misc";
+  }
+
+  function hasAffixConflict(candidate, selectedAffixes) {
+    const selectedFamilies = new Set((selectedAffixes || []).map((affix) => affix.family).filter(Boolean));
+    const selectedTags = new Set();
+
+    (selectedAffixes || []).forEach((affix) => {
+      (affix.tags || []).forEach((tag) => selectedTags.add(tag));
+    });
+
+    if (candidate.family && selectedFamilies.has(candidate.family)) {
+      return true;
+    }
+
+    if ((candidate.forbiddenTags || []).some((tag) => selectedTags.has(tag))) {
+      return true;
+    }
+
+    return (selectedAffixes || []).some((affix) => (affix.forbiddenTags || []).some((tag) => (candidate.tags || []).includes(tag)));
+  }
+
+  function getWeightedPoolEntry(template, slotKey) {
+    const weights = template.slotWeights || {};
+    return Number(weights[slotKey] || weights.default || 0);
+  }
+
+  function pickWeightedEntry(entries, slotKey) {
+    const weightedEntries = entries
+      .map((entry) => ({ entry, weight: getWeightedPoolEntry(entry, slotKey) }))
+      .filter((entry) => entry.weight > 0);
+
+    if (!weightedEntries.length) {
+      return null;
+    }
+
+    const totalWeight = weightedEntries.reduce((sum, entry) => sum + entry.weight, 0);
+    let roll = Math.random() * totalWeight;
+
+    for (let index = 0; index < weightedEntries.length; index += 1) {
+      roll -= weightedEntries[index].weight;
+
+      if (roll <= 0) {
+        return weightedEntries[index].entry;
+      }
+    }
+
+    return weightedEntries[weightedEntries.length - 1].entry;
+  }
+
   function chooseItemAffixes(item, rarity, level) {
     const rarityIndex = getRarityIndex(rarity);
     const desiredCount = chooseAffixCount(rarity);
-    const pool = ITEM_AFFIXES.filter((affix) => !affix.weaponOnly || isWeapon(item));
+    const slotKey = getAffixSlotKey(item);
+    const pool = ITEM_AFFIXES.filter((affix) => {
+      if (affix.weaponOnly && !isWeapon(item)) {
+        return false;
+      }
+
+      if (Array.isArray(affix.allowedSlots) && !affix.allowedSlots.includes(item.slot)) {
+        return false;
+      }
+
+      if (Array.isArray(affix.allowedRarities) && !affix.allowedRarities.includes(rarity)) {
+        return false;
+      }
+
+      return getWeightedPoolEntry(affix, slotKey) > 0 || !affix.slotWeights;
+    });
     const selected = [];
 
     while (pool.length && selected.length < desiredCount) {
-      const nextIndex = Math.floor(Math.random() * pool.length);
-      const template = pool.splice(nextIndex, 1)[0];
+      const candidatePool = pool.filter((affix) => !hasAffixConflict(affix, selected));
+      const template = pickWeightedEntry(candidatePool, slotKey);
+
+      if (!template) {
+        break;
+      }
+
+      const templateIndex = pool.findIndex((affix) => affix.id === template.id);
+
+      if (templateIndex >= 0) {
+        pool.splice(templateIndex, 1);
+      }
+
       const affix = {
         id: template.id,
         prefix: template.prefix || "",
         suffix: template.suffix || "",
+        family: template.family || template.id,
+        tags: (template.tags || []).slice(),
+        forbiddenTags: (template.forbiddenTags || []).slice(),
         primaryStatBonus: scalePrimaryBonusMap(template.primaryStatBonus || {}, rarityIndex, level),
         hiddenBonus: scaleHiddenBonusMap(template.hiddenBonus || {}, rarityIndex, level),
+        legacyStatBonus: scaleLegacyBonusMap(template.legacyStatBonus || {}, rarityIndex, level),
         weaponBonus: scaleWeaponBonusMap(template.weaponBonus || {}, rarityIndex, level)
       };
 
@@ -794,6 +1519,59 @@
     }
 
     return selected;
+  }
+
+  function chooseUniqueAffix(item, rarity, level, selectedAffixes) {
+    const rarityIndex = getRarityIndex(rarity);
+    const uniqueChance = rarity === "legendary"
+      ? 0.5
+      : rarity === "epic"
+        ? 0.65
+        : rarity === "mystic"
+          ? 0.8
+          : rarity === "primordial"
+            ? 1
+            : 0;
+
+    if (!uniqueChance || Math.random() > uniqueChance) {
+      return null;
+    }
+
+    const slotKey = getAffixSlotKey(item);
+    const template = pickWeightedEntry(
+      LEGENDARY_UNIQUE_AFFIXES.filter((affix) => {
+        if (Array.isArray(affix.allowedSlots) && !affix.allowedSlots.includes(item.slot)) {
+          return false;
+        }
+
+        return !hasAffixConflict(affix, selectedAffixes || []);
+      }).map((affix) => Object.assign({
+        slotWeights: { [slotKey]: 1 }
+      }, affix)),
+      slotKey
+    );
+
+    if (!template) {
+      return null;
+    }
+
+    const affix = {
+      id: template.id,
+      prefix: template.prefix || "",
+      suffix: template.suffix || "",
+      family: template.family || template.id,
+      tags: (template.tags || []).slice(),
+      forbiddenTags: (template.forbiddenTags || []).slice(),
+      primaryStatBonus: scalePrimaryBonusMap(template.primaryStatBonus || {}, rarityIndex + 1, level),
+      hiddenBonus: scaleHiddenBonusMap(template.hiddenBonus || {}, rarityIndex + 1, level),
+      legacyStatBonus: scaleLegacyBonusMap(template.legacyStatBonus || {}, rarityIndex + 1, level),
+      weaponBonus: scaleWeaponBonusMap(template.weaponBonus || {}, rarityIndex + 1, level)
+    };
+
+    affix.label = affix.prefix || affix.suffix || template.id;
+    affix.description = buildAffixDescription(affix);
+    affix.isUnique = true;
+    return affix;
   }
 
   function convertLegacyBonusToModern(statBonus) {
@@ -847,19 +1625,60 @@
     return name;
   }
 
+  function getSetDefinition(setId) {
+    return setId ? (SET_DEFINITIONS[setId] || null) : null;
+  }
+
+  function getSetBonusEntries(setId, pieceCount) {
+    const definition = getSetDefinition(setId);
+
+    if (!definition) {
+      return [];
+    }
+
+    return (definition.bonuses || []).filter((bonus) => pieceCount >= bonus.pieces);
+  }
+
+  function buildSetSummaryLine(setId, pieceCount) {
+    const definition = getSetDefinition(setId);
+
+    if (!definition) {
+      return "";
+    }
+
+    return `${definition.name} ${pieceCount}세트`;
+  }
+
   function finalizeGeneratedEquipment(item, rarity, level) {
     if (!item || !isEquipment(item) || item.generatedAffixVersion) {
       return item;
     }
 
+    if (item.setId) {
+      normalizeLegacyItem(item);
+      item.baseName = item.baseName || item.name;
+      item.setName = item.setName || (getSetDefinition(item.setId) && getSetDefinition(item.setId).name) || "";
+      item.affixes = Array.isArray(item.affixes) ? item.affixes : [];
+      item.generatedAffixVersion = 2;
+      return item;
+    }
+
     const affixes = chooseItemAffixes(item, rarity, level);
+    const uniqueAffix = chooseUniqueAffix(item, rarity, level, affixes);
+
+    if (uniqueAffix) {
+      affixes.push(uniqueAffix);
+    }
+
     const primaryStatBonus = addBonusMaps(clone(item.primaryStatBonus || createPrimaryBonusMap()), {}, clampPrimaryBonus);
     const hiddenBonus = addBonusMaps(clone(item.hiddenBonus || createHiddenBonusMap()), {}, roundHiddenBonus);
     const weaponBonus = addBonusMaps(clone(item.weaponBonus || createWeaponBonusMap()), {}, null);
+    const legacyStatBonus = addBonusMaps(clone(item.statBonus || createLegacyBonusMap()), {}, null);
 
     affixes.forEach((affix) => {
       addBonusMaps(primaryStatBonus, affix.primaryStatBonus || {}, clampPrimaryBonus);
       addBonusMaps(hiddenBonus, affix.hiddenBonus || {}, roundHiddenBonus);
+      addBonusMaps(legacyStatBonus, affix.legacyStatBonus || {}, null);
       addBonusMaps(weaponBonus, affix.weaponBonus || {}, null);
     });
 
@@ -867,10 +1686,12 @@
     item.affixes = affixes.map((affix) => ({
       id: affix.id,
       label: affix.label,
-      description: affix.description
+      description: affix.description,
+      isUnique: !!affix.isUnique
     }));
     item.primaryStatBonus = hasAnyBonus(primaryStatBonus) ? primaryStatBonus : null;
     item.hiddenBonus = hasAnyBonus(hiddenBonus) ? hiddenBonus : null;
+    item.statBonus = hasAnyBonus(legacyStatBonus) ? legacyStatBonus : null;
     item.weaponBonus = hasAnyBonus(weaponBonus) ? weaponBonus : null;
     item.name = affixes.length ? buildAffixedItemName(item.baseName, affixes) : item.baseName;
 
@@ -1336,13 +2157,24 @@
     throw new Error("지원하지 않는 소모품 효과입니다.");
   }
 
-  function chooseWeightedRarity() {
-    const totalWeight = RARITY_ORDER.reduce((sum, rarity) => sum + getRarityMeta(rarity).weight, 0);
+  function chooseWeightedRarity(options) {
+    const nextOptions = options || {};
+    const qualityBias = Math.max(0, Math.min(0.12, Number(nextOptions.qualityBias || 0)));
+    const adjustedWeights = {};
+    const totalWeight = RARITY_ORDER.reduce((sum, rarity, index) => {
+      const baseWeight = getRarityMeta(rarity).weight;
+      const rarityFactor = index === 0
+        ? Math.max(0.55, 1 - qualityBias * 1.35)
+        : (1 + qualityBias * index * 0.45);
+      const adjustedWeight = baseWeight * rarityFactor;
+      adjustedWeights[rarity] = adjustedWeight;
+      return sum + adjustedWeight;
+    }, 0);
     let roll = Math.random() * totalWeight;
 
     for (let index = 0; index < RARITY_ORDER.length; index += 1) {
       const rarity = RARITY_ORDER[index];
-      roll -= getRarityMeta(rarity).weight;
+      roll -= adjustedWeights[rarity];
 
       if (roll <= 0) {
         return rarity;
@@ -1350,6 +2182,27 @@
     }
 
     return "common";
+  }
+
+  function maybeChooseSetTemplate(enemyLevel, options) {
+    const nextOptions = options || {};
+    const level = Math.max(1, Number(enemyLevel || 1));
+    const qualityBias = Math.max(0, Math.min(0.12, Number(nextOptions.qualityBias || 0)));
+    const setChance = level < 10
+      ? 0
+      : Math.min(0.16, 0.02 + (level * 0.0025) + (qualityBias * 0.35));
+
+    if (Math.random() > setChance) {
+      return null;
+    }
+
+    const eligible = SET_ITEM_TEMPLATES.filter((template) => level >= Number(template.minLevel || 1));
+
+    if (!eligible.length) {
+      return null;
+    }
+
+    return eligible[Math.floor(Math.random() * eligible.length)];
   }
 
   function scaleBonusMap(baseBonus, rarityIndex, enemyLevel) {
@@ -1377,8 +2230,23 @@
     };
   }
 
-  function createLootDrop(enemyLevel) {
-    const rarity = chooseWeightedRarity();
+  function createLootDrop(enemyLevel, options) {
+    const setTemplate = maybeChooseSetTemplate(enemyLevel, options);
+
+    if (setTemplate) {
+      const setItem = clone(setTemplate);
+      setItem.id = `${setTemplate.id}-${Date.now()}-${Math.floor(Math.random() * 100000)}`;
+      setItem.baseName = setTemplate.name;
+      setItem.name = setTemplate.name;
+      setItem.equippedBy = null;
+      setItem.equippedSlotKey = null;
+      setItem.setName = (getSetDefinition(setTemplate.setId) && getSetDefinition(setTemplate.setId).name) || "";
+      normalizeLegacyItem(setItem);
+      finalizeGeneratedEquipment(setItem, setItem.rarity, enemyLevel || 1);
+      return setItem;
+    }
+
+    const rarity = chooseWeightedRarity(options);
     const template = LOOT_TEMPLATES[Math.floor(Math.random() * LOOT_TEMPLATES.length)];
 
     if (template.slot === "weapon") {
@@ -1448,17 +2316,42 @@
     const bonuses = {
       primary: createPrimaryBonusMap(),
       legacy: createLegacyBonusMap(),
-      hidden: createHiddenBonusMap()
+      hidden: createHiddenBonusMap(),
+      sets: []
     };
 
     if (!unitId) {
       return bonuses;
     }
 
+    const setCounts = {};
+
     getEquippedItems(saveData, unitId).forEach((item) => {
       addBonusMaps(bonuses.primary, item.primaryStatBonus || {}, clampPrimaryBonus);
       addBonusMaps(bonuses.legacy, item.statBonus || {}, null);
       addBonusMaps(bonuses.hidden, item.hiddenBonus || {}, roundHiddenBonus);
+
+      if (item.setId) {
+        setCounts[item.setId] = Number(setCounts[item.setId] || 0) + 1;
+      }
+    });
+
+    Object.keys(setCounts).forEach((setId) => {
+      const pieceCount = setCounts[setId];
+      const activeBonuses = getSetBonusEntries(setId, pieceCount);
+
+      activeBonuses.forEach((bonus) => {
+        addBonusMaps(bonuses.primary, bonus.primaryStatBonus || {}, clampPrimaryBonus);
+        addBonusMaps(bonuses.legacy, bonus.legacyStatBonus || {}, null);
+        addBonusMaps(bonuses.hidden, bonus.hiddenBonus || {}, roundHiddenBonus);
+      });
+
+      bonuses.sets.push({
+        setId,
+        setName: (getSetDefinition(setId) && getSetDefinition(setId).name) || setId,
+        pieces: pieceCount,
+        activeBonuses
+      });
     });
 
     return bonuses;
@@ -1479,7 +2372,10 @@
     if (statsService && unit.primaryStats) {
       statsService.normalizeUnitProgression(unit);
       PRIMARY_STATS.forEach((statName) => {
-        unit.primaryStats[statName] = Math.min(99, (unit.primaryStats[statName] || 0) + Number(bonus.primary[statName] || 0));
+        const statLimit = statsService.STAT_LIMITS && statsService.STAT_LIMITS[statName]
+          ? statsService.STAT_LIMITS[statName]
+          : 99999;
+        unit.primaryStats[statName] = Math.min(statLimit, (unit.primaryStats[statName] || 0) + Number(bonus.primary[statName] || 0));
       });
       statsService.recalculateUnitStats(unit, { keepHpFull: !unit.hp || unit.hp >= unit.maxHp });
     }
@@ -1539,7 +2435,7 @@
       .filter((statName) => hiddenBonus && hiddenBonus[statName])
       .forEach((statName) => {
         const value = hiddenBonus[statName];
-        parts.push(statName === "dropRateBonus"
+        parts.push(isPercentHiddenBonus(statName)
           ? `${HIDDEN_BONUS_LABELS[statName]} +${Math.round(value * 100)}%`
           : `${HIDDEN_BONUS_LABELS[statName]} +${value}`);
       });
@@ -1554,15 +2450,17 @@
 
     const rarityLabel = getRarityMeta(item.rarity).label;
 
+    const setLabel = item.setId ? ` / ${buildSetSummaryLine(item.setId, 1)}` : "";
+
     if (isWeapon(item)) {
-      return `${item.name} [${rarityLabel}] 위력 ${item.might} / 명중 ${item.hit} / 사거리 ${item.rangeMin}-${item.rangeMax} / 내구 ${item.uses}${formatStatBonusLine(item) !== "추가 능력치 없음" ? ` / ${formatStatBonusLine(item)}` : ""}`;
+      return `${item.name} [${rarityLabel}] 위력 ${item.might} / 명중 ${item.hit} / 사거리 ${item.rangeMin}-${item.rangeMax} / 내구 ${item.uses}${formatStatBonusLine(item) !== "추가 능력치 없음" ? ` / ${formatStatBonusLine(item)}` : ""}${setLabel}`;
     }
 
     if (isConsumable(item)) {
       return `${item.name} [${rarityLabel}] ${item.description || "소모품"}`;
     }
 
-    return `${item.name} [${rarityLabel}] ${getSlotLabel(item.equippedSlotKey || getCompatibleSlotKeys(item)[0] || item.slot)} / ${formatStatBonusLine(item)}`;
+    return `${item.name} [${rarityLabel}] ${getSlotLabel(item.equippedSlotKey || getCompatibleSlotKeys(item)[0] || item.slot)} / ${formatStatBonusLine(item)}${setLabel}`;
   }
 
   global.InventoryService = {
@@ -1607,6 +2505,8 @@
     createRewardItem,
     describeItem,
     formatStatBonusLine,
+    getSetDefinition,
+    getSetBonusEntries,
     syncEquippedItems,
     normalizeInventoryState,
     applyEquipmentBonusesToUnitState

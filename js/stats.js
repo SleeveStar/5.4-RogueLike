@@ -13,15 +13,15 @@
     str: "물리 공격력의 핵심. 체력과 방어에도 소폭 영향을 준다.",
     dex: "명중과 속도의 핵심. 회피와 크리티컬 안정성에도 관여한다.",
     vit: "체력과 방어의 핵심. 전열 유지력을 크게 끌어올린다.",
-    int: "스킬 위력과 정밀도의 핵심. 보조 기술 성능을 높인다.",
+    int: "마법 위력과 마나의 핵심. 마법 공격, 회복, 주문 운용 효율을 높인다.",
     luk: "크리티컬과 전리품 운의 핵심. 드롭률과 치명타 효율이 오른다."
   };
   const PRIMARY_STAT_LIMITS = {
-    str: 99,
-    dex: 99,
-    vit: 99,
-    int: 99,
-    luk: 99
+    str: 99999,
+    dex: 99999,
+    vit: 99999,
+    int: 99999,
+    luk: 99999
   };
 
   const CLASS_GROWTH_WEIGHTS = {
@@ -29,6 +29,9 @@
     하이로드: { str: 1.15, dex: 1.05, vit: 1.05, int: 0.8, luk: 0.95 },
     클레릭: { str: 0.5, dex: 0.8, vit: 0.82, int: 1.55, luk: 1.08 },
     비숍: { str: 0.58, dex: 0.85, vit: 0.88, int: 1.65, luk: 1.1 },
+    메이지: { str: 0.42, dex: 0.88, vit: 0.68, int: 1.82, luk: 1.02 },
+    위저드: { str: 0.48, dex: 0.94, vit: 0.76, int: 1.94, luk: 1.08 },
+    소서러: { str: 0.44, dex: 0.98, vit: 0.7, int: 1.88, luk: 1.18 },
     랜서: { str: 0.95, dex: 0.8, vit: 1.45, int: 0.55, luk: 0.65 },
     팔라딘: { str: 1.0, dex: 0.85, vit: 1.35, int: 0.55, luk: 0.65 },
     아처: { str: 0.75, dex: 1.45, vit: 0.8, int: 0.7, luk: 1.15 },
@@ -44,6 +47,9 @@
     하이로드: { hp: 2, attack: 0.55, accuracy: 0.25, speed: 0.25, defense: 0.1, mov: 6, crit: 2, skill: 0.15 },
     클레릭: { hp: -1, attack: -0.2, accuracy: 0.35, speed: 0.08, defense: -0.1, mov: 5, crit: 1, skill: 0.72 },
     비숍: { hp: 0, attack: -0.05, accuracy: 0.42, speed: 0.12, defense: -0.02, mov: 5, crit: 2, skill: 0.9 },
+    메이지: { hp: -2, attack: -0.18, accuracy: 0.48, speed: 0.12, defense: -0.16, mov: 5, crit: 2, skill: 1.08 },
+    위저드: { hp: -1, attack: -0.12, accuracy: 0.56, speed: 0.18, defense: -0.08, mov: 5, crit: 3, skill: 1.2 },
+    소서러: { hp: -2, attack: -0.06, accuracy: 0.46, speed: 0.24, defense: -0.14, mov: 5, crit: 4, skill: 1.16 },
     랜서: { hp: 3, attack: 0.15, accuracy: -0.05, speed: -0.1, defense: 0.55, mov: 4, crit: 0, skill: 0.05 },
     팔라딘: { hp: 3, attack: 0.2, accuracy: 0, speed: -0.05, defense: 0.65, mov: 5, crit: 0, skill: 0.05 },
     아처: { hp: -1, attack: 0, accuracy: 0.7, speed: 0.45, defense: -0.15, mov: 5, crit: 3, skill: 0.2 },
@@ -77,6 +83,10 @@
     워브레이커: { str: 1.56, dex: 0.74, vit: 1.26, int: 0.34, luk: 0.58 },
     데스브링어: { str: 1.92, dex: 0.7, vit: 1.24, int: 0.3, luk: 0.58 },
     월드이터: { str: 2.02, dex: 0.72, vit: 1.3, int: 0.32, luk: 0.6 },
+    아크메이지: { str: 0.52, dex: 1.02, vit: 0.82, int: 2.04, luk: 1.16 },
+    워록: { str: 0.58, dex: 1.06, vit: 0.8, int: 1.98, luk: 1.22 },
+    대현자: { str: 0.56, dex: 1.08, vit: 0.88, int: 2.12, luk: 1.22 },
+    보이드로드: { str: 0.64, dex: 1.1, vit: 0.86, int: 2.06, luk: 1.28 },
     오라클: { str: 0.62, dex: 0.92, vit: 0.86, int: 1.48, luk: 1.16 },
     세라핌: { str: 0.66, dex: 0.96, vit: 0.92, int: 1.72, luk: 1.18 },
     인퀴지터: { str: 0.78, dex: 0.98, vit: 0.9, int: 1.62, luk: 1.12 },
@@ -107,6 +117,10 @@
     워브레이커: { hp: 3, attack: 0.88, accuracy: -0.18, speed: -0.08, defense: 0.24, mov: 5, crit: 1, skill: -0.04 },
     데스브링어: { hp: 4, attack: 1.06, accuracy: -0.26, speed: -0.1, defense: 0.24, mov: 5, crit: 3, skill: -0.06 },
     월드이터: { hp: 5, attack: 1.14, accuracy: -0.22, speed: -0.06, defense: 0.28, mov: 5, crit: 3, skill: -0.02 },
+    아크메이지: { hp: 0, attack: -0.02, accuracy: 0.64, speed: 0.24, defense: -0.04, mov: 5, crit: 4, skill: 1.32 },
+    워록: { hp: 0, attack: 0.08, accuracy: 0.54, speed: 0.28, defense: -0.08, mov: 5, crit: 5, skill: 1.26 },
+    대현자: { hp: 1, attack: 0.02, accuracy: 0.68, speed: 0.26, defense: 0.02, mov: 5, crit: 5, skill: 1.42 },
+    보이드로드: { hp: 1, attack: 0.14, accuracy: 0.58, speed: 0.32, defense: -0.02, mov: 5, crit: 6, skill: 1.38 },
     오라클: { hp: 0, attack: -0.02, accuracy: 0.48, speed: 0.12, defense: -0.04, mov: 5, crit: 2, skill: 0.92 },
     세라핌: { hp: 1, attack: 0, accuracy: 0.44, speed: 0.16, defense: 0, mov: 5, crit: 2, skill: 1.02 },
     인퀴지터: { hp: 1, attack: 0.12, accuracy: 0.52, speed: 0.16, defense: -0.02, mov: 5, crit: 3, skill: 0.98 },
@@ -184,14 +198,19 @@
     );
     const hiddenStats = {
       physicalAttack: Math.round(4 + primary.str * 1.35 + primary.dex * 0.15 + primary.vit * 0.25 + modifiers.attack),
+      magicAttack: Math.round(3 + primary.int * 1.45 + primary.dex * 0.18 + primary.luk * 0.22 + modifiers.skill * 0.8),
       skillPower: Math.round(2 + primary.int * 1.2 + primary.dex * 0.25 + primary.luk * 0.15 + modifiers.skill),
       healPower: Math.round(1 + primary.int * 0.95 + primary.luk * 0.22 + modifiers.skill * 0.6),
+      maxMana: Math.round(8 + primary.int * 2.6 + primary.dex * 0.2 + primary.luk * 0.3 + modifiers.skill * 3),
+      manaRegen: Math.max(0, Math.round(primary.int * 0.08 + primary.luk * 0.04 + modifiers.skill * 0.5)),
       accuracy: Math.round(40 + primary.dex * 4 + primary.luk * 1.4 + primary.int * 1.2 + modifiers.accuracy * 8),
       evasion: Math.round(10 + primary.dex * 2.8 + primary.luk * 1.6 + modifiers.speed * 10),
       physicalDefense: Math.round(1 + primary.vit * 1.05 + primary.str * 0.35 + primary.int * 0.18 + modifiers.defense * 6),
+      magicDefense: Math.round(1 + primary.int * 0.96 + primary.vit * 0.42 + primary.luk * 0.16 + modifiers.defense * 4),
       critChance: clamp(Math.round(2 + primary.dex * 0.35 + primary.luk * 0.9 + modifiers.crit), 0, 65),
       critMultiplier: Number((1.5 + Math.min(0.75, primary.luk * 0.012 + primary.int * 0.006)).toFixed(2)),
-      dropRateBonus: Number(Math.min(0.45, primary.luk * 0.012).toFixed(3))
+      dropRateBonus: Number(Math.min(0.45, primary.luk * 0.0035).toFixed(3)),
+      lootQualityBonus: Number(Math.min(0.12, primary.luk * 0.0015).toFixed(3))
     };
 
     return {
@@ -277,6 +296,20 @@
     };
   }
 
+  function normalizePrimaryGainValue(value) {
+    return Math.max(0, Math.floor(Number(value || 0)));
+  }
+
+  function normalizePrimaryGainMap(gains) {
+    const normalized = createEmptyGrowth();
+
+    PRIMARY_STATS.forEach((statName) => {
+      normalized[statName] = normalizePrimaryGainValue(gains && gains[statName]);
+    });
+
+    return normalized;
+  }
+
   function rollWeightedPrimaryStat(className) {
     const weights = getClassGrowthWeights(className);
     const totalWeight = PRIMARY_STATS.reduce((sum, statName) => sum + (weights[statName] || 0), 0);
@@ -311,9 +344,11 @@
       return unit;
     }
 
+    const normalizedGains = normalizePrimaryGainMap(gains);
+
     PRIMARY_STATS.forEach((statName) => {
       unit.primaryStats[statName] = clamp(
-        (unit.primaryStats[statName] || 1) + Number((gains && gains[statName]) || 0),
+        (unit.primaryStats[statName] || 1) + normalizedGains[statName],
         1,
         PRIMARY_STAT_LIMITS[statName]
       );
@@ -329,7 +364,7 @@
 
   function previewUnitWithStatDraft(unit, draft) {
     const previewUnit = clone(unit);
-    const pending = draft || {};
+    const pending = normalizePrimaryGainMap(draft);
 
     normalizeUnitProgression(previewUnit);
     PRIMARY_STATS.forEach((statName) => {
@@ -372,8 +407,8 @@
 
   function applyStatDraft(saveData, unitId, draft) {
     const unit = getUnitById(saveData, unitId);
-    const pending = draft || {};
-    const totalSpent = PRIMARY_STATS.reduce((sum, statName) => sum + Number(pending[statName] || 0), 0);
+    const pending = normalizePrimaryGainMap(draft);
+    const totalSpent = PRIMARY_STATS.reduce((sum, statName) => sum + pending[statName], 0);
 
     if (!unit) {
       throw new Error("스탯을 올릴 유닛을 찾을 수 없습니다.");

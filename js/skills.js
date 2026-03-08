@@ -113,6 +113,66 @@
         }
       }
     ],
+    메이지: [
+      {
+        id: "spellcraft",
+        name: "주문 연성",
+        description: "공격 시 명중 +6, 피해 +2",
+        unlockLevel: 1,
+        attackerEffect() {
+          return { hitBonus: 6, attackPowerBonus: 2 };
+        }
+      },
+      {
+        id: "mana_skin",
+        name: "마나 스킨",
+        description: "방어 시 방어 +1, 회피 +4",
+        unlockLevel: 3,
+        defenderEffect() {
+          return { defenseBonus: 1, avoidBonus: 4 };
+        }
+      }
+    ],
+    위저드: [
+      {
+        id: "spell_echo",
+        name: "스펠 에코",
+        description: "선공 시 명중 +8, 피해 +3",
+        unlockLevel: 1,
+        attackerEffect(context) {
+          return context.isInitiator ? { hitBonus: 8, attackPowerBonus: 3 } : null;
+        }
+      },
+      {
+        id: "arcane_flow",
+        name: "비전 흐름",
+        description: "체력이 절반 이상일 때 명중 +6",
+        unlockLevel: 3,
+        attackerEffect(context) {
+          return context.attacker.hp >= Math.ceil(context.attacker.maxHp / 2) ? { hitBonus: 6 } : null;
+        }
+      }
+    ],
+    소서러: [
+      {
+        id: "abyss_focus",
+        name: "심연 집중",
+        description: "선공 시 피해 +4",
+        unlockLevel: 1,
+        attackerEffect(context) {
+          return context.isInitiator ? { attackPowerBonus: 4 } : null;
+        }
+      },
+      {
+        id: "hex_sight",
+        name: "저주의 시야",
+        description: "공격 시 명중 +8",
+        unlockLevel: 3,
+        attackerEffect() {
+          return { hitBonus: 8 };
+        }
+      }
+    ],
     랜서: [
       {
         id: "brace",
@@ -386,7 +446,8 @@
         effect: {
           kind: "attack",
           hitBonus: 14,
-          damageBonus: 4
+          damageBonus: 4,
+          damageType: "magic"
         }
       }
     ],
@@ -417,7 +478,114 @@
         effect: {
           kind: "attack",
           hitBonus: 18,
-          damageBonus: 6
+          damageBonus: 6,
+          damageType: "magic"
+        }
+      }
+    ],
+    메이지: [
+      {
+        id: "arcane_bolt",
+        name: "아케인 볼트",
+        description: "사거리 1-3의 적 1명에게 명중 +14, 피해 +4의 마탄을 쏜다.",
+        unlockLevel: 1,
+        cooldown: 3,
+        targetType: "enemy",
+        rangeMin: 1,
+        rangeMax: 3,
+        effect: {
+          kind: "attack",
+          hitBonus: 14,
+          damageBonus: 4,
+          damageType: "magic"
+        }
+      },
+      {
+        id: "frost_shard",
+        name: "프로스트 샤드",
+        description: "사거리 1-4의 적 1명에게 명중 +12, 피해 +5의 빙결 파편을 날린다.",
+        unlockLevel: 4,
+        cooldown: 3,
+        targetType: "enemy",
+        rangeMin: 1,
+        rangeMax: 4,
+        effect: {
+          kind: "attack",
+          hitBonus: 12,
+          damageBonus: 5,
+          damageType: "magic"
+        }
+      }
+    ],
+    위저드: [
+      {
+        id: "chain_lightning",
+        name: "체인 라이트닝",
+        description: "사거리 1-4의 적 1명에게 명중 +18, 피해 +6의 번개를 떨어뜨린다.",
+        unlockLevel: 1,
+        cooldown: 3,
+        targetType: "enemy",
+        rangeMin: 1,
+        rangeMax: 4,
+        effect: {
+          kind: "attack",
+          hitBonus: 18,
+          damageBonus: 6,
+          damageType: "magic"
+        }
+      },
+      {
+        id: "arcane_barrier",
+        name: "아케인 배리어",
+        description: "자신에게 방어 +3, 회피 +8을 부여한다.",
+        unlockLevel: 3,
+        cooldown: 3,
+        targetType: "self",
+        rangeMin: 0,
+        rangeMax: 0,
+        effect: {
+          kind: "buff",
+          buff: {
+            id: "arcane_barrier_buff",
+            name: "아케인 배리어",
+            defenseBonus: 3,
+            avoidBonus: 8,
+            remainingOwnPhases: 1
+          }
+        }
+      }
+    ],
+    소서러: [
+      {
+        id: "shadow_burst",
+        name: "섀도 버스트",
+        description: "사거리 1-4의 적 1명에게 명중 +16, 피해 +7의 암흑 폭발을 일으킨다.",
+        unlockLevel: 1,
+        cooldown: 3,
+        targetType: "enemy",
+        rangeMin: 1,
+        rangeMax: 4,
+        effect: {
+          kind: "attack",
+          hitBonus: 16,
+          damageBonus: 7,
+          damageType: "magic"
+        }
+      },
+      {
+        id: "curse_flare",
+        name: "커스 플레어",
+        description: "사거리 2-4의 적 1명에게 명중 +14, 피해 +8의 저주 화염을 꽂아넣는다.",
+        unlockLevel: 3,
+        cooldown: 3,
+        targetType: "enemy",
+        rangeMin: 2,
+        rangeMax: 4,
+        effect: {
+          kind: "attack",
+          hitBonus: 14,
+          damageBonus: 8,
+          damageType: "magic"
         }
       }
     ],
@@ -686,7 +854,8 @@
       effect: {
         kind: "attack",
         hitBonus: 14,
-        damageBonus: 4
+        damageBonus: 4,
+        damageType: "magic"
       }
     },
     frenzy_assault: {
@@ -741,10 +910,13 @@
   const GROWTH_RATES = {
     로드: { maxHp: 0.65, str: 0.55, skl: 0.6, spd: 0.55, def: 0.4, mov: 0.05 },
     클레릭: { maxHp: 0.52, str: 0.28, skl: 0.52, spd: 0.46, def: 0.3, mov: 0.03 },
+    메이지: { maxHp: 0.48, str: 0.22, skl: 0.76, spd: 0.52, def: 0.22, mov: 0.03 },
     랜서: { maxHp: 0.7, str: 0.55, skl: 0.45, spd: 0.45, def: 0.55, mov: 0.04 },
     아처: { maxHp: 0.5, str: 0.45, skl: 0.7, spd: 0.6, def: 0.3, mov: 0.04 },
     하이로드: { maxHp: 0.72, str: 0.6, skl: 0.64, spd: 0.58, def: 0.48, mov: 0.08 },
     비숍: { maxHp: 0.6, str: 0.36, skl: 0.62, spd: 0.5, def: 0.36, mov: 0.04 },
+    위저드: { maxHp: 0.54, str: 0.26, skl: 0.82, spd: 0.58, def: 0.26, mov: 0.04 },
+    소서러: { maxHp: 0.5, str: 0.28, skl: 0.8, spd: 0.62, def: 0.24, mov: 0.04 },
     팔라딘: { maxHp: 0.74, str: 0.6, skl: 0.5, spd: 0.48, def: 0.6, mov: 0.08 },
     스나이퍼: { maxHp: 0.58, str: 0.52, skl: 0.75, spd: 0.62, def: 0.34, mov: 0.06 },
     검사: { maxHp: 0.55, str: 0.5, skl: 0.58, spd: 0.55, def: 0.32, mov: 0.03 },
@@ -758,6 +930,9 @@
     하이로드: ["sword"],
     클레릭: ["focus"],
     비숍: ["focus"],
+    메이지: ["staff"],
+    위저드: ["staff"],
+    소서러: ["staff"],
     랜서: ["lance"],
     팔라딘: ["lance"],
     아처: ["bow"],
@@ -833,6 +1008,11 @@
       matchup: "아군 유지력과 안전한 견제에 강하고, INT 기반 스킬 보정 효율이 높습니다.",
       caution: "기본 평타 화력은 낮아 전열 보호와 스킬 운용이 중요합니다."
     },
+    staff: {
+      role: "원거리 마도형",
+      matchup: "INT를 바탕으로 긴 사거리 마법 화력을 넣고, 단단한 적에게도 안정적으로 압박합니다.",
+      caution: "체력과 방어가 낮아 전열 보호 없이는 순식간에 무너질 수 있습니다."
+    },
     axe: {
       role: "고화력 근접 파쇄형",
       matchup: "한 방 화력이 높아 방어가 높은 적이나 체력이 많은 적을 밀기 좋습니다.",
@@ -864,6 +1044,24 @@
       summary: "회복과 성속성 공격을 모두 운용하는 상급 성직자 병종입니다.",
       strengths: "광범위 회복, 홀리 계열 공격, 후열 안전 운영",
       caution: "근접 난전에 오래 노출되면 쉽게 무너질 수 있습니다."
+    },
+    메이지: {
+      role: "기초 마도사",
+      summary: "후열에서 비전 마법으로 적을 견제하는 기본 마법 병종입니다.",
+      strengths: "INT 기반 화력, 긴 사거리 주문, 후열 지원",
+      caution: "체력과 방어가 낮아 전열 뒤에서 운용해야 합니다."
+    },
+    위저드: {
+      role: "정통 비전술사",
+      summary: "안정적인 명중과 광범위한 주문 운용에 강한 상급 마법사입니다.",
+      strengths: "높은 명중, 안정적인 마법 화력, 자기 보호",
+      caution: "직접 맞기 시작하면 오래 버티기 어렵습니다."
+    },
+    소서러: {
+      role: "폭발형 흑마도사",
+      summary: "강한 순간 화력으로 적 핵심을 태우는 공격형 마법사입니다.",
+      strengths: "높은 마법 피해, 후열 저격, 빠른 마무리",
+      caution: "방어가 특히 낮아 위치 관리가 더 중요합니다."
     },
     랜서: {
       role: "수비형 전열",
@@ -1101,6 +1299,33 @@
       attackerEffect(context) {
         return context.isInitiator ? { hitBonus: 8, attackPowerBonus: 2 } : null;
       }
+    },
+    mana_well: {
+      id: "mana_well",
+      name: "마나 웰",
+      description: "공격 시 명중 +6, 피해 +2",
+      unlockLevel: 1,
+      attackerEffect() {
+        return { hitBonus: 6, attackPowerBonus: 2 };
+      }
+    },
+    spell_overflow: {
+      id: "spell_overflow",
+      name: "주문 과충전",
+      description: "선공 시 피해 +3",
+      unlockLevel: 1,
+      attackerEffect(context) {
+        return context.isInitiator ? { attackPowerBonus: 3 } : null;
+      }
+    },
+    mystic_barrier: {
+      id: "mystic_barrier",
+      name: "비전 장막",
+      description: "방어 시 방어 +2, 회피 +6",
+      unlockLevel: 1,
+      defenderEffect() {
+        return { defenseBonus: 2, avoidBonus: 6 };
+      }
     }
   });
 
@@ -1189,7 +1414,7 @@
       targetType: "enemy",
       rangeMin: 1,
       rangeMax: 3,
-      effect: { kind: "attack", hitBonus: 18, damageBonus: 5 }
+      effect: { kind: "attack", hitBonus: 18, damageBonus: 5, damageType: "magic" }
     },
     holy_lance: {
       id: "holy_lance",
@@ -1199,7 +1424,7 @@
       cooldown: 3,
       targetType: "enemy",
       useWeaponRange: true,
-      effect: { kind: "attack", hitBonus: 18, damageBonus: 6 }
+      effect: { kind: "attack", hitBonus: 18, damageBonus: 6, damageType: "magic" }
     },
     meteor_strike: {
       id: "meteor_strike",
@@ -1209,7 +1434,7 @@
       cooldown: 3,
       targetType: "enemy",
       useWeaponRange: true,
-      effect: { kind: "attack", hitBonus: 20, damageBonus: 8 }
+      effect: { kind: "attack", hitBonus: 20, damageBonus: 8, damageType: "magic" }
     },
     aegis_field: {
       id: "aegis_field",
@@ -1244,7 +1469,7 @@
       targetType: "enemy",
       rangeMin: 1,
       rangeMax: 4,
-      effect: { kind: "attack", hitBonus: 20, damageBonus: 8 }
+      effect: { kind: "attack", hitBonus: 20, damageBonus: 8, damageType: "magic" }
     },
     nightmare_hunt: {
       id: "nightmare_hunt",
@@ -1265,6 +1490,83 @@
       targetType: "enemy",
       useWeaponRange: true,
       effect: { kind: "attack", hitBonus: 14, damageBonus: 10 }
+    },
+    arcane_orb: {
+      id: "arcane_orb",
+      name: "아케인 오브",
+      description: "사거리 1-4의 적 1명에게 명중 +18, 피해 +5의 비전 구체를 발사한다.",
+      unlockLevel: 1,
+      cooldown: 3,
+      targetType: "enemy",
+      rangeMin: 1,
+      rangeMax: 4,
+      effect: { kind: "attack", hitBonus: 18, damageBonus: 5, damageType: "magic" }
+    },
+    nova_burst: {
+      id: "nova_burst",
+      name: "노바 버스트",
+      description: "사거리 1-3의 적 1명에게 명중 +16, 피해 +7의 폭발을 일으킨다.",
+      unlockLevel: 1,
+      cooldown: 3,
+      targetType: "enemy",
+      rangeMin: 1,
+      rangeMax: 3,
+      effect: { kind: "attack", hitBonus: 16, damageBonus: 7, damageType: "magic" }
+    },
+    ether_spear: {
+      id: "ether_spear",
+      name: "에테르 스피어",
+      description: "사거리 2-4의 적 1명에게 명중 +15, 피해 +8의 에테르 창을 꽂는다.",
+      unlockLevel: 1,
+      cooldown: 3,
+      targetType: "enemy",
+      rangeMin: 2,
+      rangeMax: 4,
+      effect: { kind: "attack", hitBonus: 15, damageBonus: 8, damageType: "magic" }
+    },
+    meteor_call: {
+      id: "meteor_call",
+      name: "메테오 콜",
+      description: "사거리 2-5의 적 1명에게 명중 +20, 피해 +8의 유성을 낙하시킨다.",
+      unlockLevel: 1,
+      cooldown: 3,
+      targetType: "enemy",
+      rangeMin: 2,
+      rangeMax: 5,
+      effect: { kind: "attack", hitBonus: 20, damageBonus: 8, damageType: "magic" }
+    },
+    void_spear: {
+      id: "void_spear",
+      name: "보이드 스피어",
+      description: "사거리 1-4의 적 1명에게 명중 +18, 피해 +9의 공허 창을 날린다.",
+      unlockLevel: 1,
+      cooldown: 3,
+      targetType: "enemy",
+      rangeMin: 1,
+      rangeMax: 4,
+      effect: { kind: "attack", hitBonus: 18, damageBonus: 9, damageType: "magic" }
+    },
+    starfall: {
+      id: "starfall",
+      name: "스타폴",
+      description: "사거리 2-5의 적 1명에게 명중 +22, 피해 +10의 별무리를 떨어뜨린다.",
+      unlockLevel: 1,
+      cooldown: 3,
+      targetType: "enemy",
+      rangeMin: 2,
+      rangeMax: 5,
+      effect: { kind: "attack", hitBonus: 22, damageBonus: 10, damageType: "magic" }
+    },
+    cataclysm_orb: {
+      id: "cataclysm_orb",
+      name: "카타클리즘 오브",
+      description: "사거리 1-5의 적 1명에게 명중 +20, 피해 +11의 재앙 구체를 발사한다.",
+      unlockLevel: 1,
+      cooldown: 3,
+      targetType: "enemy",
+      rangeMin: 1,
+      rangeMax: 5,
+      effect: { kind: "attack", hitBonus: 20, damageBonus: 11, damageType: "magic" }
     }
   });
 
@@ -1273,7 +1575,18 @@
     lance: ["guardian_oath", "wall_stance", "holy_charge", "holy_lance"],
     bow: ["ranger_instinct", "gale_arrow", "trap_sense", "snare_bolt"],
     axe: ["berserk_blood", "reaper_swing", "doom_mark", "world_breaker"],
-    focus: ["saint_guard", "sanctuary_wave", "oracle_insight", "oracle_ray"]
+    focus: ["saint_guard", "sanctuary_wave", "oracle_insight", "oracle_ray"],
+    staff: ["mana_well", "arcane_orb", "spell_overflow", "nova_burst"]
+  };
+  const INCOMPATIBLE_SPECIAL_SKILLS_BY_WEAPON = {
+    focus: {
+      passive: ["eagle_commander"],
+      active: ["rain_of_arrows", "marked_shot"]
+    },
+    staff: {
+      passive: ["eagle_commander"],
+      active: ["rain_of_arrows", "marked_shot"]
+    }
   };
 
   const PROMOTION_SKILL_REWARDS = {
@@ -1290,6 +1603,8 @@
     워브레이커: ["doom_mark", "world_breaker"],
     비숍: ["saint_guard", "sanctuary_wave"],
     오라클: ["oracle_insight", "oracle_ray"],
+    위저드: ["mana_well", "chain_lightning"],
+    소서러: ["spell_overflow", "shadow_burst"],
     엠퍼러: ["imperial_banner", "royal_burst"],
     검성: ["blade_discipline", "meteor_strike"],
     홀리랜서: ["holy_charge", "holy_lance"],
@@ -1299,6 +1614,8 @@
     데스브링어: ["doom_mark", "world_breaker"],
     세라핌: ["saint_guard", "sanctuary_wave"],
     인퀴지터: ["oracle_insight", "apocalypse_judgment"],
+    아크메이지: ["mystic_barrier", "meteor_call"],
+    워록: ["spell_overflow", "void_spear"],
     오버로드: ["imperial_banner", "meteor_strike"],
     스타블레이드: ["blade_discipline", "meteor_strike"],
     아크랜서: ["holy_charge", "holy_lance"],
@@ -1307,8 +1624,17 @@
     나이트메어헌트: ["nightmare_trail", "nightmare_hunt"],
     월드이터: ["doom_mark", "world_breaker"],
     성녀: ["saint_guard", "sanctuary_wave"],
-    아크저지: ["oracle_insight", "apocalypse_judgment"]
+    아크저지: ["oracle_insight", "apocalypse_judgment"],
+    대현자: ["mana_well", "starfall"],
+    보이드로드: ["spell_overflow", "cataclysm_orb"]
   };
+
+  Object.assign(GROWTH_RATES, {
+    아크메이지: { maxHp: 0.58, str: 0.3, skl: 0.88, spd: 0.62, def: 0.3, mov: 0.04 },
+    워록: { maxHp: 0.56, str: 0.34, skl: 0.86, spd: 0.66, def: 0.28, mov: 0.04 },
+    대현자: { maxHp: 0.62, str: 0.32, skl: 0.92, spd: 0.64, def: 0.32, mov: 0.05 },
+    보이드로드: { maxHp: 0.6, str: 0.36, skl: 0.9, spd: 0.68, def: 0.3, mov: 0.05 }
+  });
 
   Object.assign(CLASS_WEAPON_TYPES, {
     블레이드로드: ["sword"],
@@ -1337,7 +1663,11 @@
     세라핌: ["focus"],
     인퀴지터: ["focus"],
     성녀: ["focus"],
-    아크저지: ["focus"]
+    아크저지: ["focus"],
+    아크메이지: ["staff"],
+    워록: ["staff"],
+    대현자: ["staff"],
+    보이드로드: ["staff"]
   });
 
   Object.assign(CLASS_ROLE_META, {
@@ -1367,7 +1697,11 @@
     세라핌: { role: "천사형 치유사", summary: "대규모 회복과 안정 지원에 특화된 상급 힐러입니다.", strengths: "강한 회복, 유지력, 후열 안정", caution: "직접 타격 화력은 제한적입니다." },
     인퀴지터: { role: "심판 성직자", summary: "성광 공격에 더 치우친 상급 성직자입니다.", strengths: "성속성 화력, 적 저격, 보조 회복", caution: "순수 치유량은 비숍 계열보다 낮습니다." },
     성녀: { role: "궁극 성직자", summary: "회복과 생존 지원의 정점에 선 성직자입니다.", strengths: "최상위 회복, 아군 유지, 안정성", caution: "혼자 전선을 밀기에는 화력이 부족합니다." },
-    아크저지: { role: "종말 심판자", summary: "성광 심판으로 적 핵심을 삭제하는 최상위 성직자입니다.", strengths: "긴 사거리 심판, 명중, 보조 치유", caution: "전담 탱커 없이 전면에 설 수는 없습니다." }
+    아크저지: { role: "종말 심판자", summary: "성광 심판으로 적 핵심을 삭제하는 최상위 성직자입니다.", strengths: "긴 사거리 심판, 명중, 보조 치유", caution: "전담 탱커 없이 전면에 설 수는 없습니다." },
+    아크메이지: { role: "대마도사", summary: "장거리 마도 화력을 안정적으로 퍼붓는 상급 마법사입니다.", strengths: "넓은 사거리, 높은 마공, 안정적인 후열 딜", caution: "전열이 열리면 쉽게 집중 공격당합니다." },
+    워록: { role: "공허 주술사", summary: "폭발적인 마법 피해로 적 핵심을 저격하는 암흑 마도사입니다.", strengths: "강한 순간 화력, 보스 압박, 후열 처치", caution: "생존기가 부족해 위치 실수가 치명적입니다." },
+    대현자: { role: "궁극 현자", summary: "지원과 공격을 모두 다루는 최상위 지성형 마법사입니다.", strengths: "최고 수준 INT 효율, 긴 사거리, 안정 운영", caution: "근접 난전에 끌려가면 화력을 살리기 어렵습니다." },
+    보이드로드: { role: "재앙 마도군주", summary: "공허 마법으로 전장을 찢는 최상위 파괴형 마법사입니다.", strengths: "폭발적인 마법 피해, 후열 삭제, 보스전 압박", caution: "방어가 낮아 보호 없이 오래 서기 어렵습니다." }
   });
 
   Object.assign(CLASS_SKILLS, {
@@ -1661,6 +1995,50 @@
         }
       }
     ],
+    아크메이지: [
+      {
+        id: "grand_formula",
+        name: "대마도 공식",
+        description: "2칸 이상 공격 시 명중 +10, 피해 +4",
+        unlockLevel: 1,
+        attackerEffect(context) {
+          return context.distance >= 2 ? { hitBonus: 10, attackPowerBonus: 4 } : null;
+        }
+      }
+    ],
+    워록: [
+      {
+        id: "void_brand",
+        name: "공허 낙인",
+        description: "선공 시 피해 +5, 명중 +6",
+        unlockLevel: 1,
+        attackerEffect(context) {
+          return context.isInitiator ? { attackPowerBonus: 5, hitBonus: 6 } : null;
+        }
+      }
+    ],
+    대현자: [
+      {
+        id: "sage_resonance",
+        name: "현자의 공명",
+        description: "공격 시 명중 +12, 피해 +4",
+        unlockLevel: 1,
+        attackerEffect() {
+          return { hitBonus: 12, attackPowerBonus: 4 };
+        }
+      }
+    ],
+    보이드로드: [
+      {
+        id: "abyssal_orbit",
+        name: "심연 궤도",
+        description: "공격 시 명중 +8, 피해 +6",
+        unlockLevel: 1,
+        attackerEffect() {
+          return { hitBonus: 8, attackPowerBonus: 6 };
+        }
+      }
+    ],
     아크저지: [
       {
         id: "arc_judgment",
@@ -1670,6 +2048,61 @@
         attackerEffect() {
           return { hitBonus: 12, attackPowerBonus: 3 };
         }
+      }
+    ]
+  });
+
+  Object.assign(CLASS_ACTIVE_SKILLS, {
+    아크메이지: [
+      {
+        id: "constellation_ray",
+        name: "컨스텔레이션 레이",
+        description: "사거리 2-5의 적 1명에게 명중 +20, 피해 +9의 성좌 광선을 쏜다.",
+        unlockLevel: 1,
+        cooldown: 3,
+        targetType: "enemy",
+        rangeMin: 2,
+        rangeMax: 5,
+        effect: { kind: "attack", hitBonus: 20, damageBonus: 9, damageType: "magic" }
+      }
+    ],
+    워록: [
+      {
+        id: "abyss_nova",
+        name: "어비스 노바",
+        description: "사거리 1-4의 적 1명에게 명중 +18, 피해 +10의 공허 폭발을 일으킨다.",
+        unlockLevel: 1,
+        cooldown: 3,
+        targetType: "enemy",
+        rangeMin: 1,
+        rangeMax: 4,
+        effect: { kind: "attack", hitBonus: 18, damageBonus: 10, damageType: "magic" }
+      }
+    ],
+    대현자: [
+      {
+        id: "astral_blossom",
+        name: "아스트랄 블로섬",
+        description: "사거리 2-5의 적 1명에게 명중 +22, 피해 +11의 별꽃 마법을 떨어뜨린다.",
+        unlockLevel: 1,
+        cooldown: 3,
+        targetType: "enemy",
+        rangeMin: 2,
+        rangeMax: 5,
+        effect: { kind: "attack", hitBonus: 22, damageBonus: 11, damageType: "magic" }
+      }
+    ],
+    보이드로드: [
+      {
+        id: "void_catastrophe",
+        name: "보이드 캐터스트로피",
+        description: "사거리 1-5의 적 1명에게 명중 +20, 피해 +12의 공허 재앙을 투하한다.",
+        unlockLevel: 1,
+        cooldown: 3,
+        targetType: "enemy",
+        rangeMin: 1,
+        rangeMax: 5,
+        effect: { kind: "attack", hitBonus: 20, damageBonus: 12, damageType: "magic" }
       }
     ]
   });
@@ -1707,6 +2140,10 @@
       { className: "비숍", unlockLevel: 10, description: "회복과 성광 지원을 강화한 상급 힐러.", statBonuses: { maxHp: 2, str: 1, skl: 2, spd: 1, def: 1, mov: 1 } },
       { className: "오라클", unlockLevel: 10, description: "예지와 심판 공격을 겸하는 성직자.", statBonuses: { maxHp: 1, str: 2, skl: 2, spd: 1, def: 0, mov: 1 } }
     ],
+    메이지: [
+      { className: "위저드", unlockLevel: 10, description: "정통 비전 마법을 깊게 연마한 주문사.", statBonuses: { maxHp: 1, str: 1, skl: 2, spd: 1, def: 0, mov: 1 } },
+      { className: "소서러", unlockLevel: 10, description: "폭발적인 화력과 저주 마법에 치중한 공격형 마도사.", statBonuses: { maxHp: 1, str: 1, skl: 2, spd: 2, def: 0, mov: 1 } }
+    ],
     하이로드: [{ className: "엠퍼러", unlockLevel: 30, description: "황제형 최상급 지휘관.", statBonuses: { maxHp: 3, str: 2, skl: 2, spd: 1, def: 2, mov: 1 } }],
     블레이드로드: [{ className: "검성", unlockLevel: 30, description: "검의 극의에 닿은 상급 검객.", statBonuses: { maxHp: 2, str: 2, skl: 2, spd: 2, def: 0, mov: 1 } }],
     소드마스터: [{ className: "검성", unlockLevel: 30, description: "검의 극의에 닿은 상급 검객.", statBonuses: { maxHp: 2, str: 2, skl: 2, spd: 2, def: 0, mov: 1 } }],
@@ -1720,6 +2157,8 @@
     워브레이커: [{ className: "데스브링어", unlockLevel: 30, description: "파괴를 극단까지 끌어올린 도끼수.", statBonuses: { maxHp: 3, str: 3, skl: 0, spd: 1, def: 1, mov: 0 } }],
     비숍: [{ className: "세라핌", unlockLevel: 30, description: "광역 회복과 수호에 능한 상급 성직자.", statBonuses: { maxHp: 2, str: 1, skl: 2, spd: 1, def: 1, mov: 1 } }],
     오라클: [{ className: "인퀴지터", unlockLevel: 30, description: "심판과 예지를 강화한 성직자.", statBonuses: { maxHp: 2, str: 2, skl: 2, spd: 1, def: 0, mov: 1 } }],
+    위저드: [{ className: "아크메이지", unlockLevel: 30, description: "고위 비전술을 완성한 상급 대마도사.", statBonuses: { maxHp: 2, str: 1, skl: 3, spd: 1, def: 0, mov: 1 } }],
+    소서러: [{ className: "워록", unlockLevel: 30, description: "파괴와 저주를 극대화한 상급 흑마도사.", statBonuses: { maxHp: 2, str: 1, skl: 2, spd: 2, def: 0, mov: 1 } }],
     엠퍼러: [{ className: "오버로드", unlockLevel: 70, description: "최상위 패왕형 선봉.", statBonuses: { maxHp: 4, str: 3, skl: 2, spd: 1, def: 2, mov: 1 } }],
     검성: [{ className: "스타블레이드", unlockLevel: 70, description: "별빛 검격에 도달한 궁극 검객.", statBonuses: { maxHp: 3, str: 2, skl: 3, spd: 3, def: 0, mov: 1 } }],
     홀리랜서: [{ className: "아크랜서", unlockLevel: 70, description: "성창 돌격의 정점에 선 기사.", statBonuses: { maxHp: 4, str: 2, skl: 2, spd: 1, def: 2, mov: 1 } }],
@@ -1728,7 +2167,9 @@
     그림트래퍼: [{ className: "나이트메어헌트", unlockLevel: 70, description: "악몽처럼 사라졌다 나타나는 추적자.", statBonuses: { maxHp: 2, str: 2, skl: 3, spd: 3, def: 0, mov: 1 } }],
     데스브링어: [{ className: "월드이터", unlockLevel: 70, description: "모든 방어를 찢는 재앙형 도끼수.", statBonuses: { maxHp: 4, str: 4, skl: 0, spd: 1, def: 1, mov: 0 } }],
     세라핌: [{ className: "성녀", unlockLevel: 70, description: "최상위 회복과 수호의 성직자.", statBonuses: { maxHp: 3, str: 1, skl: 2, spd: 1, def: 1, mov: 1 } }],
-    인퀴지터: [{ className: "아크저지", unlockLevel: 70, description: "종말 심판을 내리는 최상위 성직자.", statBonuses: { maxHp: 3, str: 2, skl: 3, spd: 1, def: 0, mov: 1 } }]
+    인퀴지터: [{ className: "아크저지", unlockLevel: 70, description: "종말 심판을 내리는 최상위 성직자.", statBonuses: { maxHp: 3, str: 2, skl: 3, spd: 1, def: 0, mov: 1 } }],
+    아크메이지: [{ className: "대현자", unlockLevel: 70, description: "모든 별마법을 통달한 최상위 현자.", statBonuses: { maxHp: 3, str: 1, skl: 3, spd: 2, def: 1, mov: 1 } }],
+    워록: [{ className: "보이드로드", unlockLevel: 70, description: "공허 재앙을 부리는 최상위 파괴형 마도사.", statBonuses: { maxHp: 3, str: 2, skl: 3, spd: 2, def: 0, mov: 1 } }]
   });
 
   const MAX_EQUIPPED_ACTIVE_SKILLS = 3;
@@ -1774,6 +2215,12 @@
     focus: {
       damage: { int: 0.24, luk: 0.08, dex: 0.06, vit: 0.04 },
       hit: { int: 0.48, dex: 0.28, luk: 0.16 },
+      damagePerLevel: 2,
+      hitPerLevel: 3
+    },
+    staff: {
+      damage: { int: 0.3, dex: 0.08, luk: 0.1, vit: 0.03 },
+      hit: { int: 0.52, dex: 0.24, luk: 0.18 },
       damagePerLevel: 2,
       hitPerLevel: 3
     },
@@ -2094,6 +2541,13 @@
     unit.grantedMilestoneSkillLevels = Array.isArray(unit.grantedMilestoneSkillLevels)
       ? unit.grantedMilestoneSkillLevels
       : [];
+    const classWeaponType = getClassWeaponType(unit.className);
+    const incompatibleSkills = INCOMPATIBLE_SPECIAL_SKILLS_BY_WEAPON[classWeaponType] || null;
+
+    if (incompatibleSkills) {
+      unit.specialSkillIds = unit.specialSkillIds.filter((skillId) => !(incompatibleSkills.passive || []).includes(skillId));
+      unit.specialActiveSkillIds = unit.specialActiveSkillIds.filter((skillId) => !(incompatibleSkills.active || []).includes(skillId));
+    }
 
     if (!Array.isArray(unit.learnedSkillIds)) {
       unit.learnedSkillIds = (CLASS_SKILLS[unit.className] || [])

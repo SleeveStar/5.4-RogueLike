@@ -33,6 +33,20 @@
     return document.getElementById(id);
   }
 
+  function escapeAttribute(value) {
+    return String(value || "")
+      .replace(/&/g, "&amp;")
+      .replace(/"/g, "&quot;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;");
+  }
+
+  function buildPrimaryStatMetaPill(statName, value, previewDelta) {
+    const label = StatsService.PRIMARY_STAT_LABELS[statName];
+    const draftValue = Number(previewDelta || 0);
+    return `<span class="meta-pill stat-tooltip-pill ${draftValue > 0 ? "is-preview-up" : ""}" data-stat-tooltip="${escapeAttribute(StatsService.getPrimaryStatDescription(statName))}">${label} ${value}${draftValue > 0 ? ` (+${draftValue})` : ""}</span>`;
+  }
+
   function createEmptyProgressionDraft() {
     return {
       stats: {
@@ -82,6 +96,7 @@
       '    <span class="meta-pill is-cyan">탑다운 고정 시점</span>',
       '    <span class="meta-pill">랜덤 던전 보드</span>',
       "  </div>",
+      '  <div id="battle-turn-counter" class="battle-turn-counter">TURN 1</div>',
       '  <div class="battle-toolbar-actions">',
       '    <button id="battle-stage-info-button" class="ghost-button" type="button">스테이지 정보</button>',
       '    <button id="battle-end-turn-button" class="secondary-button" type="button">턴 종료</button>',
@@ -273,6 +288,73 @@
 
   function escapeRegExp(value) {
     return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  }
+
+  function compactBattleInfoText(text, maxLength) {
+    if (!text) {
+      return "-";
+    }
+
+    const normalized = String(text).replace(/\s+/g, " ").trim();
+    const sentence = normalized.split(/[.!?]/)[0].trim() || normalized;
+
+    if (sentence.length <= maxLength) {
+      return sentence;
+    }
+
+    return `${sentence.slice(0, Math.max(0, maxLength - 1)).trim()}…`;
+  }
+
+  function getBattleMatchupSummary(unit) {
+    const weaponType = unit && unit.weapon ? unit.weapon.type : "";
+
+    if (weaponType === "sword") {
+      return "강함: 저명중 근접, 도끼형 / 약함: 창 전열, 장거리 견제";
+    }
+
+    if (weaponType === "lance") {
+      return "강함: 근접 난전, 길목 방어 / 약함: 고화력 도끼, 원거리 집중사격";
+    }
+
+    if (weaponType === "bow") {
+      return "강함: 느린 전열, 근접 병종 / 약함: 돌진형 적, 인접전";
+    }
+
+    if (weaponType === "focus") {
+      return "강함: 유지전, 아군 지원 / 약함: 돌진 암살, 직접 난전";
+    }
+
+    if (weaponType === "axe") {
+      return "강함: 중장, 고체력 적 / 약함: 고회피 적, 선공 견제";
+    }
+
+    return "강함: 역할 맞는 교전 / 약함: 상성 불리한 정면전";
+  }
+
+  function getBattleCautionSummary(unit) {
+    const weaponType = unit && unit.weapon ? unit.weapon.type : "";
+
+    if (weaponType === "bow") {
+      return "체력이 낮은 편. 후열에서 사거리 유지.";
+    }
+
+    if (weaponType === "focus") {
+      return "직접 맞으면 약함. 전열 뒤에서 운용.";
+    }
+
+    if (weaponType === "lance") {
+      return "추격은 둔함. 길목이나 전열 유지에 집중.";
+    }
+
+    if (weaponType === "axe") {
+      return "명중이 흔들릴 수 있음. 느린 적부터 압박.";
+    }
+
+    if (weaponType === "sword") {
+      return "균형형이지만 원거리 압박엔 약함. 접근전 유도.";
+    }
+
+    return "병종 장점이 살아나는 거리와 위치를 유지.";
   }
 
   function findSpecialActorFromLogs(logs, units) {
@@ -579,10 +661,13 @@
 
   function renderToolbar(snapshot) {
     const endTurnButton = getElement("battle-end-turn-button");
+    const turnCounter = getElement("battle-turn-counter");
 
-    if (!endTurnButton) {
+    if (!endTurnButton || !turnCounter) {
       return;
     }
+
+    turnCounter.textContent = snapshot && snapshot.battle ? `TURN ${snapshot.battle.turnNumber}` : "TURN -";
 
     if (snapshot && snapshot.battle && snapshot.battle.victoryCondition === "support_complete") {
       endTurnButton.textContent = snapshot.battle.pendingChoice ? "보상 선택 필요" : "다음 층 진행";
@@ -602,29 +687,22 @@
       return;
     }
 
-    const alliesAlive = snapshot.battle.units.filter((unit) => unit.team === "ally" && unit.alive).length;
-    const enemiesAlive = snapshot.battle.units.filter((unit) => unit.team === "enemy" && unit.alive).length;
-    const eliteCount = snapshot.battle.units.filter((unit) => unit.team === "enemy" && unit.alive && unit.isElite).length;
     const selectedUnit = getSelectedUnit(snapshot);
-    const bossUnit = snapshot.battle.bossUnitId
-      ? snapshot.battle.units.find((unit) => unit.id === snapshot.battle.bossUnitId)
-      : null;
-    const endlessCurrentRun = snapshot.battle.stageId === "endless-rift" && snapshot.saveData
-      ? BattleService.getEndlessCurrentRunSummary(snapshot.saveData)
-      : null;
-    const activeChain = endlessCurrentRun && endlessCurrentRun.chainState ? endlessCurrentRun.chainState : null;
+    const classProfile = selectedUnit ? SkillsService.getClassProfile(selectedUnit) : null;
 
-    target.textContent = [
-      `페이즈: ${snapshot.battle.phase === "player" ? "아군 턴" : "적 턴"}`,
-      `턴 수: ${snapshot.battle.turnNumber}`,
-      `진행: ${BattleService.getVictoryProgressText()}`,
-      `전장 규칙: ${snapshot.battle.specialRule ? snapshot.battle.specialRule.name : "없음"}`,
-      `보스: ${bossUnit && bossUnit.alive ? `${bossUnit.name} (${bossUnit.hp}/${bossUnit.maxHp})` : "없음"}`,
-      `생존: 아군 ${alliesAlive} / 적 ${enemiesAlive}`,
-      activeChain ? `연속 사건: ${activeChain.name}` : "",
-      endlessCurrentRun ? `현재 런: 처치 ${endlessCurrentRun.enemiesDefeated} / 정예 ${endlessCurrentRun.eliteDefeated}` : "",
-      selectedUnit ? `선택 유닛: ${selectedUnit.name}` : ""
-    ].filter(Boolean).join("\n");
+    target.innerHTML = [
+      '<div class="turn-info-stack">',
+      selectedUnit && classProfile ? [
+        '  <div class="turn-info-class-card">',
+        `    <strong>${selectedUnit.name}</strong>`,
+        `    <div class="turn-info-class-line">${selectedUnit.className}</div>`,
+        `    <p><span>병종</span>${classProfile.role}</p>`,
+        `    <p><span>상성</span>${getBattleMatchupSummary(selectedUnit)}</p>`,
+        `    <p><span>운용 주의</span>${getBattleCautionSummary(selectedUnit)}</p>`,
+        "  </div>"
+      ].join("") : '  <p class="empty-copy">유닛을 선택하면 병종 요약이 표시됩니다.</p>',
+      "</div>"
+    ].filter(Boolean).join("");
   }
 
   function openBattleInfoModal() {
@@ -711,7 +789,6 @@
     const activeSkillText = BattleService.getActiveSkills(selectedUnit)
       .map((skill) => `${skill.name} Lv.${skill.skillLevel} (${skill.cooldownRemaining > 0 ? `${skill.cooldownRemaining}턴` : "준비"})`)
       .join(", ") || "없음";
-    const classProfile = SkillsService.getClassProfile(selectedUnit);
     const statusText = formatStatusEffects(selectedUnit);
     const committedMove = snapshot.ui.pendingMove && snapshot.ui.pendingMove.unitId === selectedUnit.id
       ? snapshot.ui.pendingMove
@@ -824,11 +901,7 @@
       `    <div class="resource-bar hp"><span class="bar-fill" style="width:${Math.max(0, Math.min(100, (selectedUnit.hp / Math.max(1, selectedUnit.maxHp)) * 100))}%"></span></div>`,
       `    <div class="resource-bar exp"><span class="bar-fill" style="width:${Math.max(0, Math.min(100, selectedUnit.exp || 0))}%"></span></div>`,
       "  </div>",
-      `  <div class="detail-stats">${StatsService.PRIMARY_STATS.map((statName) => `<span class="meta-pill ${Number((draft.stats && draft.stats[statName]) || 0) > 0 ? "is-preview-up" : ""}">${StatsService.PRIMARY_STAT_LABELS[statName]} ${previewPrimaryStats[statName]}${Number((draft.stats && draft.stats[statName]) || 0) > 0 ? ` (+${draft.stats[statName]})` : ""}</span>`).join("")}</div>`,
-      "  <p>히든 전투 수치는 내부 계산으로만 적용됩니다.</p>",
-      `  <p>병종: ${classProfile.role} / ${classProfile.summary}</p>`,
-      `  <p>상성: ${classProfile.matchup}</p>`,
-      `  <p>운용 주의: ${classProfile.caution}</p>`,
+      `  <div class="detail-stats">${StatsService.PRIMARY_STATS.map((statName) => buildPrimaryStatMetaPill(statName, previewPrimaryStats[statName], draft.stats && draft.stats[statName])).join("")}</div>`,
       `  <p>위치: ${terrainLabel}${elevation > 0 ? ` / 고도 ${elevation}` : ""}${effectiveRange && effectiveRange.bonus > 0 ? ` / 사거리 +${effectiveRange.bonus}` : ""}</p>`,
       selectedUnit.eliteTraitName ? `  <p>정예 특성: ${selectedUnit.eliteTraitName}</p>` : "",
       `  <p>무기: ${weaponText}</p>`,
@@ -1237,7 +1310,8 @@
         attackerElevation: getMapElevation(snapshot, selectedUnit.x, selectedUnit.y),
         defenderElevation: getMapElevation(snapshot, hoveredUnit.x, hoveredUnit.y),
         phase: snapshot.battle.phase,
-        isInitiator: true
+        isInitiator: true,
+        damageType: skill.effect.damageType || null
       });
 
       if (!basePreview.canAttack) {
@@ -1789,7 +1863,7 @@
       "<p>히든 전투 수치는 눈에 보이지 않지만, 아래 기본 스탯과 스킬 배분에 따라 내부에서 자동으로 상승합니다.</p>",
       '<div class="detail-stats">',
       StatsService.PRIMARY_STATS.map((statName) => (
-        `<span class="meta-pill ${Number((draft.stats && draft.stats[statName]) || 0) > 0 ? "is-preview-up" : ""}">${StatsService.PRIMARY_STAT_LABELS[statName]} ${previewPrimaryStats[statName]}${Number((draft.stats && draft.stats[statName]) || 0) > 0 ? ` (+${draft.stats[statName]})` : ""}</span>`
+        buildPrimaryStatMetaPill(statName, previewPrimaryStats[statName], draft.stats && draft.stats[statName])
       )).join(""),
       "</div>",
       '<div class="modal-list">'
