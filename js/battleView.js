@@ -19,6 +19,7 @@
     overlayTimer: null,
     cutInTimer: null,
     centeredBattleId: null,
+    progressionDrafts: {},
     panState: {
       active: false,
       startClientX: 0,
@@ -30,6 +31,39 @@
 
   function getElement(id) {
     return document.getElementById(id);
+  }
+
+  function createEmptyProgressionDraft() {
+    return {
+      stats: {
+        str: 0,
+        dex: 0,
+        vit: 0,
+        int: 0,
+        luk: 0
+      },
+      skillIds: []
+    };
+  }
+
+  function getProgressionDraft(unitId) {
+    if (!viewState.progressionDrafts[unitId]) {
+      viewState.progressionDrafts[unitId] = createEmptyProgressionDraft();
+    }
+
+    return viewState.progressionDrafts[unitId];
+  }
+
+  function clearProgressionDraft(unitId) {
+    delete viewState.progressionDrafts[unitId];
+  }
+
+  function countDraftStats(draft) {
+    return StatsService.PRIMARY_STATS.reduce((sum, statName) => sum + Number((draft.stats && draft.stats[statName]) || 0), 0);
+  }
+
+  function countDraftSkills(draft) {
+    return Array.isArray(draft.skillIds) ? draft.skillIds.length : 0;
   }
 
   function init(config) {
@@ -165,6 +199,14 @@
     gain.connect(context.destination);
     oscillator.start(now);
     oscillator.stop(now + preset.duration + 0.02);
+  }
+
+  function getTerrainLabel(tileType) {
+    return tileType === "forest" ? "숲" : tileType === "hill" ? "고지" : tileType === "wall" ? "벽" : "평지";
+  }
+
+  function formatMoveCost(moveCost) {
+    return moveCost === Infinity ? "이동 불가" : `${moveCost}`;
   }
 
   function pulseBattleScene(effectType, label) {
@@ -319,7 +361,7 @@
       playUiTone(isVictory ? "victory" : "defeat");
       pulseBattleScene(isVictory ? "victory" : "defeat", isVictory ? "VICTORY" : "DEFEAT");
       if (!isVictory) {
-        showBattleCutIn("defeat", "Collapse", "전열 붕괴", "주인공이 쓰러졌습니다");
+        showBattleCutIn("defeat", "Collapse", "전열 붕괴", "리더가 쓰러졌습니다");
       }
       return;
     }
@@ -401,6 +443,7 @@
     viewState.sessionRef = session;
     viewState.aiRunning = false;
     viewState.statusAnnounced = null;
+    viewState.progressionDrafts = {};
     BattleService.launch({
       userId: session.userId,
       saveData: session.saveData,
@@ -418,6 +461,7 @@
     viewState.sessionRef = session;
     viewState.aiRunning = false;
     viewState.statusAnnounced = null;
+    viewState.progressionDrafts = {};
     BattleService.launch({
       userId: session.userId,
       saveData: session.saveData,
@@ -656,7 +700,7 @@
     const elevation = snapshot.battle.map.elevations && snapshot.battle.map.elevations[selectedUnit.y]
       ? snapshot.battle.map.elevations[selectedUnit.y][selectedUnit.x] || 0
       : 0;
-    const terrainLabel = tileType === "forest" ? "숲" : tileType === "hill" ? "고지" : tileType === "wall" ? "벽" : "평지";
+    const terrainLabel = getTerrainLabel(tileType);
     const effectiveRange = selectedUnit.weapon
       ? CombatService.getEffectiveWeaponRange(selectedUnit, {
         attackerTileType: tileType,
@@ -665,9 +709,22 @@
       })
       : null;
     const activeSkillText = BattleService.getActiveSkills(selectedUnit)
-      .map((skill) => `${skill.name}(${skill.cooldownRemaining > 0 ? `${skill.cooldownRemaining}턴` : "준비"})`)
+      .map((skill) => `${skill.name} Lv.${skill.skillLevel} (${skill.cooldownRemaining > 0 ? `${skill.cooldownRemaining}턴` : "준비"})`)
       .join(", ") || "없음";
+    const classProfile = SkillsService.getClassProfile(selectedUnit);
     const statusText = formatStatusEffects(selectedUnit);
+    const committedMove = snapshot.ui.pendingMove && snapshot.ui.pendingMove.unitId === selectedUnit.id
+      ? snapshot.ui.pendingMove
+      : null;
+    const movePreview = snapshot.ui.movePreview && snapshot.ui.movePreview.unitId === selectedUnit.id
+      ? snapshot.ui.movePreview
+      : null;
+    const draft = getProgressionDraft(selectedUnit.id);
+    const previewUnit = StatsService.previewUnitWithStatDraft(selectedUnit, draft.stats);
+    const previewPrimaryStats = StatsService.getPrimaryStats(previewUnit);
+    const spentStats = countDraftStats(draft);
+    const spentSkills = countDraftSkills(draft);
+    const remainingMovement = Math.max(0, selectedUnit.mov - Number(committedMove ? committedMove.spentCost : 0));
     const badgeLine = [
       `Lv.${selectedUnit.level}`,
       `HP ${selectedUnit.hp}/${selectedUnit.maxHp}`,
@@ -720,26 +777,40 @@
           ? "공격 대상 선택: 적 타일을 클릭하면 기본 공격을 실행합니다."
           : "공격 취소: 빈 타일을 클릭하거나 공격 버튼을 다시 누르세요."
       )
+      : movePreview
+        ? `이동 미리보기: (${movePreview.x}, ${movePreview.y}) / 이번 경로 비용 ${movePreview.cost} / 총 이동 ${movePreview.totalCost} / 남은 이동 ${movePreview.remainingMovement}.`
       : snapshot.ui.pendingMove && snapshot.ui.pendingMove.unitId === selectedUnit.id
         ? (
-          snapshot.ui.attackableTargetIds.length
-            ? "행동 선택: 공격 버튼을 누른 뒤 적 타일을 클릭하세요. 대기, 이동 취소, 스킬도 사용할 수 있습니다."
-            : "행동 선택: 현재 유닛을 한 번 더 클릭하면 대기합니다. 또는 이동 취소/스킬/소모품을 선택하세요."
+          remainingMovement > 0
+            ? `이동이 확정되었습니다. 남은 이동 ${remainingMovement}칸 범위 안에서 추가 이동을 미리본 뒤 다시 확정할 수 있습니다.`
+            : "이동이 확정되었습니다. 이제 공격, 스킬, 아이템 또는 행동 확정을 선택하세요."
         )
         : "";
 
     const actionButtons = selectedUnit.team === "ally"
       ? (() => {
           const locked = selectedUnit.acted || snapshot.battle.phase !== "player" ? "disabled" : "";
+          const undoDisabled = snapshot.ui.pendingMove || movePreview ? "" : "disabled";
+
+          if (movePreview) {
+            return [
+              '<div class="unit-action-row">',
+              '  <button class="primary-button attention-button small-button" type="button" data-action="confirm-move">이동 확정</button>',
+              '  <button class="ghost-button attention-button small-button" type="button" data-action="cancel-preview">미리보기 취소</button>',
+              `  <button class="ghost-button small-button" type="button" data-action="undo" ${undoDisabled}>원위치 복귀</button>`,
+              "</div>"
+            ].join("");
+          }
+
           return [
             '<div class="unit-action-row">',
             `  <button class="secondary-button small-button" type="button" data-action="attack" ${locked}>${snapshot.ui.pendingAttack ? "공격 취소" : "공격"}</button>`,
-            `  <button class="secondary-button small-button" type="button" data-action="wait" ${locked}>대기</button>`,
-            `  <button class="ghost-button small-button" type="button" data-action="undo" ${snapshot.ui.pendingMove ? "" : "disabled"}>이동 취소</button>`,
+            `  <button class="primary-button attention-button small-button" type="button" data-action="wait" ${locked}>행동 확정</button>`,
+            `  <button class="ghost-button attention-button small-button" type="button" data-action="undo" ${undoDisabled}>원위치 복귀</button>`,
             `  <button class="ghost-button small-button" type="button" data-action="skill" ${locked}>스킬</button>`,
             `  <button class="ghost-button small-button" type="button" data-action="item" ${locked}>소모품</button>`,
             '  <button class="ghost-button small-button" type="button" data-action="inventory">장착/인벤토리</button>',
-            '  <button class="ghost-button small-button" type="button" data-action="stats">스탯 분배</button>',
+            '  <button class="ghost-button small-button" type="button" data-action="stats">성장 배분</button>',
             "</div>"
           ].join("");
         })()
@@ -753,7 +824,11 @@
       `    <div class="resource-bar hp"><span class="bar-fill" style="width:${Math.max(0, Math.min(100, (selectedUnit.hp / Math.max(1, selectedUnit.maxHp)) * 100))}%"></span></div>`,
       `    <div class="resource-bar exp"><span class="bar-fill" style="width:${Math.max(0, Math.min(100, selectedUnit.exp || 0))}%"></span></div>`,
       "  </div>",
-      `  <p>STR ${selectedUnit.str} / SKL ${selectedUnit.skl} / SPD ${selectedUnit.spd} / DEF ${selectedUnit.def} / MOV ${selectedUnit.mov}</p>`,
+      `  <div class="detail-stats">${StatsService.PRIMARY_STATS.map((statName) => `<span class="meta-pill ${Number((draft.stats && draft.stats[statName]) || 0) > 0 ? "is-preview-up" : ""}">${StatsService.PRIMARY_STAT_LABELS[statName]} ${previewPrimaryStats[statName]}${Number((draft.stats && draft.stats[statName]) || 0) > 0 ? ` (+${draft.stats[statName]})` : ""}</span>`).join("")}</div>`,
+      "  <p>히든 전투 수치는 내부 계산으로만 적용됩니다.</p>",
+      `  <p>병종: ${classProfile.role} / ${classProfile.summary}</p>`,
+      `  <p>상성: ${classProfile.matchup}</p>`,
+      `  <p>운용 주의: ${classProfile.caution}</p>`,
       `  <p>위치: ${terrainLabel}${elevation > 0 ? ` / 고도 ${elevation}` : ""}${effectiveRange && effectiveRange.bonus > 0 ? ` / 사거리 +${effectiveRange.bonus}` : ""}</p>`,
       selectedUnit.eliteTraitName ? `  <p>정예 특성: ${selectedUnit.eliteTraitName}</p>` : "",
       `  <p>무기: ${weaponText}</p>`,
@@ -761,7 +836,13 @@
       statusText !== "없음" ? `  <p>상태: ${statusText}</p>` : "",
       postMoveHint ? `  <p class="action-hint">${postMoveHint}</p>` : "",
       attackPreviewText ? `  <div class="preview-list">${attackPreviewText}</div>` : "",
-      (selectedUnit.statPoints || 0) > 0 ? `  <p>남은 스탯 포인트: ${selectedUnit.statPoints || 0}</p>` : "",
+      committedMove ? `  <p>확정 이동 누적: ${committedMove.spentCost} / ${selectedUnit.mov}</p>` : "",
+      selectedUnit.team === "ally" && ((selectedUnit.statPoints || 0) > 0 || (selectedUnit.skillPoints || 0) > 0)
+        ? `  <p>남은 성장 포인트: 스탯 ${Math.max(0, (selectedUnit.statPoints || 0) - spentStats)} / 스킬 ${Math.max(0, (selectedUnit.skillPoints || 0) - spentSkills)}</p>`
+        : "",
+      selectedUnit.team === "ally" && (spentStats || spentSkills)
+        ? `  <p class="action-hint">예약 중: 스탯 ${spentStats} / 스킬 ${spentSkills}. 성장 배분 창에서 확정해야 적용됩니다.</p>`
+        : "",
       actionButtons,
       "</div>"
     ].filter(Boolean).join("");
@@ -783,7 +864,25 @@
     }
 
     if (action === "wait") {
-      BattleService.waitSelectedUnit();
+      try {
+        BattleService.waitSelectedUnit();
+      } catch (error) {
+        viewState.config.showToast(error.message, true);
+      }
+      return;
+    }
+
+    if (action === "confirm-move") {
+      try {
+        BattleService.commitMovePreview();
+      } catch (error) {
+        viewState.config.showToast(error.message, true);
+      }
+      return;
+    }
+
+    if (action === "cancel-preview") {
+      BattleService.cancelMovePreview();
       return;
     }
 
@@ -969,6 +1068,8 @@
 
     const tileMarkup = [];
     const selectedUnit = getSelectedUnit(snapshot);
+    const movePreview = snapshot.ui.movePreview || null;
+    const previewPathKeys = new Set((movePreview && Array.isArray(movePreview.path) ? movePreview.path : []).map((step) => `${step.x},${step.y}`));
 
     for (let y = 0; y < snapshot.battle.map.height; y += 1) {
       for (let x = 0; x < snapshot.battle.map.width; x += 1) {
@@ -980,12 +1081,15 @@
         const classes = ["battle-tile", `tile-${tileType}`];
         const isReachable = snapshot.ui.reachableTiles.some((tile) => tile.x === x && tile.y === y);
         const isAttack = snapshot.ui.attackTiles.some((tile) => tile.x === x && tile.y === y);
+        const isSkillTile = snapshot.ui.skillTiles.some((tile) => tile.x === x && tile.y === y);
         const isSkillTarget = unit && snapshot.ui.skillTargetIds.includes(unit.id);
         const reachableTile = snapshot.ui.reachableTiles.find((tile) => tile.x === x && tile.y === y) || null;
         const canPreviewAttack = !!(unit && unit.team === "enemy" && snapshot.ui.attackableTargetIds.includes(unit.id) && selectedUnit && selectedUnit.team === "ally");
         const counterPreview = canPreviewAttack ? BattleService.calculateCounterPreview(selectedUnit, unit) : null;
         const marker = snapshot.battle.map.markers.find((entry) => entry.x === x && entry.y === y) || null;
         const tileStyle = [`--tile-level:${elevation}`].join(";");
+        const isMovePreviewPath = previewPathKeys.has(`${x},${y}`);
+        const isMovePreviewTarget = !!(movePreview && movePreview.x === x && movePreview.y === y);
 
         if (selectedUnit && selectedUnit.x === x && selectedUnit.y === y) {
           classes.push("is-selected");
@@ -995,8 +1099,20 @@
           classes.push("is-reachable");
         }
 
+        if (isMovePreviewPath) {
+          classes.push("is-preview-path");
+        }
+
+        if (isMovePreviewTarget) {
+          classes.push("is-preview-path-end");
+        }
+
         if (isAttack) {
           classes.push("is-attack");
+        }
+
+        if (isSkillTile) {
+          classes.push("is-skill-range");
         }
 
         if (canPreviewAttack) {
@@ -1006,6 +1122,14 @@
 
         if (isSkillTarget) {
           classes.push("is-skill-target");
+        }
+
+        if (unit && isAttack) {
+          classes.push("has-attack-highlighted-unit");
+        }
+
+        if (unit && (isSkillTile || isSkillTarget)) {
+          classes.push("has-skill-highlighted-unit");
         }
 
         if (unit) {
@@ -1027,6 +1151,13 @@
             `    <span class="tile-unit-name">${unit.name}${unit.isBoss ? "★" : unit.isElite ? "◆" : ""}</span>`,
             `    <small>${unit.hp}</small>`,
             `    <span class="tile-unit-bar"><span style="width:${Math.max(0, Math.min(100, (unit.hp / Math.max(1, unit.maxHp)) * 100))}%"></span></span>`,
+            "  </span>"
+          ].join("") : "",
+          !unit && isMovePreviewTarget && selectedUnit && movePreview && movePreview.unitId === selectedUnit.id ? [
+            '  <span class="tile-unit ally ghost previewing">',
+            `    <span class="tile-unit-name">${selectedUnit.name}</span>`,
+            `    <small>예상</small>`,
+            '    <span class="tile-unit-bar"><span style="width:100%"></span></span>',
             "  </span>"
           ].join("") : "",
           marker ? `  <span class="tile-marker tile-marker-${marker.type}">${marker.label}</span>` : "",
@@ -1054,7 +1185,7 @@
         );
 
         applyMovePathPreview(hoveredTile ? hoveredTile.path : []);
-        renderHoverPreview(snapshot, hoveredUnit, button);
+        renderHoverPreview(snapshot, hoveredUnit, button, Number(button.dataset.x), Number(button.dataset.y));
       });
 
       button.addEventListener("mouseleave", () => {
@@ -1062,6 +1193,115 @@
         hideHoverPreview();
       });
     });
+  }
+
+  function clamp(value, min, max) {
+    return Math.max(min, Math.min(max, value));
+  }
+
+  function getMapTileType(snapshot, x, y) {
+    return snapshot.battle.map.tiles[y] && snapshot.battle.map.tiles[y][x]
+      ? snapshot.battle.map.tiles[y][x]
+      : "plain";
+  }
+
+  function getMapElevation(snapshot, x, y) {
+    return snapshot.battle.map.elevations && snapshot.battle.map.elevations[y]
+      ? snapshot.battle.map.elevations[y][x] || 0
+      : 0;
+  }
+
+  function getPendingSkillPreview(snapshot, selectedUnit, hoveredUnit) {
+    if (
+      !snapshot ||
+      !selectedUnit ||
+      !hoveredUnit ||
+      !snapshot.ui.pendingSkillId ||
+      !snapshot.ui.skillTargetIds.includes(hoveredUnit.id)
+    ) {
+      return null;
+    }
+
+    const skill = BattleService.getActiveSkills(selectedUnit).find((entry) => entry.id === snapshot.ui.pendingSkillId);
+
+    if (!skill) {
+      return null;
+    }
+
+    const performance = SkillsService.getSkillPerformance(selectedUnit, skill);
+
+    if (skill.effect.kind === "attack") {
+      const basePreview = CombatService.calculatePreview(selectedUnit, hoveredUnit, {
+        attackerTileType: getMapTileType(snapshot, selectedUnit.x, selectedUnit.y),
+        defenderTileType: getMapTileType(snapshot, hoveredUnit.x, hoveredUnit.y),
+        attackerElevation: getMapElevation(snapshot, selectedUnit.x, selectedUnit.y),
+        defenderElevation: getMapElevation(snapshot, hoveredUnit.x, hoveredUnit.y),
+        phase: snapshot.battle.phase,
+        isInitiator: true
+      });
+
+      if (!basePreview.canAttack) {
+        return {
+          skill,
+          lines: ["<span>현재 무기로는 이 스킬을 연결할 수 없습니다.</span>"]
+        };
+      }
+
+      const skillHitBonus = performance && performance.kind === "attack"
+        ? performance.hitBonus
+        : Number(skill.effect.hitBonus || 0);
+      const skillDamageBonus = performance && performance.kind === "attack"
+        ? performance.damageBonus
+        : Number(skill.effect.damageBonus || 0);
+      const hitRate = clamp((basePreview.hitRate || 0) + skillHitBonus, 5, 100);
+      const damage = Math.max(0, (basePreview.damage || 0) + skillDamageBonus);
+      const critRate = clamp(basePreview.critRate || 0, 0, 100);
+      const critMultiplier = Number(basePreview.critMultiplier || 1.5);
+      const critDamage = Math.max(damage, Math.round(damage * critMultiplier));
+      const expectedDamage = Math.round((hitRate / 100) * (
+        damage + ((critRate / 100) * Math.max(0, critDamage - damage))
+      ));
+
+      return {
+        skill,
+        lines: [
+          `<span>${skill.name}: 명중 ${hitRate}% / 예상 피해 ${damage}</span>`,
+          `<span>평균 기대값 ${expectedDamage} / 치명 ${critRate}% 시 ${critDamage}</span>`,
+          `<span>마무리 예상: ${damage >= hoveredUnit.hp ? "처치 가능" : `${Math.max(0, hoveredUnit.hp - damage)} HP 남음`}</span>`
+        ]
+      };
+    }
+
+    if (skill.effect.kind === "heal") {
+      const amount = Math.min(
+        performance && performance.kind === "heal" ? performance.amount : Number(skill.effect.amount || 0),
+        Math.max(0, hoveredUnit.maxHp - hoveredUnit.hp)
+      );
+
+      return {
+        skill,
+        lines: [
+          `<span>${skill.name}: 회복 예상 ${amount}</span>`,
+          `<span>적용 후 HP ${Math.min(hoveredUnit.maxHp, hoveredUnit.hp + amount)} / ${hoveredUnit.maxHp}</span>`
+        ]
+      };
+    }
+
+    if (skill.effect.kind === "buff") {
+      const summary = performance && performance.kind === "buff"
+        ? performance.currentSummary
+        : "버프 수치 없음";
+
+      return {
+        skill,
+        lines: [
+          `<span>${skill.name}: ${summary}</span>`,
+          `<span>현재 대상에게 적용될 강화 효과를 미리 본 값입니다.</span>`
+        ]
+      };
+    }
+
+    return null;
   }
 
   function maybeCenterBattleScene(snapshot) {
@@ -1078,41 +1318,68 @@
     });
   }
 
-  function renderHoverPreview(snapshot, hoveredUnit, anchorElement) {
+  function renderHoverPreview(snapshot, hoveredUnit, anchorElement, tileX, tileY) {
     const target = getElement("battle-hover-preview");
     const selectedUnit = getSelectedUnit(snapshot);
+    const resolvedX = Number.isFinite(tileX) ? tileX : (hoveredUnit ? hoveredUnit.x : null);
+    const resolvedY = Number.isFinite(tileY) ? tileY : (hoveredUnit ? hoveredUnit.y : null);
 
-    if (!target || !selectedUnit || !hoveredUnit || hoveredUnit.team !== "enemy") {
+    if (!target || resolvedX === null || resolvedY === null) {
       hideHoverPreview();
       return;
     }
 
-    const canAttack = snapshot.ui.attackableTargetIds.includes(hoveredUnit.id);
+    const tileType = getMapTileType(snapshot, resolvedX, resolvedY);
+    const terrain = CombatService.getTerrainModifier(tileType);
+    const elevation = getMapElevation(snapshot, resolvedX, resolvedY);
+    const marker = snapshot.battle.map.markers.find((entry) => entry.x === resolvedX && entry.y === resolvedY) || null;
+    const occupant = hoveredUnit || snapshot.battle.units.find((entry) => entry.alive && entry.x === resolvedX && entry.y === resolvedY) || null;
+    const lines = [
+      `<strong>${getTerrainLabel(tileType)} 타일</strong>`,
+      `<span>방어 보정 ${terrain.defense} / 회피 보정 ${terrain.avoid}</span>`,
+      `<span>이동 비용 ${formatMoveCost(terrain.moveCost)} / 고도 ${elevation}</span>`
+    ];
 
-    if (!canAttack) {
-      hideHoverPreview();
-      return;
+    if (marker) {
+      lines.push(`<span>표식: ${marker.label}</span>`);
     }
 
-    const attackerTileType = snapshot.battle.map.tiles[selectedUnit.y][selectedUnit.x];
-    const defenderTileType = snapshot.battle.map.tiles[hoveredUnit.y][hoveredUnit.x];
-    const preview = CombatService.calculatePreview(selectedUnit, hoveredUnit, {
-      attackerTileType,
-      defenderTileType,
-      attackerElevation: snapshot.battle.map.elevations[selectedUnit.y][selectedUnit.x] || 0,
-      defenderElevation: snapshot.battle.map.elevations[hoveredUnit.y][hoveredUnit.x] || 0,
-      phase: snapshot.battle.phase,
-      isInitiator: true
-    });
-    const counterPreview = BattleService.calculateCounterPreview(selectedUnit, hoveredUnit);
+    if (occupant) {
+      lines.push(`<span>점유 유닛: ${occupant.name} (${occupant.team === "ally" ? "아군" : "적"})</span>`);
+    }
+
+    if (
+      selectedUnit &&
+      hoveredUnit &&
+      hoveredUnit.team === "enemy" &&
+      snapshot.ui.attackableTargetIds.includes(hoveredUnit.id)
+    ) {
+      const preview = CombatService.calculatePreview(selectedUnit, hoveredUnit, {
+        attackerTileType: getMapTileType(snapshot, selectedUnit.x, selectedUnit.y),
+        defenderTileType: getMapTileType(snapshot, hoveredUnit.x, hoveredUnit.y),
+        attackerElevation: getMapElevation(snapshot, selectedUnit.x, selectedUnit.y),
+        defenderElevation: getMapElevation(snapshot, hoveredUnit.x, hoveredUnit.y),
+        phase: snapshot.battle.phase,
+        isInitiator: true
+      });
+      const counterPreview = BattleService.calculateCounterPreview(selectedUnit, hoveredUnit);
+
+      lines.push(`<span class="hover-preview-divider">전투 예상</span>`);
+      lines.push(`<span>공격: 명중 ${preview.hitRate}% / 예상 피해 ${preview.damage}</span>`);
+      lines.push(`<span>치명: ${preview.critRate || 0}% / 치명 피해 ${preview.critDamage || preview.damage}</span>`);
+      lines.push(`<span>반격: ${counterPreview.canCounter ? `명중 ${counterPreview.hitRate}% / 피해 ${counterPreview.damage}` : "없음"}</span>`);
+      lines.push(`<span>전투 보정: ${preview.elevationNote || (preview.forestAvoidBonus ? "숲 회피" : "없음")}</span>`);
+    }
+
+    const pendingSkillPreview = getPendingSkillPreview(snapshot, selectedUnit, hoveredUnit);
+
+    if (pendingSkillPreview) {
+      lines.push(`<span class="hover-preview-divider">스킬 예상</span>`);
+      pendingSkillPreview.lines.forEach((line) => lines.push(line));
+    }
 
     target.classList.remove("hidden");
-    target.innerHTML = [
-      `<strong>${selectedUnit.name} vs ${hoveredUnit.name}</strong>`,
-      `<span>공격: 명중 ${preview.hitRate}% / 피해 ${preview.damage}</span>`,
-      `<span>반격: ${counterPreview.canCounter ? `명중 ${counterPreview.hitRate}% / 피해 ${counterPreview.damage}` : "없음"}</span>`,
-      `<span>보정: ${preview.elevationNote || (preview.forestAvoidBonus ? "숲 회피" : "없음")}</span>`
-    ].join("");
+    target.innerHTML = lines.join("");
 
     if (anchorElement) {
       target.style.left = `${anchorElement.offsetLeft + anchorElement.offsetWidth + 12}px`;
@@ -1177,7 +1444,7 @@
     const endlessStats = endlessSummary && endlessSummary.stats ? endlessSummary.stats : null;
     banner.innerHTML = [
       `<strong>${snapshot.battle.status === "victory" ? "승리" : "패배"}</strong>`,
-      `<span>${snapshot.battle.status === "victory" ? `${snapshot.battle.rewardGold || 0}G를 획득하고 다음 스테이지가 개방되었습니다.` : "주인공이 쓰러졌습니다."}</span>`,
+      `<span>${snapshot.battle.status === "victory" ? `${snapshot.battle.rewardGold || 0}G를 획득하고 다음 스테이지가 개방되었습니다.` : "리더가 쓰러졌습니다."}</span>`,
       snapshot.battle.status === "victory" ? `<span>획득 아이템: ${rewardItems}</span>` : "",
       endlessSummary ? `<span>균열 기록: ${endlessSummary.floor}층 / 유물 ${endlessSummary.relicNames.length}개 / 최고 ${endlessSummary.bestFloor}층</span>` : "",
       endlessStats ? `<span>런 통계: 적 ${endlessStats.enemiesDefeated} / 정예 ${endlessStats.eliteDefeated} / 보스 ${endlessStats.bossesDefeated} / 피해 ${endlessStats.damageDealt} / 획득 ${endlessStats.goldEarned}G</span>` : "",
@@ -1340,9 +1607,15 @@
     }
 
     viewState.aiRunning = true;
-    BattleService.endPlayerTurn();
-    await BattleService.runEnemyPhase();
-    viewState.aiRunning = false;
+
+    try {
+      BattleService.endPlayerTurn();
+      await BattleService.runEnemyPhase();
+    } catch (error) {
+      viewState.config.showToast(error.message || "적 턴 진행 중 오류가 발생했습니다.", true);
+    } finally {
+      viewState.aiRunning = false;
+    }
   }
 
   function handleReturnMenu() {
@@ -1351,6 +1624,7 @@
     BattleService.leaveBattle();
     viewState.aiRunning = false;
     viewState.sessionRef = null;
+    viewState.progressionDrafts = {};
     if (viewState.config && typeof viewState.config.onReturnMenu === "function") {
       viewState.config.onReturnMenu();
     }
@@ -1453,6 +1727,7 @@
       body.push('<article class="modal-card"><p>사용 가능한 액티브 스킬이 없습니다.</p></article>');
     } else {
       skills.forEach((skill) => {
+        const performance = SkillsService.getSkillPerformance(unit, skill);
         const cooldownText = skill.cooldownRemaining > 0 ? `재사용 ${skill.cooldownRemaining}턴` : "사용 가능";
         const terrainReady = BattleService.canUseSkillOnCurrentTerrain(unit, skill);
         const terrainText = skill.requiredTileTypes && skill.requiredTileTypes.length
@@ -1462,15 +1737,17 @@
         const targetLabel = skill.targetType === "self"
           ? "자신"
           : skill.targetType === "ally"
-            ? "아군"
+            ? (Number(skill.rangeMin || 0) === 0 ? "자신/아군" : "아군")
             : "적";
 
         body.push([
           '<article class="modal-card">',
-          `  <div class="item-title-row"><strong>${skill.name}</strong><span>${cooldownText}</span></div>`,
+          `  <div class="item-title-row"><strong>${skill.name}</strong><span>${cooldownText} / Lv.${skill.skillLevel}</span></div>`,
           `  <p>${skill.description}</p>`,
           `  <p>대상: ${targetLabel}</p>`,
           `  <p>${terrainReady ? terrainText : `${terrainText} / 현재 지형에서 사용 불가`}</p>`,
+          performance ? `  <p>현재 성능: ${performance.currentSummary}</p>` : "",
+          performance ? performance.formulaLines.map((line) => `  <p>${line}</p>`).join("") : "",
           `  <button class="secondary-button small-button" type="button" data-skill-id="${skill.id}" ${disabled}>선택</button>`,
           "</article>"
         ].join(""));
@@ -1496,33 +1773,142 @@
   function openStatsModal(unitId) {
     const snapshot = viewState.snapshot;
     const unit = snapshot.saveData.roster.find((entry) => entry.id === unitId);
+    const draft = getProgressionDraft(unitId);
+    const previewUnit = StatsService.previewUnitWithStatDraft(unit, draft.stats);
+    const basePrimaryStats = StatsService.getPrimaryStats(unit);
+    const previewPrimaryStats = StatsService.getPrimaryStats(previewUnit);
+    const spentStats = countDraftStats(draft);
+    const spentSkills = countDraftSkills(draft);
+    const remainingStatPoints = Math.max(0, (unit.statPoints || 0) - spentStats);
+    const remainingSkillPoints = Math.max(0, (unit.skillPoints || 0) - spentSkills);
+    const learnableSkills = SkillsService.getLearnableSkills(unit);
+    const learnableActiveSkills = SkillsService.getLearnableActiveSkills(unit);
     const body = [
-      `<h3>${unit.name} 스탯 분배</h3>`,
-      `<p>남은 포인트: ${unit.statPoints || 0}</p>`,
+      `<h3>${unit.name} 성장 배분</h3>`,
+      `<p>남은 포인트: 스탯 ${remainingStatPoints} / 스킬 ${remainingSkillPoints}</p>`,
+      "<p>히든 전투 수치는 눈에 보이지 않지만, 아래 기본 스탯과 스킬 배분에 따라 내부에서 자동으로 상승합니다.</p>",
+      '<div class="detail-stats">',
+      StatsService.PRIMARY_STATS.map((statName) => (
+        `<span class="meta-pill ${Number((draft.stats && draft.stats[statName]) || 0) > 0 ? "is-preview-up" : ""}">${StatsService.PRIMARY_STAT_LABELS[statName]} ${previewPrimaryStats[statName]}${Number((draft.stats && draft.stats[statName]) || 0) > 0 ? ` (+${draft.stats[statName]})` : ""}</span>`
+      )).join(""),
+      "</div>",
       '<div class="modal-list">'
     ];
 
     StatsService.ALLOCATABLE_STATS.forEach((statName) => {
       body.push([
         '<article class="modal-card compact-card">',
-        `  <div class="stat-row"><strong>${statName}</strong><span>${unit[statName]}</span></div>`,
-        `  <button class="secondary-button small-button" type="button" data-stat-name="${statName}">+1</button>`,
+        `  <div class="stat-row"><strong>${StatsService.PRIMARY_STAT_LABELS[statName]}</strong><span>${basePrimaryStats[statName]} -> ${previewPrimaryStats[statName]}</span></div>`,
+        `  <p>${StatsService.getPrimaryStatDescription(statName)}</p>`,
+        `  <button class="secondary-button small-button" type="button" data-stat-draft="${statName}" ${remainingStatPoints <= 0 || previewPrimaryStats[statName] >= StatsService.STAT_LIMITS[statName] ? "disabled" : ""}>+1 예약</button>`,
         "</article>"
       ].join(""));
     });
 
+    learnableSkills.forEach((skill) => {
+      const isDrafted = draft.skillIds.includes(skill.id);
+      body.push([
+        `<article class="modal-card progression-skill-card ${isDrafted ? "is-drafted" : ""}">`,
+        `  <div class="item-title-row"><strong>${skill.name}</strong><span>PASSIVE</span></div>`,
+        `  <p>${skill.description}</p>`,
+        '  <div class="button-row">',
+        `    <button class="${isDrafted ? "primary-button" : "secondary-button"} small-button" type="button" data-skill-draft="${skill.id}" ${!isDrafted && remainingSkillPoints <= 0 ? "disabled" : ""}>${isDrafted ? "선택 취소" : "학습 예약"}</button>`,
+        "  </div>",
+        "</article>"
+      ].join(""));
+    });
+
+    learnableActiveSkills.forEach((skill) => {
+      const isDrafted = draft.skillIds.includes(skill.id);
+      body.push([
+        `<article class="modal-card progression-skill-card ${isDrafted ? "is-drafted" : ""}">`,
+        `  <div class="item-title-row"><strong>${skill.name}</strong><span>ACTIVE</span></div>`,
+        `  <p>${skill.description}</p>`,
+        '  <div class="button-row">',
+        `    <button class="${isDrafted ? "primary-button" : "secondary-button"} small-button" type="button" data-skill-draft="${skill.id}" ${!isDrafted && remainingSkillPoints <= 0 ? "disabled" : ""}>${isDrafted ? "선택 취소" : "학습 예약"}</button>`,
+        "  </div>",
+        "</article>"
+      ].join(""));
+    });
+
+    if (spentStats || spentSkills) {
+      body.push([
+        '<article class="modal-card">',
+        `  <p>확정 대기: 스탯 ${spentStats} / 스킬 ${spentSkills}</p>`,
+        '  <div class="button-row">',
+        '    <button class="primary-button small-button" type="button" data-progression-confirm="true">성장 확정</button>',
+        '    <button class="ghost-button small-button" type="button" data-progression-cancel="true">예약 취소</button>',
+        "  </div>",
+        "</article>"
+      ].join(""));
+    }
+
     body.push("</div>");
     showModal(body.join(""));
 
-    getElement("battle-modal-host").querySelectorAll("[data-stat-name]").forEach((button) => {
+    getElement("battle-modal-host").querySelectorAll("[data-stat-draft]").forEach((button) => {
       button.addEventListener("click", () => {
         try {
-          BattleService.allocateStat(unitId, button.dataset.statName);
-          viewState.config.showToast(`${unit.name}의 ${button.dataset.statName} 상승`);
+          const statName = button.dataset.statDraft;
+          const activeDraft = getProgressionDraft(unitId);
+
+          if (Math.max(0, (unit.statPoints || 0) - countDraftStats(activeDraft)) <= 0) {
+            throw new Error("남은 스탯 포인트가 없습니다.");
+          }
+
+          if ((previewPrimaryStats[statName] || 0) >= StatsService.STAT_LIMITS[statName]) {
+            throw new Error("이 스탯은 더 이상 올릴 수 없습니다.");
+          }
+
+          activeDraft.stats[statName] += 1;
           openStatsModal(unitId);
         } catch (error) {
           viewState.config.showToast(error.message, true);
         }
+      });
+    });
+
+    getElement("battle-modal-host").querySelectorAll("[data-skill-draft]").forEach((button) => {
+      button.addEventListener("click", () => {
+        try {
+          const activeDraft = getProgressionDraft(unitId);
+          const index = activeDraft.skillIds.indexOf(button.dataset.skillDraft);
+
+          if (index >= 0) {
+            activeDraft.skillIds.splice(index, 1);
+          } else {
+            if (Math.max(0, (unit.skillPoints || 0) - countDraftSkills(activeDraft)) <= 0) {
+              throw new Error("남은 스킬 포인트가 없습니다.");
+            }
+
+            activeDraft.skillIds.push(button.dataset.skillDraft);
+          }
+
+          openStatsModal(unitId);
+        } catch (error) {
+          viewState.config.showToast(error.message, true);
+        }
+      });
+    });
+
+    getElement("battle-modal-host").querySelectorAll("[data-progression-confirm]").forEach((button) => {
+      button.addEventListener("click", () => {
+        try {
+          const activeDraft = getProgressionDraft(unitId);
+          BattleService.applyProgressionDraft(unitId, activeDraft.stats, activeDraft.skillIds);
+          clearProgressionDraft(unitId);
+          viewState.config.showToast(`${unit.name}의 성장 예약을 확정했습니다.`);
+          openStatsModal(unitId);
+        } catch (error) {
+          viewState.config.showToast(error.message, true);
+        }
+      });
+    });
+
+    getElement("battle-modal-host").querySelectorAll("[data-progression-cancel]").forEach((button) => {
+      button.addEventListener("click", () => {
+        clearProgressionDraft(unitId);
+        openStatsModal(unitId);
       });
     });
   }

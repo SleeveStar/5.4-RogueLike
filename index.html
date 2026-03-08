@@ -14,7 +14,7 @@
         <h1>RogueLike SRPG</h1>
       </div>
       <div class="header-actions">
-        <span id="global-user-badge" class="user-badge hidden"></span>
+        <button id="global-user-badge" class="user-badge hidden" type="button"></button>
         <button id="global-logout-button" class="secondary-button hidden" type="button">로그아웃</button>
       </div>
     </header>
@@ -121,8 +121,6 @@
               <p class="eyebrow">Command Deck</p>
               <h2>작전 사이드바</h2>
             </div>
-            <div id="player-summary" class="summary-card compact-summary"></div>
-            <div id="save-summary" class="summary-card compact-summary"></div>
             <div class="menu-actions">
               <button id="start-battle-button" class="primary-button" type="button">새 전투 시작</button>
               <button id="resume-battle-button" class="secondary-button" type="button">이어하기</button>
@@ -156,7 +154,6 @@
             <div id="menu-panel-party" class="menu-panel-view active">
               <div class="party-management">
                 <div id="menu-roster-list" class="roster-list"></div>
-                <div id="menu-unit-detail" class="summary-card unit-detail-card"></div>
               </div>
             </div>
 
@@ -167,7 +164,7 @@
 
             <div id="menu-panel-inventory" class="menu-panel-view">
               <div class="inventory-toolbar">
-                <label class="field compact-field">
+                <label class="field compact-field inventory-filter-field">
                   <span>정렬</span>
                   <select id="menu-inventory-sort">
                     <option value="rarity">희귀도</option>
@@ -176,18 +173,26 @@
                     <option value="name">이름</option>
                   </select>
                 </label>
-                <label class="field compact-field">
+                <label class="field compact-field inventory-filter-field">
                   <span>타입</span>
                   <select id="menu-inventory-type-filter">
                     <option value="all">전체</option>
-                    <option value="sword">검</option>
-                    <option value="lance">창</option>
-                    <option value="bow">활</option>
-                    <option value="axe">도끼</option>
+                    <option value="weapon">주무기</option>
+                    <option value="subweapon">보조무기</option>
+                    <option value="armor">방어구</option>
                     <option value="accessory">장신구</option>
+                    <option value="head">머리</option>
+                    <option value="shoulder">어깨</option>
+                    <option value="chest">상의</option>
+                    <option value="legs">하의</option>
+                    <option value="boots">신발</option>
+                    <option value="bracelet">팔찌</option>
+                    <option value="ring">반지</option>
+                    <option value="charm">부적</option>
+                    <option value="consumable">소모품</option>
                   </select>
                 </label>
-                <label class="field compact-field">
+                <label class="field compact-field inventory-filter-field">
                   <span>장착 여부</span>
                   <select id="menu-inventory-equipped-filter">
                     <option value="all">전체</option>
@@ -195,7 +200,7 @@
                     <option value="unequipped">미장착</option>
                   </select>
                 </label>
-                <label class="field compact-field">
+                <label class="field compact-field inventory-filter-field">
                   <span>희귀도</span>
                   <select id="menu-inventory-rarity-filter">
                     <option value="all">전체</option>
@@ -270,6 +275,7 @@
     </main>
 
     <div id="toast" class="toast" aria-live="polite"></div>
+    <div id="menu-modal-host"></div>
   </div>
 
   <script src="./js/storage.js"></script>

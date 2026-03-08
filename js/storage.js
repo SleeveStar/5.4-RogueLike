@@ -1,6 +1,7 @@
 /* 역할: localStorage 접근을 추상화하고 users/currentUser/save/settings 구조를 일관되게 관리한다. */
 
 (function attachStorageService(global) {
+  const MAX_SORTIE_SIZE = 5;
   const STORAGE_KEYS = {
     USERS: "users",
     CURRENT_USER: "currentUser"
@@ -59,7 +60,8 @@
         rangeMax: 1,
         uses: 40,
         rarity: "common",
-        equippedBy: "hero-1"
+        equippedBy: "hero-1",
+        equippedSlotKey: "weapon"
       },
       {
         id: "iron-lance-01",
@@ -72,7 +74,8 @@
         rangeMax: 1,
         uses: 35,
         rarity: "common",
-        equippedBy: "ally-2"
+        equippedBy: "ally-2",
+        equippedSlotKey: "weapon"
       },
       {
         id: "practice-bow-01",
@@ -85,18 +88,70 @@
         rangeMax: 2,
         uses: 35,
         rarity: "common",
-        equippedBy: "ally-3"
+        equippedBy: "ally-3",
+        equippedSlotKey: "weapon"
       },
       {
         id: "oak-charm-01",
         name: "참나무 부적",
-        type: "accessory",
-        slot: "accessory",
+        type: "charm",
+        slot: "charm",
         statBonus: {
           def: 1
         },
         rarity: "uncommon",
-        equippedBy: null
+        equippedBy: "hero-1",
+        equippedSlotKey: "charm"
+      },
+      {
+        id: "leather-hood-01",
+        name: "가죽 후드",
+        type: "hood",
+        slot: "head",
+        statBonus: {
+          skl: 1,
+          spd: 1
+        },
+        rarity: "common",
+        equippedBy: null,
+        equippedSlotKey: null
+      },
+      {
+        id: "march-boots-01",
+        name: "행군 부츠",
+        type: "boots",
+        slot: "boots",
+        statBonus: {
+          mov: 1
+        },
+        rarity: "common",
+        equippedBy: null,
+        equippedSlotKey: null
+      },
+      {
+        id: "bronze-ring-01",
+        name: "청동 반지",
+        type: "ring",
+        slot: "ring",
+        statBonus: {
+          skl: 1
+        },
+        rarity: "common",
+        equippedBy: null,
+        equippedSlotKey: null
+      },
+      {
+        id: "training-shield-01",
+        name: "훈련 방패",
+        type: "shield",
+        slot: "subweapon",
+        statBonus: {
+          def: 1,
+          maxHp: 1
+        },
+        rarity: "common",
+        equippedBy: null,
+        equippedSlotKey: null
       },
       {
         id: "potion-01",
@@ -108,7 +163,8 @@
           kind: "heal",
           amount: 10
         },
-        equippedBy: null
+        equippedBy: null,
+        equippedSlotKey: null
       }
     ],
     roster: [
@@ -274,20 +330,16 @@
     const rosterIds = normalized.roster.map((unit) => unit.id);
     normalized.selectedPartyIds = normalized.selectedPartyIds.filter((unitId) => rosterIds.includes(unitId));
 
-    if (!normalized.selectedPartyIds.includes("hero-1") && rosterIds.includes("hero-1")) {
-      normalized.selectedPartyIds.unshift("hero-1");
-    }
-
     if (!normalized.selectedPartyIds.length) {
-      normalized.selectedPartyIds = rosterIds.slice(0, 3);
+      normalized.selectedPartyIds = rosterIds.slice(0, MAX_SORTIE_SIZE);
     }
 
-    normalized.selectedPartyIds = normalized.selectedPartyIds.slice(0, 3);
+    normalized.selectedPartyIds = normalized.selectedPartyIds.slice(0, MAX_SORTIE_SIZE);
     normalized.leaderUnitId = rosterIds.includes(normalized.leaderUnitId)
       ? normalized.leaderUnitId
-      : (rosterIds.includes("hero-1") ? "hero-1" : rosterIds[0] || null);
+      : (rosterIds[0] || null);
     normalized.roster = normalized.roster.map((unit) => Object.assign({
-      guildRank: unit.id === "hero-1" ? "A" : "C"
+      guildRank: "C"
     }, unit));
     normalized.battleState = normalized.battleState || null;
     return normalized;

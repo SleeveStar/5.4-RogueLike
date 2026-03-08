@@ -118,6 +118,8 @@
     const distance = getWeaponRangeDistance(attacker, { x: attacker.x, y: attacker.y }, { x: defender.x, y: defender.y });
     const effectiveRange = getEffectiveWeaponRange(attacker, context);
     const forestRangedAvoidBonus = context.defenderTileType === "forest" && distance >= 2 ? 6 : 0;
+    const attackerHidden = attacker.hiddenStats || {};
+    const defenderHidden = defender.hiddenStats || {};
     const skillModifiers = SkillsService.getCombatModifiers({
       attacker,
       defender,
@@ -128,19 +130,23 @@
       phase: context.phase || "player",
       isInitiator: context.isInitiator !== false
     });
-    const attackPower = attacker.str + weapon.might + skillModifiers.attackPowerBonus + elevationModifier.damageBonus;
-    const defensePower = defender.def + defenderTerrain.defense + skillModifiers.defenseBonus;
+    const attackPower = ((attackerHidden.physicalAttack || attacker.str) + weapon.might + skillModifiers.attackPowerBonus + elevationModifier.damageBonus);
+    const defensePower = ((defenderHidden.physicalDefense || defender.def) + defenderTerrain.defense + skillModifiers.defenseBonus);
     const rawHit = weapon.hit
-      + attacker.skl * 5
-      + attacker.spd * 2
+      + (attackerHidden.accuracy || (attacker.skl * 5 + attacker.spd * 2))
       + elevationModifier.hitBonus
       + skillModifiers.hitBonus
-      - (defender.spd * 3 + defender.skl * 2 + defenderTerrain.avoid + forestRangedAvoidBonus + skillModifiers.avoidBonus);
+      - ((defenderHidden.evasion || (defender.spd * 3 + defender.skl * 2)) + defenderTerrain.avoid + forestRangedAvoidBonus + skillModifiers.avoidBonus);
+    const critRate = clamp((attackerHidden.critChance || 0) - Math.floor((defenderHidden.critChance || 0) * 0.25), 0, 65);
+    const critMultiplier = attackerHidden.critMultiplier || 1.5;
 
     return {
       canAttack: true,
       hitRate: clamp(rawHit, 5, 100),
       damage: Math.max(0, attackPower - defensePower),
+      critRate,
+      critMultiplier,
+      critDamage: Math.max(0, Math.round(Math.max(0, attackPower - defensePower) * critMultiplier)),
       weaponUsesLeft: weapon.uses,
       effectiveRangeMax: effectiveRange.rangeMax,
       rangeBonus: effectiveRange.bonus,
@@ -169,7 +175,9 @@
 
     const roll = Math.floor(Math.random() * 100) + 1;
     const didHit = roll <= preview.hitRate;
-    const damageDealt = didHit ? preview.damage : 0;
+    const critRoll = Math.floor(Math.random() * 100) + 1;
+    const didCrit = didHit && critRoll <= preview.critRate;
+    const damageDealt = didHit ? (didCrit ? preview.critDamage : preview.damage) : 0;
     const weapon = getWeapon(attacker);
 
     weapon.uses = Math.max(0, weapon.uses - 1);
@@ -178,6 +186,7 @@
     return {
       canAttack: true,
       didHit,
+      didCrit,
       damageDealt,
       targetDefeated: defender.hp <= 0,
       expGained: didHit ? (defender.hp <= 0 ? 35 : 12) : 5,

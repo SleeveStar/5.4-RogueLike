@@ -3,10 +3,12 @@
 (function attachTavernService(global) {
   const StorageService = global.StorageService;
   const InventoryService = global.InventoryService;
+  const StatsService = global.StatsService;
   const SkillsService = global.SkillsService;
 
   const REFRESH_INTERVAL_MS = 5 * 60 * 60 * 1000;
-  const LINEUP_SIZE = 5;
+  const LINEUP_SIZE = 4;
+  const MAX_SORTIE_SIZE = 5;
 
   const GUILD_RANK_META = {
     D: {
@@ -18,8 +20,9 @@
       maxLevel: 1,
       passiveSkills: 0,
       activeSkills: 0,
+      signaturePassiveChance: 0,
       partySlots: 1,
-      classPool: ["검사", "브리건드", "헌터", "솔저"],
+      classPool: ["검사", "브리건드", "헌터", "솔저", "클레릭"],
       bonusStats: {}
     },
     C: {
@@ -31,8 +34,9 @@
       maxLevel: 2,
       passiveSkills: 1,
       activeSkills: 0,
+      signaturePassiveChance: 0.04,
       partySlots: 1,
-      classPool: ["검사", "브리건드", "헌터", "솔저", "랜서", "아처"],
+      classPool: ["검사", "브리건드", "헌터", "솔저", "랜서", "아처", "클레릭"],
       bonusStats: { maxHp: 1 }
     },
     B: {
@@ -44,8 +48,9 @@
       maxLevel: 3,
       passiveSkills: 1,
       activeSkills: 1,
+      signaturePassiveChance: 0.12,
       partySlots: 2,
-      classPool: ["검사", "브리건드", "헌터", "솔저", "랜서", "아처"],
+      classPool: ["검사", "브리건드", "헌터", "솔저", "랜서", "아처", "클레릭"],
       bonusStats: { maxHp: 1, str: 1, skl: 1 }
     },
     A: {
@@ -57,8 +62,9 @@
       maxLevel: 4,
       passiveSkills: 2,
       activeSkills: 1,
+      signaturePassiveChance: 0.28,
       partySlots: 3,
-      classPool: ["로드", "랜서", "아처", "검사", "브리건드", "헌터", "솔저"],
+      classPool: ["로드", "랜서", "아처", "검사", "브리건드", "헌터", "솔저", "클레릭"],
       bonusStats: { maxHp: 2, str: 1, skl: 1, spd: 1, def: 1 }
     },
     S: {
@@ -70,8 +76,9 @@
       maxLevel: 5,
       passiveSkills: 2,
       activeSkills: 2,
+      signaturePassiveChance: 0.56,
       partySlots: 4,
-      classPool: ["로드", "랜서", "아처", "하이로드", "팔라딘", "스나이퍼"],
+      classPool: ["로드", "랜서", "아처", "하이로드", "팔라딘", "스나이퍼", "클레릭", "비숍"],
       bonusStats: { maxHp: 3, str: 2, skl: 2, spd: 1, def: 1 }
     },
     "S+": {
@@ -83,8 +90,9 @@
       maxLevel: 6,
       passiveSkills: 3,
       activeSkills: 2,
+      signaturePassiveChance: 0.82,
       partySlots: 5,
-      classPool: ["하이로드", "팔라딘", "스나이퍼"],
+      classPool: ["하이로드", "팔라딘", "스나이퍼", "비숍"],
       bonusStats: { maxHp: 4, str: 2, skl: 2, spd: 2, def: 2, mov: 1 }
     }
   };
@@ -108,6 +116,16 @@
       weaponType: "sword",
       baseStats: { maxHp: 21, str: 8, skl: 8, spd: 8, def: 6, mov: 6 },
       namePool: ["알렌", "시온", "에델", "르네"]
+    },
+    클레릭: {
+      weaponType: "focus",
+      baseStats: { maxHp: 15, str: 3, skl: 7, spd: 6, def: 3, mov: 5 },
+      namePool: ["엘린", "마리아", "요안", "세라"]
+    },
+    비숍: {
+      weaponType: "focus",
+      baseStats: { maxHp: 18, str: 4, skl: 9, spd: 7, def: 4, mov: 5 },
+      namePool: ["루시아", "에스텔", "라온", "미카"]
     },
     랜서: {
       weaponType: "lance",
@@ -155,21 +173,65 @@
     sword: { name: "길드 장검", might: 5, hit: 88, rangeMin: 1, rangeMax: 1, uses: 40 },
     lance: { name: "길드 장창", might: 6, hit: 82, rangeMin: 1, rangeMax: 1, uses: 38 },
     bow: { name: "길드 장궁", might: 5, hit: 90, rangeMin: 2, rangeMax: 2, uses: 34 },
-    axe: { name: "길드 전투도끼", might: 7, hit: 76, rangeMin: 1, rangeMax: 1, uses: 36 }
+    axe: { name: "길드 전투도끼", might: 7, hit: 76, rangeMin: 1, rangeMax: 1, uses: 36 },
+    focus: { name: "길드 성구", might: 4, hit: 92, rangeMin: 1, rangeMax: 2, uses: 34 }
   };
 
   const PASSIVE_SKILL_POOL = {
     sword: ["warlord_presence", "fortress_heart"],
     lance: ["fortress_heart", "warlord_presence"],
     bow: ["eagle_commander", "warlord_presence"],
-    axe: ["warlord_presence", "fortress_heart"]
+    axe: ["warlord_presence", "fortress_heart"],
+    focus: ["eagle_commander", "fortress_heart"]
   };
 
   const ACTIVE_SKILL_POOL = {
     sword: ["boss_cleave", "frenzy_assault", "adamant_guard"],
     lance: ["guard_roar", "adamant_guard", "boss_cleave"],
     bow: ["rain_of_arrows", "marked_shot", "adamant_guard"],
-    axe: ["frenzy_assault", "boss_cleave", "adamant_guard"]
+    axe: ["frenzy_assault", "boss_cleave", "adamant_guard"],
+    focus: ["marked_shot", "adamant_guard", "rain_of_arrows"]
+  };
+
+  const SIGNATURE_PASSIVE_POOL_BY_CLASS = {
+    로드: ["sovereign_drive", "warlord_presence"],
+    하이로드: ["sovereign_drive", "imperial_banner"],
+    블레이드로드: ["blade_discipline", "sovereign_drive"],
+    검사: ["blade_discipline"],
+    소드마스터: ["blade_discipline"],
+    엠퍼러: ["imperial_banner", "sovereign_drive"],
+    검성: ["blade_discipline", "sovereign_drive"],
+    오버로드: ["imperial_banner", "warlord_presence"],
+    스타블레이드: ["blade_discipline", "nightmare_trail"],
+    랜서: ["guardian_oath"],
+    팔라딘: ["guardian_oath", "holy_charge"],
+    가디언: ["guardian_oath", "aegis_core"],
+    센티넬: ["guardian_oath", "aegis_core"],
+    홀리랜서: ["holy_charge", "guardian_oath"],
+    포트리스: ["aegis_core", "guardian_oath"],
+    아크랜서: ["holy_charge", "aegis_core"],
+    이지스로드: ["aegis_core", "guardian_oath"],
+    아처: ["ranger_instinct"],
+    스나이퍼: ["ranger_instinct", "celestial_scope"],
+    레인저: ["ranger_instinct", "celestial_scope"],
+    호크아이: ["celestial_scope", "ranger_instinct"],
+    천궁성: ["celestial_scope", "ranger_instinct"],
+    헌터: ["trap_sense"],
+    트래퍼: ["trap_sense", "nightmare_trail"],
+    그림트래퍼: ["trap_sense", "nightmare_trail"],
+    나이트메어헌트: ["nightmare_trail", "trap_sense"],
+    브리건드: ["berserk_blood"],
+    버서커: ["berserk_blood", "doom_mark"],
+    워브레이커: ["berserk_blood", "doom_mark"],
+    데스브링어: ["doom_mark", "berserk_blood"],
+    월드이터: ["doom_mark", "berserk_blood"],
+    클레릭: ["saint_guard"],
+    비숍: ["saint_guard", "oracle_insight"],
+    오라클: ["oracle_insight", "saint_guard"],
+    세라핌: ["saint_guard"],
+    인퀴지터: ["oracle_insight", "saint_guard"],
+    성녀: ["saint_guard"],
+    아크저지: ["oracle_insight", "saint_guard"]
   };
 
   function clone(value) {
@@ -263,6 +325,25 @@
     return shuffle(pool || []).slice(0, Math.min(count, (pool || []).length));
   }
 
+  function appendUniqueSkillId(list, skillId) {
+    const target = Array.isArray(list) ? list : [];
+
+    if (skillId && !target.includes(skillId)) {
+      target.push(skillId);
+    }
+
+    return target;
+  }
+
+  function pickSignaturePassiveId(className, rankMeta, currentSkillIds) {
+    if (!rankMeta || Math.random() > Number(rankMeta.signaturePassiveChance || 0)) {
+      return null;
+    }
+
+    const pool = shuffle(SIGNATURE_PASSIVE_POOL_BY_CLASS[className] || []);
+    return pool.find((skillId) => !currentSkillIds.includes(skillId)) || null;
+  }
+
   function buildAdventurerCandidate(block, slotIndex) {
     const rank = pickWeightedRank();
     const rankMeta = GUILD_RANK_META[rank];
@@ -291,6 +372,7 @@
       weapon: null,
       guildRank: rank,
       statPoints: Math.max(0, rankMeta.partySlots - 1),
+      skillPoints: 0,
       equippedItemIds: [],
       specialSkillIds: [],
       specialActiveSkillIds: [],
@@ -298,15 +380,21 @@
       hiredAt: null
     };
 
+    StatsService.normalizeUnitProgression(unit);
+    SkillsService.normalizeUnitLearnedSkills(unit);
+
     for (let currentLevel = 2; currentLevel <= level; currentLevel += 1) {
-      SkillsService.applyLevelGains(unit, SkillsService.rollLevelGains(unit));
+      StatsService.applyLevelGains(unit, StatsService.rollLevelGains(unit, 5));
       unit.level = currentLevel;
     }
 
     applyBonusStats(unit, rankMeta.bonusStats);
     unit.hp = unit.maxHp;
+    SkillsService.normalizeUnitLearnedSkills(unit);
     unit.specialSkillIds = pickUniqueSkillIds(PASSIVE_SKILL_POOL[archetype.weaponType], rankMeta.passiveSkills);
     unit.specialActiveSkillIds = pickUniqueSkillIds(ACTIVE_SKILL_POOL[archetype.weaponType], rankMeta.activeSkills);
+    const signaturePassiveId = pickSignaturePassiveId(className, rankMeta, unit.specialSkillIds);
+    appendUniqueSkillId(unit.specialSkillIds, signaturePassiveId);
 
     return {
       id: unitId,
@@ -315,6 +403,7 @@
       hireCost: rankMeta.cost,
       rarity: rankMeta.cardRarity,
       rankTitle: rankMeta.title,
+      signaturePassiveId,
       refreshBlock: block,
       recruitedAt: null,
       startingWeapon: buildWeapon(archetype.weaponType, unitId, rank)
@@ -335,7 +424,7 @@
   function syncTavern(saveData) {
     const tavern = ensureTavernShape(saveData);
     const block = getRefreshBlock();
-    const needsRefresh = tavern.refreshBlock !== block || !tavern.lineup.length;
+    const needsRefresh = tavern.refreshBlock !== block || !tavern.lineup.length || tavern.lineup.length !== LINEUP_SIZE;
 
     if (needsRefresh) {
       refreshLineup(saveData);
@@ -368,6 +457,8 @@
     const unit = clone(candidate.unit);
     const weapon = clone(candidate.startingWeapon);
 
+    StatsService.normalizeUnitProgression(unit);
+    SkillsService.normalizeUnitLearnedSkills(unit);
     saveData.partyGold -= candidate.hireCost || 0;
     unit.hiredAt = new Date().toISOString();
     unit.weapon = weapon.id;
@@ -378,7 +469,7 @@
     saveData.roster.push(unit);
     InventoryService.addItemToInventory(saveData, weapon);
 
-    if ((saveData.selectedPartyIds || []).length < 3) {
+    if ((saveData.selectedPartyIds || []).length < MAX_SORTIE_SIZE) {
       saveData.selectedPartyIds.push(unit.id);
     }
 

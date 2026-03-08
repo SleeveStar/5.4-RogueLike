@@ -8,22 +8,24 @@
   const StatsService = global.StatsService;
   const SkillsService = global.SkillsService;
   const ENDLESS_STAGE_ID = "endless-rift";
-  const MAP_WIDTH = 12;
-  const MAP_HEIGHT = 7;
+  const MAP_WIDTH = 14;
+  const MAP_HEIGHT = 8;
 
   const ALLY_SPAWNS = [
+    { x: 1, y: 6 },
+    { x: 2, y: 6 },
     { x: 1, y: 5 },
     { x: 2, y: 5 },
     { x: 1, y: 4 }
   ];
 
   const ENEMY_SPAWN_CANDIDATES = [
-    { x: 10, y: 1 },
-    { x: 9, y: 1 },
-    { x: 10, y: 2 },
+    { x: 12, y: 1 },
+    { x: 11, y: 1 },
+    { x: 12, y: 2 },
+    { x: 13, y: 2 },
     { x: 11, y: 2 },
-    { x: 9, y: 2 },
-    { x: 10, y: 3 }
+    { x: 12, y: 3 }
   ];
 
   const TILE_ELEVATION_BY_TYPE = {
@@ -177,6 +179,16 @@
       "basilisk"
     ]
   };
+
+  const ENEMY_VARIANT_PREFIXES = {
+    maxHp: "거대한",
+    str: "사나운",
+    skl: "교활한",
+    spd: "날랜",
+    def: "단단한"
+  };
+
+  const ENEMY_VARIANT_STATS = ["maxHp", "str", "skl", "spd", "def"];
 
   const ENDLESS_STAGE_META = {
     id: ENDLESS_STAGE_ID,
@@ -415,6 +427,7 @@
       id: "prologue-field",
       name: "프롤로그 평원",
       objective: "모든 적 격파",
+      defeatCondition: "all_allies_down",
       mapTiles: MAP_TEMPLATE,
       allySpawns: ALLY_SPAWNS,
       enemySpawns: ENEMY_SPAWN_CANDIDATES,
@@ -595,8 +608,8 @@
         fixedDrop: {
           idPrefix: "reward-fort-charm",
           name: "성채 수호 인장",
-          slot: "accessory",
-          type: "accessory",
+          slot: "charm",
+          type: "charm",
           rarity: "unique",
           statBonus: {
             def: 2,
@@ -732,8 +745,10 @@
       attackTiles: [],
       attackableTargetIds: [],
       pendingAttack: false,
+      skillTiles: [],
       skillTargetIds: [],
       pendingMove: null,
+      movePreview: null,
       pendingSkillId: null,
       activePanel: "unit"
     }
@@ -767,6 +782,24 @@
     return mapTiles.map((row) => row.map((tileType) => getBaseTileElevation(tileType)));
   }
 
+  function padMapRows(rows, fallbackValue) {
+    const sourceRows = Array.isArray(rows) ? clone(rows) : [];
+    const paddedRows = [];
+
+    for (let y = 0; y < MAP_HEIGHT; y += 1) {
+      const sourceRow = Array.isArray(sourceRows[y]) ? sourceRows[y].slice(0, MAP_WIDTH) : [];
+      const nextRow = [];
+
+      for (let x = 0; x < MAP_WIDTH; x += 1) {
+        nextRow.push(sourceRow[x] !== undefined ? sourceRow[x] : fallbackValue);
+      }
+
+      paddedRows.push(nextRow);
+    }
+
+    return paddedRows;
+  }
+
   function normalizeBattleMap(map) {
     const normalizedMap = Object.assign({
       id: state.saveData ? state.saveData.stageId : "map",
@@ -775,10 +808,11 @@
       tiles: []
     }, clone(map || {}));
 
-    normalizedMap.width = normalizedMap.width || (normalizedMap.tiles[0] ? normalizedMap.tiles[0].length : MAP_WIDTH);
-    normalizedMap.height = normalizedMap.height || normalizedMap.tiles.length || MAP_HEIGHT;
+    normalizedMap.tiles = padMapRows(normalizedMap.tiles, "plain");
+    normalizedMap.width = MAP_WIDTH;
+    normalizedMap.height = MAP_HEIGHT;
     normalizedMap.elevations = Array.isArray(normalizedMap.elevations) && normalizedMap.elevations.length
-      ? clone(normalizedMap.elevations)
+      ? padMapRows(normalizedMap.elevations, 0)
       : buildElevationMap(normalizedMap.tiles);
     normalizedMap.markers = clone(normalizedMap.markers || []);
     return normalizedMap;
@@ -879,20 +913,21 @@
       const previousLevel = unit.level;
       unit.exp -= 100;
       unit.level += 1;
-      const gains = SkillsService.rollLevelGains(unit);
-      SkillsService.applyLevelGains(unit, gains);
-      unit.statPoints = (unit.statPoints || 0) + 2;
+      const gains = StatsService.rollLevelGains(unit, 5);
+      StatsService.applyLevelGains(unit, gains);
+      unit.statPoints = (unit.statPoints || 0) + 1;
+      unit.skillPoints = (unit.skillPoints || 0) + 1;
       addLog(
-        `${unit.name} 훈련 성과! Lv.${unit.level} / 성장: HP+${gains.maxHp} STR+${gains.str} SKL+${gains.skl} SPD+${gains.spd} DEF+${gains.def} MOV+${gains.mov}`
+        `${unit.name} 훈련 성과! Lv.${unit.level} / 성장: ${StatsService.describeLevelGains(gains)}`
       );
-      addLog(`${unit.name} 스탯 포인트 +2`);
+      addLog(`${unit.name} 스탯 포인트 +1 / 스킬 포인트 +1`);
 
       SkillsService.getNewlyUnlockedSkills(unit.className, previousLevel, unit.level).forEach((skill) => {
-        addLog(`${unit.name} 스킬 해금: ${skill.name}`);
+        addLog(`${unit.name} 학습 가능 스킬: ${skill.name}`);
       });
 
       SkillsService.getNewlyUnlockedActiveSkills(unit.className, previousLevel, unit.level).forEach((skill) => {
-        addLog(`${unit.name} 액티브 해금: ${skill.name}`);
+        addLog(`${unit.name} 학습 가능 액티브: ${skill.name}`);
       });
     }
   }
@@ -1676,6 +1711,42 @@
     return item ? clone(item) : null;
   }
 
+  function syncBattleUnitEquipmentState(unitId) {
+    const battleUnit = getUnitById(unitId);
+    const persistentUnit = getPersistentUnit(unitId);
+
+    if (!battleUnit || !persistentUnit) {
+      return;
+    }
+
+    const previousHp = battleUnit.hp;
+    const previousMaxHp = battleUnit.maxHp;
+    const effectiveUnit = InventoryService.getEffectiveUnitStats(state.saveData, persistentUnit);
+
+    battleUnit.primaryStats = clone(effectiveUnit.primaryStats || persistentUnit.primaryStats || {});
+    battleUnit.hiddenStats = clone(effectiveUnit.hiddenStats || persistentUnit.hiddenStats || {});
+    battleUnit.skillPoints = persistentUnit.skillPoints || 0;
+    battleUnit.learnedSkillIds = clone(persistentUnit.learnedSkillIds || []);
+    battleUnit.learnedActiveSkillIds = clone(persistentUnit.learnedActiveSkillIds || []);
+    battleUnit.equippedActiveSkillIds = clone(persistentUnit.equippedActiveSkillIds || []);
+    battleUnit.skillLevels = clone(persistentUnit.skillLevels || {});
+    battleUnit.maxHp = effectiveUnit.maxHp;
+    battleUnit.str = effectiveUnit.str;
+    battleUnit.skl = effectiveUnit.skl;
+    battleUnit.spd = effectiveUnit.spd;
+    battleUnit.def = effectiveUnit.def;
+    battleUnit.mov = effectiveUnit.mov;
+    battleUnit.weapon = resolveWeaponForUnit(persistentUnit);
+    battleUnit.equippedItemIds = clone(persistentUnit.equippedItemIds || []);
+
+    if (!previousMaxHp || previousHp >= previousMaxHp) {
+      battleUnit.hp = battleUnit.maxHp;
+      return;
+    }
+
+    battleUnit.hp = Math.max(1, Math.min(battleUnit.maxHp, Math.round((previousHp / previousMaxHp) * battleUnit.maxHp)));
+  }
+
   function initializeUnitBattleState(unit) {
     unit.statusEffects = clone(unit.statusEffects || []);
     unit.skillCooldowns = clone(unit.skillCooldowns || {});
@@ -1783,6 +1854,7 @@
     state.battle.bossUnitId = state.battle.bossUnitId || null;
     state.battle.allySpawns = clone(state.battle.allySpawns || ALLY_SPAWNS);
     state.battle.victoryCondition = state.battle.victoryCondition || "route_enemy";
+    state.battle.defeatCondition = state.battle.defeatCondition || "leader_down";
     state.battle.cutsceneTitle = state.battle.cutsceneTitle || "";
     state.battle.cutsceneLines = clone(state.battle.cutsceneLines || []);
     state.battle.cutsceneSeen = typeof state.battle.cutsceneSeen === "boolean"
@@ -1842,6 +1914,74 @@
     return pool[Math.floor(Math.random() * pool.length)] || ENEMY_ARCHETYPES[0];
   }
 
+  function rollEnemyLevel(stageDefinition, averageLevel) {
+    const floorBonus = Math.max(0, Number(stageDefinition.enemyBonus || 0));
+
+    if (stageDefinition.id !== ENDLESS_STAGE_ID) {
+      return Math.max(1, 1 + floorBonus + Math.floor(Math.random() * 2));
+    }
+
+    const floorPressure = Math.floor(floorBonus / 3);
+    const averageAnchor = Math.max(1, averageLevel + floorPressure);
+    const floorMinimum = Math.max(1, 1 + floorBonus);
+    const variance = Math.floor(Math.random() * 3) - 1;
+    return Math.max(floorMinimum, averageAnchor + variance);
+  }
+
+  function rollEnemyVariant(level, extraBudget) {
+    const allocations = {
+      maxHp: 0,
+      str: 0,
+      skl: 0,
+      spd: 0,
+      def: 0
+    };
+    const pointBudget = Math.max(2, 2 + Math.floor(Math.max(0, (level || 1) - 1) / 12) + (extraBudget || 0));
+
+    for (let index = 0; index < pointBudget; index += 1) {
+      const stat = ENEMY_VARIANT_STATS[Math.floor(Math.random() * ENEMY_VARIANT_STATS.length)];
+      allocations[stat] += 1;
+    }
+
+    const dominantStat = ENEMY_VARIANT_STATS.reduce((bestStat, stat) => (
+      allocations[stat] > allocations[bestStat] ? stat : bestStat
+    ), ENEMY_VARIANT_STATS[0]);
+
+    return {
+      dominantStat,
+      prefix: allocations[dominantStat] > 0 ? ENEMY_VARIANT_PREFIXES[dominantStat] : "",
+      bonuses: {
+        maxHp: allocations.maxHp * 2,
+        str: allocations.str,
+        skl: allocations.skl,
+        spd: allocations.spd,
+        def: allocations.def
+      }
+    };
+  }
+
+  function applyEnemyVariant(unit, variant) {
+    if (!unit || !variant) {
+      return unit;
+    }
+
+    unit.maxHp += variant.bonuses.maxHp || 0;
+    unit.str += variant.bonuses.str || 0;
+    unit.skl += variant.bonuses.skl || 0;
+    unit.spd += variant.bonuses.spd || 0;
+    unit.def += variant.bonuses.def || 0;
+    unit.variant = {
+      dominantStat: variant.dominantStat,
+      prefix: variant.prefix
+    };
+
+    if (variant.prefix) {
+      unit.name = `${variant.prefix} ${unit.name}`;
+    }
+
+    return unit;
+  }
+
   function buildEnemyWeapon(type, level, overrides) {
     const rarity = level >= 3 ? "uncommon" : "common";
     const baseByType = {
@@ -1876,8 +2016,7 @@
     const boss = stageDefinition.boss;
     const level = Math.max(2, averageLevel + (boss.levelBonus || 0));
     const maxHp = 14 + level * 2 + (boss.maxHpBonus || 0);
-
-    return {
+    const bossUnit = {
       id: boss.id,
       name: boss.name,
       bossTitle: boss.title,
@@ -1903,20 +2042,27 @@
       specialSkillIds: clone(boss.specialSkillIds || []),
       specialActiveSkillIds: clone(boss.specialActiveSkillIds || [])
     };
+
+    if (stageDefinition.id === ENDLESS_STAGE_ID) {
+      applyEnemyVariant(bossUnit, rollEnemyVariant(level, 1));
+      bossUnit.hp = bossUnit.maxHp;
+    }
+
+    return bossUnit;
   }
 
   function prepareAlliesForBattle(stageDefinition) {
     return getSelectedPartyUnits().map((unit, index) => {
       const spawn = stageDefinition.allySpawns[index] || stageDefinition.allySpawns[stageDefinition.allySpawns.length - 1];
-      const nextUnit = clone(unit);
+      const nextUnit = InventoryService.getEffectiveUnitStats(state.saveData, clone(unit));
       nextUnit.team = "ally";
-      nextUnit.hp = nextUnit.maxHp;
       nextUnit.alive = true;
       nextUnit.acted = false;
       nextUnit.x = spawn.x;
       nextUnit.y = spawn.y;
       nextUnit.weapon = resolveWeaponForUnit(nextUnit);
       applyEndlessRelicsToUnit(nextUnit);
+      nextUnit.hp = nextUnit.maxHp;
       initializeUnitBattleState(nextUnit);
       return nextUnit;
     });
@@ -1982,18 +2128,16 @@
     const enemies = stageDefinition.enemySpawns.slice(0, enemyCount).map((spawn, index) => {
       const archetype = pickEnemyArchetype(stageDefinition);
       const statBonuses = archetype.statBonuses || {};
-      const level = 1 + stageDefinition.enemyBonus + Math.floor(Math.random() * 2);
+      const level = rollEnemyLevel(stageDefinition, averageLevel);
       const maxHp = Math.max(8, 11 + level * 2 + (archetype.weaponType === "axe" ? 1 : 0) + (statBonuses.maxHp || 0));
-      const openingHp = index === enemyCount - 1 ? Math.max(8, maxHp - 3) : maxHp;
-
-      return {
+      const unit = {
         id: `enemy-${Date.now()}-${index}`,
         name: archetype.namePool[Math.floor(Math.random() * archetype.namePool.length)],
         team: "enemy",
         className: archetype.className,
         level,
         exp: 0,
-        hp: openingHp,
+        hp: maxHp,
         maxHp,
         str: Math.max(1, 3 + level + (statBonuses.str || 0)),
         skl: Math.max(1, 3 + level + (statBonuses.skl || 0)),
@@ -2010,6 +2154,13 @@
         specialSkillIds: clone(archetype.specialSkillIds || []),
         specialActiveSkillIds: clone(archetype.specialActiveSkillIds || [])
       };
+
+      if (isEndlessStage) {
+        applyEnemyVariant(unit, rollEnemyVariant(level, 1));
+      }
+
+      unit.hp = index === enemyCount - 1 ? Math.max(8, unit.maxHp - 3) : unit.maxHp;
+      return unit;
     });
 
     const bossUnit = buildBossUnit(stageDefinition, averageLevel);
@@ -2054,6 +2205,7 @@
       allySpawns: clone(stageDefinition.allySpawns),
       bossUnitId: bossUnit ? bossUnit.id : null,
       victoryCondition: stageDefinition.victoryCondition || "route_enemy",
+      defeatCondition: stageDefinition.defeatCondition || "leader_down",
       cutsceneTitle: stageDefinition.cutsceneTitle || `${stageDefinition.name} 브리핑`,
       cutsceneLines: clone(stageIntroLines),
       cutsceneSeen: false,
@@ -2094,8 +2246,10 @@
     state.ui.attackTiles = [];
     state.ui.attackableTargetIds = [];
     state.ui.pendingAttack = false;
+    state.ui.skillTiles = [];
     state.ui.skillTargetIds = [];
     state.ui.pendingMove = null;
+    state.ui.movePreview = null;
     state.ui.pendingSkillId = null;
     state.ui.activePanel = "unit";
   }
@@ -2105,6 +2259,8 @@
     state.userId = options.userId;
     state.saveData = options.saveData;
     state.settings = options.settings;
+    StatsService.normalizeRosterProgression(state.saveData);
+    SkillsService.normalizeRosterLearnedSkills(state.saveData);
     ensureCampaignState();
     ensureEndlessState();
 
@@ -2303,6 +2459,8 @@
       const unit = clone(reward.unit);
       const items = clone(reward.items || []);
 
+      StatsService.normalizeUnitProgression(unit);
+      SkillsService.normalizeUnitLearnedSkills(unit);
       state.saveData.roster.push(unit);
       items.forEach((item) => InventoryService.addItemToInventory(state.saveData, item));
       state.saveData.selectedPartyIds = state.saveData.selectedPartyIds || [];
@@ -2328,6 +2486,8 @@
 
       persistentUnit.level = battleUnit.level;
       persistentUnit.exp = battleUnit.exp;
+      persistentUnit.primaryStats = clone(battleUnit.primaryStats || persistentUnit.primaryStats || null);
+      persistentUnit.hiddenStats = clone(battleUnit.hiddenStats || persistentUnit.hiddenStats || null);
       persistentUnit.maxHp = battleUnit.maxHp;
       persistentUnit.str = battleUnit.str;
       persistentUnit.skl = battleUnit.skl;
@@ -2335,6 +2495,11 @@
       persistentUnit.def = battleUnit.def;
       persistentUnit.mov = battleUnit.mov;
       persistentUnit.statPoints = battleUnit.statPoints || 0;
+      persistentUnit.skillPoints = battleUnit.skillPoints || 0;
+      persistentUnit.learnedSkillIds = clone(battleUnit.learnedSkillIds || persistentUnit.learnedSkillIds || []);
+      persistentUnit.learnedActiveSkillIds = clone(battleUnit.learnedActiveSkillIds || persistentUnit.learnedActiveSkillIds || []);
+      persistentUnit.equippedActiveSkillIds = clone(battleUnit.equippedActiveSkillIds || persistentUnit.equippedActiveSkillIds || []);
+      persistentUnit.skillLevels = clone(battleUnit.skillLevels || persistentUnit.skillLevels || {});
       persistentUnit.equippedItemIds = clone(battleUnit.equippedItemIds || []);
       persistentUnit.weapon = battleUnit.weapon ? battleUnit.weapon.id : null;
     });
@@ -2379,7 +2544,8 @@
     };
   }
 
-  function buildReachableTiles(unit, allowOccupiedOrigin) {
+  function buildReachableTiles(unit, allowOccupiedOrigin, movementLimitOverride) {
+    const movementLimit = Number.isFinite(movementLimitOverride) ? movementLimitOverride : unit.mov;
     const queue = [{ x: unit.x, y: unit.y, cost: 0, path: [] }];
     const visited = new Map();
     const reachable = [];
@@ -2405,7 +2571,7 @@
         const climbCost = Math.max(0, getTileElevation(next.x, next.y) - getTileElevation(current.x, current.y));
         const nextCost = current.cost + terrainCost + climbCost;
 
-        if (!Number.isFinite(nextCost) || nextCost > unit.mov) {
+        if (!Number.isFinite(nextCost) || nextCost > movementLimit) {
           return;
         }
 
@@ -2561,7 +2727,7 @@
     });
 
     if (result.didHit) {
-      addLog(`반격: ${defender.name} -> ${attacker.name}: ${result.damageDealt} 피해`);
+      addLog(`반격: ${defender.name} -> ${attacker.name}: ${result.damageDealt} 피해${result.didCrit ? " / 치명타!" : ""}`);
       updateEndlessRunStat((currentRun) => {
         if (defender.team === "ally") {
           currentRun.damageDealt += result.damageDealt;
@@ -2583,14 +2749,14 @@
 
     if (result.targetDefeated) {
       handleUnitDefeat(attacker);
-      maybeGrantLoot(attacker);
+      maybeGrantLoot(attacker, defender);
     }
 
     return result;
   }
 
   function getActiveSkills(unit) {
-    return SkillsService.getActiveSkillsForUnit(unit).map((skill) => {
+    return SkillsService.getEquippedActiveSkillsForUnit(unit).map((skill) => {
       const cooldownRemaining = (unit.skillCooldowns && unit.skillCooldowns[skill.id]) || 0;
       return Object.assign({}, skill, {
         cooldownRemaining
@@ -2653,17 +2819,86 @@
       .map((candidate) => candidate.id);
   }
 
+  function collectSkillTiles(unit, skill, originOverride) {
+    const origin = originOverride || { x: unit.x, y: unit.y };
+    const range = getSkillRange(skill, unit);
+    const tiles = [];
+
+    for (let y = 0; y < state.battle.map.height; y += 1) {
+      for (let x = 0; x < state.battle.map.width; x += 1) {
+        const distance = Math.abs(origin.x - x) + Math.abs(origin.y - y);
+
+        if (distance >= range.rangeMin && distance <= range.rangeMax) {
+          tiles.push({ x, y });
+        }
+      }
+    }
+
+    if (skill.targetType === "self") {
+      return [{ x: origin.x, y: origin.y }];
+    }
+
+    return tiles;
+  }
+
+  function updatePendingSkillPreview(unit, originOverride) {
+    if (!state.ui.pendingSkillId) {
+      state.ui.skillTiles = [];
+      state.ui.skillTargetIds = [];
+      return;
+    }
+
+    const skill = getSkillById(unit, state.ui.pendingSkillId);
+
+    if (!skill || !canUseSkillOnCurrentTerrain(unit, skill)) {
+      state.ui.skillTiles = [];
+      state.ui.skillTargetIds = [];
+      return;
+    }
+
+    state.ui.skillTiles = collectSkillTiles(unit, skill, originOverride);
+    state.ui.skillTargetIds = collectSkillTargets(unit, skill, originOverride);
+  }
+
+  function getCommittedMove(unitId) {
+    return state.ui.pendingMove && state.ui.pendingMove.unitId === unitId
+      ? state.ui.pendingMove
+      : null;
+  }
+
+  function getMovePreview(unitId) {
+    return state.ui.movePreview && state.ui.movePreview.unitId === unitId
+      ? state.ui.movePreview
+      : null;
+  }
+
+  function getRemainingMovement(unit) {
+    const committedMove = getCommittedMove(unit.id);
+    return Math.max(0, unit.mov - Number(committedMove ? committedMove.spentCost : 0));
+  }
+
+  function clearMovePreview() {
+    state.ui.movePreview = null;
+  }
+
   function refreshSelectionState(unit) {
-    const hasCommittedMove = !!(state.ui.pendingMove && state.ui.pendingMove.unitId === unit.id);
+    const committedMove = getCommittedMove(unit.id);
     const attackMode = !!state.ui.pendingAttack;
+    const remainingMovement = getRemainingMovement(unit);
 
     if (attackMode) {
       state.ui.reachableTiles = [];
-    } else if (unit.team === "ally" && state.battle.phase === "player" && !unit.acted && !hasCommittedMove) {
-      const reachableTiles = buildReachableTiles(unit, true);
+    } else if (unit.team === "ally" && state.battle.phase === "player" && !unit.acted && remainingMovement > 0) {
+      const reachableTiles = buildReachableTiles(unit, true, remainingMovement).map((tile) => {
+        const totalCost = tile.cost + Number(committedMove ? committedMove.spentCost : 0);
+        return Object.assign({}, tile, {
+          totalCost,
+          remainingMovement: Math.max(0, unit.mov - totalCost)
+        });
+      });
       state.ui.reachableTiles = reachableTiles;
     } else {
-      state.ui.reachableTiles = hasCommittedMove
+      state.ui.reachableTiles = committedMove
         ? [{ x: unit.x, y: unit.y, cost: 0, path: [], elevation: getTileElevation(unit.x, unit.y) }]
         : [];
     }
@@ -2676,12 +2911,7 @@
       state.ui.attackableTargetIds = [];
     }
 
-    if (state.ui.pendingSkillId) {
-      const skill = getSkillById(unit, state.ui.pendingSkillId);
-      state.ui.skillTargetIds = skill && canUseSkillOnCurrentTerrain(unit, skill) ? collectSkillTargets(unit, skill) : [];
-    } else {
-      state.ui.skillTargetIds = [];
-    }
+    updatePendingSkillPreview(unit);
   }
 
   function selectUnit(unitId) {
@@ -2692,6 +2922,10 @@
     }
 
     if (state.ui.pendingMove && state.ui.pendingMove.unitId !== unit.id) {
+      return;
+    }
+
+    if (state.ui.movePreview && state.ui.movePreview.unitId !== unit.id) {
       return;
     }
 
@@ -2708,44 +2942,99 @@
     return !!unit && unit.team === "ally" && unit.alive && !unit.acted && state.battle.phase === "player";
   }
 
-  function moveSelectedUnit(x, y) {
+  function previewMoveSelection(x, y) {
     const unit = getUnitById(state.ui.selectedUnitId);
 
     if (!canPlayerControl(unit)) {
       return;
     }
 
-    const isReachable = state.ui.reachableTiles.some((tile) => tile.x === x && tile.y === y);
+    const reachableTile = state.ui.reachableTiles.find((tile) => tile.x === x && tile.y === y) || null;
+    const isReachable = !!reachableTile;
 
     if (!isReachable || (x === unit.x && y === unit.y)) {
+      if (state.ui.movePreview && state.ui.movePreview.unitId === unit.id && x === unit.x && y === unit.y) {
+        clearMovePreview();
+        refreshSelectionState(unit);
+        notify();
+      }
       return;
     }
 
-    state.ui.pendingMove = {
+    state.ui.movePreview = {
       unitId: unit.id,
-      origin: { x: unit.x, y: unit.y }
+      from: { x: unit.x, y: unit.y },
+      x,
+      y,
+      cost: reachableTile.cost,
+      totalCost: Number(reachableTile.totalCost || reachableTile.cost || 0),
+      remainingMovement: Number(reachableTile.remainingMovement || Math.max(0, unit.mov - reachableTile.cost)),
+      path: clone(reachableTile.path || [])
     };
 
     state.ui.pendingAttack = false;
-    unit.x = x;
-    unit.y = y;
-    state.ui.reachableTiles = [{ x: unit.x, y: unit.y, cost: 0, path: [], elevation: getTileElevation(unit.x, unit.y) }];
+    state.ui.pendingSkillId = null;
     state.ui.attackTiles = [];
     state.ui.attackableTargetIds = [];
-    if (state.ui.pendingSkillId) {
-      const pendingSkill = getSkillById(unit, state.ui.pendingSkillId);
-      state.ui.skillTargetIds = pendingSkill && canUseSkillOnCurrentTerrain(unit, pendingSkill)
-        ? collectSkillTargets(unit, pendingSkill)
-        : [];
-    } else {
-      state.ui.skillTargetIds = [];
+    state.ui.skillTiles = [];
+    state.ui.skillTargetIds = [];
+    notify();
+  }
+
+  function commitMovePreview() {
+    if (!state.ui.movePreview) {
+      return null;
     }
-    addLog(`${unit.name} 이동: (${x}, ${y})`);
+
+    const preview = state.ui.movePreview;
+    const unit = getUnitById(preview.unitId);
+
+    if (!canPlayerControl(unit)) {
+      clearMovePreview();
+      notify();
+      return null;
+    }
+
+    const committedMove = getCommittedMove(unit.id);
+    const origin = committedMove ? committedMove.origin : { x: unit.x, y: unit.y };
+    unit.x = preview.x;
+    unit.y = preview.y;
+    state.ui.pendingMove = {
+      unitId: unit.id,
+      origin,
+      spentCost: preview.totalCost
+    };
+    clearMovePreview();
+    refreshSelectionState(unit);
+    addLog(`${unit.name} 이동 확정: (${unit.x}, ${unit.y}) / 남은 이동 ${getRemainingMovement(unit)}`);
     syncPersistentFromBattle({ keepBattleState: true });
+    notify();
+    return unit;
+  }
+
+  function cancelMovePreview() {
+    const preview = state.ui.movePreview;
+
+    if (!preview) {
+      return;
+    }
+
+    const unit = getUnitById(preview.unitId);
+    clearMovePreview();
+
+    if (unit) {
+      refreshSelectionState(unit);
+    }
+
     notify();
   }
 
   function undoMove() {
+    if (state.ui.movePreview && !state.ui.pendingMove) {
+      cancelMovePreview();
+      return;
+    }
+
     if (!state.ui.pendingMove) {
       return;
     }
@@ -2759,16 +3048,19 @@
     unit.x = state.ui.pendingMove.origin.x;
     unit.y = state.ui.pendingMove.origin.y;
     state.ui.pendingMove = null;
+    clearMovePreview();
     selectUnit(unit.id);
   }
 
   function finalizeUnitAction(unit) {
     unit.acted = true;
     state.ui.pendingMove = null;
+    state.ui.movePreview = null;
     state.ui.pendingSkillId = null;
     state.ui.reachableTiles = [];
     state.ui.attackTiles = [];
     state.ui.attackableTargetIds = [];
+    state.ui.skillTiles = [];
     state.ui.skillTargetIds = [];
     state.ui.selectedUnitId = null;
     syncPersistentFromBattle({ keepBattleState: true });
@@ -2796,13 +3088,14 @@
     evaluateStageEvents("boss_defeated", { unit });
   }
 
-  function maybeGrantLoot(defeatedUnit) {
+  function maybeGrantLoot(defeatedUnit, attacker) {
     if (!defeatedUnit || defeatedUnit.team !== "enemy") {
       return null;
     }
 
     const guaranteed = !!defeatedUnit.isElite;
-    const dropRate = defeatedUnit.isElite ? 1 : 0.72;
+    const attackerDropBonus = attacker && attacker.hiddenStats ? Number(attacker.hiddenStats.dropRateBonus || 0) : 0;
+    const dropRate = defeatedUnit.isElite ? 1 : Math.min(0.97, 0.72 + attackerDropBonus);
 
     if (Math.random() > dropRate) {
       return null;
@@ -2854,21 +3147,32 @@
       const previousLevel = attacker.level;
       attacker.exp -= 100;
       attacker.level += 1;
-      const gains = SkillsService.rollLevelGains(attacker);
-      SkillsService.applyLevelGains(attacker, gains);
-      attacker.statPoints = (attacker.statPoints || 0) + 2;
+      const gains = StatsService.rollLevelGains(attacker, 5);
+      StatsService.applyLevelGains(attacker, gains);
+      attacker.statPoints = (attacker.statPoints || 0) + 1;
+      attacker.skillPoints = (attacker.skillPoints || 0) + 1;
       addLog(
-        `${attacker.name} 레벨 업! Lv.${attacker.level} / 성장: HP+${gains.maxHp} STR+${gains.str} SKL+${gains.skl} SPD+${gains.spd} DEF+${gains.def} MOV+${gains.mov}`
+        `${attacker.name} 레벨 업! Lv.${attacker.level} / 성장: ${StatsService.describeLevelGains(gains)}`
       );
-      addLog(`${attacker.name} 스탯 포인트 +2`);
+      addLog(`${attacker.name} 스탯 포인트 +1 / 스킬 포인트 +1`);
+
+      SkillsService.grantMilestoneRewardsForLevel(attacker, previousLevel, attacker.level).forEach((skill) => {
+        addLog(`${attacker.name} 병종 적성 각성: ${skill.name}`);
+      });
 
       SkillsService.getNewlyUnlockedSkills(attacker.className, previousLevel, attacker.level).forEach((skill) => {
-        addLog(`${attacker.name} 스킬 해금: ${skill.name}`);
+        addLog(`${attacker.name} 학습 가능 스킬: ${skill.name}`);
       });
 
       SkillsService.getNewlyUnlockedActiveSkills(attacker.className, previousLevel, attacker.level).forEach((skill) => {
-        addLog(`${attacker.name} 액티브 해금: ${skill.name}`);
+        addLog(`${attacker.name} 학습 가능 액티브: ${skill.name}`);
       });
+
+      SkillsService.getPromotionOptions(attacker)
+        .filter((promotion) => promotion.unlockLevel > previousLevel && promotion.unlockLevel <= attacker.level)
+        .forEach((promotion) => {
+          addLog(`${attacker.name} 전직 가능: ${promotion.className}`);
+        });
     }
   }
 
@@ -2899,6 +3203,7 @@
     }
 
     let result = null;
+    const performance = SkillsService.getSkillPerformance(unit, skill);
 
     if (skill.effect.kind === "heal") {
       const missingHp = target.maxHp - target.hp;
@@ -2907,18 +3212,29 @@
         throw new Error("대상의 HP가 이미 최대입니다.");
       }
 
-      const healed = Math.min(skill.effect.amount, missingHp);
+      const healed = Math.min(
+        performance && performance.kind === "heal" ? performance.amount : skill.effect.amount,
+        missingHp
+      );
       target.hp += healed;
       result = { type: "heal", healed };
       addLog(`${unit.name}의 ${skill.name}: ${target.name} HP ${healed} 회복`);
     }
 
     if (skill.effect.kind === "buff") {
+      const nextBuff = clone(skill.effect.buff || {});
+
+      if (performance && performance.kind === "buff") {
+        performance.entries.forEach((entry) => {
+          nextBuff[entry.key] = entry.value;
+        });
+      }
+
       target.statusEffects = target.statusEffects || [];
       target.statusEffects = target.statusEffects.filter((effect) => effect.id !== skill.effect.buff.id);
-      target.statusEffects.push(clone(skill.effect.buff));
+      target.statusEffects.push(nextBuff);
       result = { type: "buff" };
-      addLog(`${unit.name}의 ${skill.name}: ${target.name}에게 ${skill.effect.buff.name} 부여`);
+      addLog(`${unit.name}의 ${skill.name}: ${target.name}에게 ${nextBuff.name} 부여`);
     }
 
     if (skill.effect.kind === "attack") {
@@ -2934,24 +3250,34 @@
         throw new Error("현재 무기로는 이 스킬을 사용할 수 없습니다.");
       }
 
-      const hitRate = Math.max(5, Math.min(100, preview.hitRate + (skill.effect.hitBonus || 0)));
-      const damage = Math.max(0, preview.damage + (skill.effect.damageBonus || 0));
+      const skillHitBonus = performance && performance.kind === "attack"
+        ? performance.hitBonus
+        : (skill.effect.hitBonus || 0);
+      const skillDamageBonus = performance && performance.kind === "attack"
+        ? performance.damageBonus
+        : (skill.effect.damageBonus || 0);
+      const hitRate = Math.max(5, Math.min(100, preview.hitRate + skillHitBonus));
+      const damage = Math.max(0, preview.damage + skillDamageBonus);
       const roll = Math.floor(Math.random() * 100) + 1;
       const didHit = roll <= hitRate;
+      const critRoll = Math.floor(Math.random() * 100) + 1;
+      const critRate = preview.critRate || 0;
+      const didCrit = didHit && critRoll <= critRate;
+      const finalDamage = didCrit ? Math.max(damage, Math.round(damage * (preview.critMultiplier || 1.5))) : damage;
 
       unit.weapon.uses = Math.max(0, unit.weapon.uses - 1);
 
       if (didHit) {
-        target.hp = Math.max(0, target.hp - damage);
-        addLog(`${unit.name}의 ${skill.name}: ${target.name}에게 ${damage} 피해`);
+        target.hp = Math.max(0, target.hp - finalDamage);
+        addLog(`${unit.name}의 ${skill.name}: ${target.name}에게 ${finalDamage} 피해${didCrit ? " / 치명타!" : ""}`);
         if (preview.elevationNote) {
           addLog(`지형 보정: ${preview.elevationNote}`);
         }
         updateEndlessRunStat((currentRun) => {
           if (unit.team === "ally") {
-            currentRun.damageDealt += damage;
+            currentRun.damageDealt += finalDamage;
           } else {
-            currentRun.damageTaken += damage;
+            currentRun.damageTaken += finalDamage;
           }
         });
       } else {
@@ -2960,11 +3286,11 @@
 
       if (didHit && target.hp <= 0) {
         handleUnitDefeat(target);
-        maybeGrantLoot(target);
+        maybeGrantLoot(target, unit);
       }
 
       applyExperience(unit, didHit ? (target.hp <= 0 ? 40 : 14) : 5);
-      result = { type: "attack", didHit, damage };
+      result = { type: "attack", didHit, didCrit, damage: finalDamage };
     }
 
     evaluateStageEvents("boss_hp_half");
@@ -2978,6 +3304,10 @@
 
     if (!canPlayerControl(unit)) {
       return;
+    }
+
+    if (getMovePreview(unit.id)) {
+      throw new Error("이동 미리보기를 먼저 확정하거나 취소하세요.");
     }
 
     const skill = getSkillById(unit, skillId);
@@ -2996,6 +3326,7 @@
 
     state.ui.pendingAttack = false;
     state.ui.pendingSkillId = skill.id;
+    state.ui.skillTiles = collectSkillTiles(unit, skill);
     state.ui.skillTargetIds = collectSkillTargets(unit, skill);
 
     if (skill.targetType === "self") {
@@ -3011,6 +3342,10 @@
 
     if (!canPlayerControl(unit)) {
       return null;
+    }
+
+    if (getMovePreview(unit.id)) {
+      throw new Error("이동 미리보기를 먼저 확정하거나 취소하세요.");
     }
 
     const skill = getSkillById(unit, skillId);
@@ -3046,6 +3381,10 @@
       return;
     }
 
+    if (getMovePreview(unit.id)) {
+      throw new Error("이동 미리보기를 먼저 확정하거나 취소하세요.");
+    }
+
     if (!unit.weapon || unit.weapon.uses <= 0) {
       throw new Error("사용 가능한 무기가 없습니다.");
     }
@@ -3057,22 +3396,29 @@
   }
 
   function checkBattleEnd() {
-    const hero = getUnitById("hero-1");
+    const leaderId = state.saveData ? state.saveData.leaderUnitId : null;
+    const leaderUnit = leaderId ? getUnitById(leaderId) : null;
+    const allAlliesDead = getAliveUnitsByTeam("ally").length === 0;
     const bossUnit = getBossUnit();
     const allEnemiesDead = getAliveUnitsByTeam("enemy").length === 0;
     const bossDefeated = !bossUnit || !bossUnit.alive;
+    const defeatMet = state.battle.defeatCondition === "all_allies_down"
+      ? allAlliesDead
+      : (leaderUnit ? !leaderUnit.alive : allAlliesDead);
     const victoryMet = state.battle.victoryCondition === "boss_defeat"
       ? bossDefeated
       : state.battle.victoryCondition === "boss_or_route"
         ? (bossDefeated || allEnemiesDead)
         : allEnemiesDead;
 
-    if (!hero || !hero.alive) {
+    if (defeatMet) {
       state.battle.status = "defeat";
       state.saveData.battleState = null;
       resetUiState();
       markCampaignDefeat();
-      addLog("주인공이 쓰러졌습니다. 패배했습니다.");
+      addLog(state.battle.defeatCondition === "all_allies_down"
+        ? "아군이 전멸했습니다. 패배했습니다."
+        : "리더가 쓰러졌습니다. 패배했습니다.");
       return true;
     }
 
@@ -3214,6 +3560,16 @@
     return "적 전멸";
   }
 
+  function isEndlessUnlocked(saveData) {
+    const campaign = saveData && saveData.campaign
+      ? saveData.campaign
+      : {
+          clearedStageIds: []
+        };
+
+    return STAGE_DEFINITIONS.every((stage) => (campaign.clearedStageIds || []).includes(stage.id));
+  }
+
   function getStageCatalog(saveData) {
     const campaign = saveData && saveData.campaign
       ? saveData.campaign
@@ -3228,6 +3584,7 @@
           currentFloor: 1,
           bestFloor: 1
         };
+    const endlessUnlocked = isEndlessUnlocked(saveData);
 
     return STAGE_DEFINITIONS.map((stage, index) => ({
       id: stage.id,
@@ -3251,11 +3608,12 @@
         category: "main",
         victoryCondition: "variable",
         victoryLabel: `현재 ${endless.currentFloor}층 / 최고 ${endless.bestFloor}층`,
-        available: true,
+        available: endlessUnlocked,
         cleared: false,
-        selected: saveData ? saveData.stageId === ENDLESS_STAGE_ID : false,
+        selected: saveData ? saveData.stageId === ENDLESS_STAGE_ID && endlessUnlocked : false,
         inProgress: saveData && saveData.stageStatus === "in_progress" && saveData.stageId === ENDLESS_STAGE_ID,
-        order: STAGE_DEFINITIONS.length + 1
+        order: STAGE_DEFINITIONS.length + 1,
+        hidden: !endlessUnlocked
       }
     ]);
   }
@@ -3339,6 +3697,10 @@
 
   function selectCampaignStage(saveData, stageId, options) {
     if (stageId === ENDLESS_STAGE_ID) {
+      if (!isEndlessUnlocked(saveData)) {
+        throw new Error("무한 균열은 프롤로그를 모두 클리어한 뒤 개방됩니다.");
+      }
+
       const isChangingFromActiveBattle =
         saveData.stageStatus === "in_progress" &&
         saveData.battleState &&
@@ -3451,7 +3813,7 @@
     }
 
     if (result.didHit) {
-      addLog(`${attacker.name} -> ${defender.name}: ${result.damageDealt} 피해`);
+      addLog(`${attacker.name} -> ${defender.name}: ${result.damageDealt} 피해${result.didCrit ? " / 치명타!" : ""}`);
       updateEndlessRunStat((currentRun) => {
         currentRun.damageDealt += result.damageDealt;
       });
@@ -3469,7 +3831,7 @@
 
     if (result.targetDefeated) {
       handleUnitDefeat(defender);
-      maybeGrantLoot(defender);
+      maybeGrantLoot(defender, attacker);
     } else {
       tryCounterAttack(attacker, defender);
     }
@@ -3492,6 +3854,10 @@
 
     if (!canPlayerControl(unit)) {
       return;
+    }
+
+    if (state.ui.movePreview && state.ui.movePreview.unitId === unit.id) {
+      throw new Error("이동 미리보기를 먼저 확정하거나 취소하세요.");
     }
 
     addLog(`${unit.name} 대기`);
@@ -3518,6 +3884,30 @@
     }
   }
 
+  function finalizePlayerTurnState() {
+    if (!state.battle) {
+      return;
+    }
+
+    if (state.ui.movePreview) {
+      addLog("이동 미리보기를 취소하고 턴을 종료합니다.");
+    }
+
+    if (state.ui.pendingMove) {
+      const movedUnit = getUnitById(state.ui.pendingMove.unitId);
+
+      if (movedUnit && movedUnit.alive) {
+        addLog(`${movedUnit.name} 행동 종료`);
+      }
+    }
+
+    state.battle.units.forEach((unit) => {
+      if (unit.team === "ally" && unit.alive) {
+        unit.acted = true;
+      }
+    });
+  }
+
   function endPlayerTurn() {
     if (!state.battle || state.battle.phase !== "player" || state.battle.status !== "in_progress") {
       return;
@@ -3527,6 +3917,7 @@
       return;
     }
 
+    finalizePlayerTurnState();
     resetUiState();
     state.battle.phase = "enemy";
     decrementTeamEffects("enemy");
@@ -3730,7 +4121,7 @@
         });
 
         if (result.didHit) {
-          addLog(`${enemy.name} -> ${target.name}: ${result.damageDealt} 피해`);
+          addLog(`${enemy.name} -> ${target.name}: ${result.damageDealt} 피해${result.didCrit ? " / 치명타!" : ""}`);
           updateEndlessRunStat((currentRun) => {
             currentRun.damageTaken += result.damageDealt;
           });
@@ -3806,18 +4197,11 @@
     }
 
     if (occupant && occupant.team === "ally") {
-      if (
-        state.ui.pendingMove &&
-        state.ui.pendingMove.unitId === occupant.id &&
-        state.ui.selectedUnitId === occupant.id &&
-        !state.ui.pendingSkillId &&
-        !state.ui.attackableTargetIds.length
-      ) {
-        waitSelectedUnit();
+      if (state.ui.pendingMove && state.ui.pendingMove.unitId !== occupant.id) {
         return;
       }
 
-      if (state.ui.pendingMove && state.ui.pendingMove.unitId !== occupant.id) {
+      if (state.ui.movePreview && state.ui.movePreview.unitId !== occupant.id) {
         return;
       }
 
@@ -3834,7 +4218,7 @@
       return;
     }
 
-    if (!occupant && state.ui.selectedUnitId && !state.ui.pendingMove) {
+    if (!occupant && state.ui.selectedUnitId) {
       const unit = getUnitById(state.ui.selectedUnitId);
 
       if (state.ui.pendingAttack) {
@@ -3848,17 +4232,24 @@
         return;
       }
 
+      if (state.ui.pendingSkillId) {
+        state.ui.pendingSkillId = null;
+        state.ui.skillTiles = [];
+        state.ui.skillTargetIds = [];
+        if (unit) {
+          refreshSelectionState(unit);
+        }
+        notify();
+        return;
+      }
+
       if (!canPlayerControl(unit)) {
         resetUiState();
         notify();
         return;
       }
 
-      moveSelectedUnit(x, y);
-      return;
-    }
-
-    if (!occupant && state.ui.selectedUnitId && state.ui.pendingMove) {
+      previewMoveSelection(x, y);
       return;
     }
 
@@ -3874,17 +4265,12 @@
     const targetItem = InventoryService.getItemById(state.saveData, itemId);
     const previousOwnerId = targetItem ? targetItem.equippedBy : null;
     const equippedItem = InventoryService.equipItemToUnit(state.saveData, unitId, itemId);
-    const battleUnit = getUnitById(unitId);
     const previousOwner = previousOwnerId ? getUnitById(previousOwnerId) : null;
 
-    if (battleUnit) {
-      battleUnit.weapon = equippedItem.slot === "weapon" ? clone(equippedItem) : battleUnit.weapon;
-      battleUnit.equippedItemIds = clone(getPersistentUnit(unitId).equippedItemIds || []);
-    }
+    syncBattleUnitEquipmentState(unitId);
 
     if (previousOwner && previousOwner.id !== unitId) {
-      previousOwner.equippedItemIds = clone(getPersistentUnit(previousOwner.id).equippedItemIds || []);
-      previousOwner.weapon = resolveWeaponForUnit(previousOwner);
+      syncBattleUnitEquipmentState(previousOwner.id);
     }
 
     syncPersistentFromBattle({ keepBattleState: state.saveData.stageStatus === "in_progress" });
@@ -3894,22 +4280,66 @@
 
   function allocateStat(unitId, statName) {
     const updatedUnit = StatsService.allocateStatPoint(state.saveData, unitId, statName);
+    syncBattleUnitEquipmentState(unitId);
     const battleUnit = getUnitById(unitId);
 
     if (battleUnit) {
-      const previousHp = battleUnit.hp;
-      battleUnit[statName] = updatedUnit[statName];
+      battleUnit.primaryStats = clone(updatedUnit.primaryStats || {});
+      battleUnit.hiddenStats = clone(updatedUnit.hiddenStats || {});
       battleUnit.statPoints = updatedUnit.statPoints;
-
-      if (statName === "maxHp") {
-        battleUnit.maxHp = updatedUnit.maxHp;
-        battleUnit.hp = Math.min(previousHp + 1, updatedUnit.maxHp);
-      }
+      battleUnit.skillPoints = updatedUnit.skillPoints || 0;
+      battleUnit.equippedActiveSkillIds = clone(updatedUnit.equippedActiveSkillIds || []);
+      battleUnit.skillLevels = clone(updatedUnit.skillLevels || {});
     }
 
     syncPersistentFromBattle({ keepBattleState: state.saveData.stageStatus === "in_progress" });
     notify();
     return updatedUnit;
+  }
+
+  function applyProgressionDraft(unitId, statDraft, skillIds) {
+    const persistentUnit = StatsService.getUnitById(state.saveData, unitId);
+
+    if (!persistentUnit) {
+      throw new Error("성장 정보를 적용할 유닛을 찾을 수 없습니다.");
+    }
+
+    const nextStatDraft = statDraft || {};
+    const nextSkillIds = Array.isArray(skillIds) ? skillIds.slice() : [];
+    const spentStats = StatsService.PRIMARY_STATS.reduce((sum, statName) => sum + Number(nextStatDraft[statName] || 0), 0);
+
+    if (spentStats > 0) {
+      StatsService.applyStatDraft(state.saveData, unitId, nextStatDraft);
+    }
+
+    nextSkillIds.forEach((skillId) => {
+      SkillsService.learnSkill(persistentUnit, skillId);
+    });
+
+    syncBattleUnitEquipmentState(unitId);
+    const battleUnit = getUnitById(unitId);
+
+    if (battleUnit) {
+      battleUnit.primaryStats = clone(persistentUnit.primaryStats || {});
+      battleUnit.hiddenStats = clone(persistentUnit.hiddenStats || {});
+      battleUnit.maxHp = persistentUnit.maxHp;
+      battleUnit.hp = Math.min(Math.max(1, battleUnit.hp || persistentUnit.hp || persistentUnit.maxHp), persistentUnit.maxHp);
+      battleUnit.str = persistentUnit.str;
+      battleUnit.skl = persistentUnit.skl;
+      battleUnit.spd = persistentUnit.spd;
+      battleUnit.def = persistentUnit.def;
+      battleUnit.mov = persistentUnit.mov;
+      battleUnit.statPoints = persistentUnit.statPoints || 0;
+      battleUnit.skillPoints = persistentUnit.skillPoints || 0;
+      battleUnit.learnedSkillIds = clone(persistentUnit.learnedSkillIds || []);
+      battleUnit.learnedActiveSkillIds = clone(persistentUnit.learnedActiveSkillIds || []);
+      battleUnit.equippedActiveSkillIds = clone(persistentUnit.equippedActiveSkillIds || []);
+      battleUnit.skillLevels = clone(persistentUnit.skillLevels || {});
+    }
+
+    syncPersistentFromBattle({ keepBattleState: state.saveData.stageStatus === "in_progress" });
+    notify();
+    return persistentUnit;
   }
 
   function markCutsceneSeen() {
@@ -4109,6 +4539,9 @@
     endPlayerTurn,
     runEnemyPhase,
     equipItem,
+    commitMovePreview,
+    cancelMovePreview,
+    applyProgressionDraft,
     allocateStat,
     markCutsceneSeen,
     chooseEndlessReward,
@@ -4118,6 +4551,7 @@
     getVictoryProgressText,
     calculateCounterPreview,
     canUseSkillOnCurrentTerrain,
+    isEndlessUnlocked,
     getStageCatalog,
     selectCampaignStage,
     getRewardCodex,
