@@ -339,8 +339,25 @@
       ? normalized.leaderUnitId
       : (rosterIds[0] || null);
     normalized.roster = normalized.roster.map((unit) => Object.assign({
-      guildRank: "C"
+      guildRank: "C",
+      potentialScore: 36,
+      trainingLevel: 0,
+      trainingAttempts: 0,
+      signaturePassiveIds: [],
+      rankPromotionHistory: []
     }, unit));
+    normalized.tavern.lineup = normalized.tavern.lineup.map((candidate) => Object.assign({
+      signaturePassiveIds: candidate && candidate.signaturePassiveId ? [candidate.signaturePassiveId] : [],
+      potentialScore: candidate && candidate.unit && candidate.unit.potentialScore ? candidate.unit.potentialScore : 36
+    }, candidate, {
+      unit: Object.assign({
+        potentialScore: 36,
+        trainingLevel: 0,
+        trainingAttempts: 0,
+        signaturePassiveIds: [],
+        rankPromotionHistory: []
+      }, candidate && candidate.unit ? candidate.unit : {})
+    }));
     normalized.battleState = normalized.battleState || null;
     return normalized;
   }

@@ -120,6 +120,32 @@
     return `${rankMeta.label} / ${rankMeta.title}`;
   }
 
+  function getSignaturePassiveIds(entity) {
+    if (!entity) {
+      return [];
+    }
+
+    return Array.from(
+      new Set(
+        []
+          .concat(Array.isArray(entity.signaturePassiveIds) ? entity.signaturePassiveIds : [])
+          .concat(entity.signaturePassiveId ? [entity.signaturePassiveId] : [])
+          .filter(Boolean)
+      )
+    );
+  }
+
+  function getSignaturePassiveDefinitions(unit, entity) {
+    return getSignaturePassiveIds(entity || unit)
+      .map((skillId) => SkillsService.getSkillDefinition(unit, skillId))
+      .filter(Boolean);
+  }
+
+  function buildPotentialPill(unit) {
+    const potentialMeta = StatsService.getPotentialMeta(unit);
+    return `<span class="meta-pill is-violet">잠재 ${potentialMeta.label}</span>`;
+  }
+
   function formatRemainingRefresh(nextRefreshAt) {
     if (!nextRefreshAt) {
       return "갱신 정보 없음";
@@ -1070,9 +1096,8 @@
     const unit = candidate.unit;
     const rankClass = `rank-${String(candidate.guildRank || "D").toLowerCase().replace("+", "plus")}`;
     const classProfile = SkillsService.getClassProfile(unit);
-    const signaturePassive = candidate.signaturePassiveId
-      ? SkillsService.getSkillDefinition(unit, candidate.signaturePassiveId)
-      : null;
+    const signaturePassives = getSignaturePassiveDefinitions(unit, candidate);
+    const potentialMeta = StatsService.getPotentialMeta(unit);
     const startingWeaponLabel = candidate.startingWeapon
       ? candidate.startingWeapon.name
       : "없음";
@@ -1083,18 +1108,32 @@
       `    <span class="meta-pill ${rankClass}">${candidate.guildRank}</span>`,
       `    <span class="meta-pill">${candidate.rankTitle}</span>`,
       `    <span class="meta-pill">Lv.${unit.level}</span>`,
+      `    ${buildPotentialPill(unit)}`,
+      `    <span class="meta-pill ${signaturePassives.length ? "is-cyan" : "is-muted"}">고유 ${signaturePassives.length}개</span>`,
       `    <span class="meta-pill is-gold">${candidate.hireCost}G</span>`,
-      signaturePassive ? '    <span class="meta-pill is-cyan">고유 패시브 보유</span>' : "",
       candidate.recruitedAt ? '    <span class="meta-pill is-cyan">영입 완료</span>' : "",
       "  </div>",
-      `  <p>${classProfile.role} / ${classProfile.summary}</p>`,
       `  <div class="detail-stats">${buildUnitStatSummary(unit)}</div>`,
-      `  <p>시작 장비: ${startingWeaponLabel}</p>`,
-      signaturePassive ? `  <p>고유 패시브: ${signaturePassive.name} - ${signaturePassive.description}</p>` : "",
-      `  <p>패시브: ${SkillsService.describeSkills(unit)}</p>`,
-      `  <p>액티브: ${SkillsService.describeActiveSkills(unit)}</p>`,
-      `  <p>운용 강점: ${classProfile.strengths}</p>`,
-      `  <p>주의점: ${classProfile.caution}</p>`
+      buildItemFeatureSection("성장 정보", [
+        '<div class="detail-metric-grid">',
+        buildDetailKeyValue("잠재력", potentialMeta.label, "violet"),
+        buildDetailKeyValue("훈련 상한", `${StatsService.getTrainingCap(unit)}단계`, "cyan"),
+        buildDetailKeyValue("고유 패시브", `${signaturePassives.length}개`, signaturePassives.length ? "gold" : "muted"),
+        buildDetailKeyValue("시작 장비", startingWeaponLabel, "gold"),
+        "</div>"
+      ].join(""), "is-summary"),
+      buildItemFeatureSection("병종 운용", [
+        `<p>${classProfile.role} / ${classProfile.summary}</p>`,
+        `<p>강점: ${classProfile.strengths}</p>`,
+        `<p>주의: ${classProfile.caution}</p>`
+      ].join(""), "is-stats"),
+      buildItemFeatureSection("고유 패시브", signaturePassives.length
+        ? `<div class="detail-token-list">${signaturePassives.map((skill) => `<span class="detail-token is-unique"><strong>${skill.name}</strong><small>${skill.description}</small></span>`).join("")}</div>`
+        : '<div class="detail-token-list"><span class="detail-token is-muted">이번 명단에는 고유 패시브가 없습니다.</span></div>', "is-affix"),
+      buildItemFeatureSection("보유 스킬", [
+        `  <p>패시브: ${SkillsService.describeSkills(unit)}</p>`,
+        `  <p>액티브: ${SkillsService.describeActiveSkills(unit)}</p>`
+      ].join(""), "is-set")
     ].filter(Boolean).join("");
   }
 
@@ -1120,6 +1159,18 @@
     const learnedSkills = SkillsService.getSkillsForUnit(unit);
     const learnedActiveSkills = SkillsService.getActiveSkillsForUnit(unit);
     const equippedActiveSkills = SkillsService.getActiveSkillLoadout(unit);
+    const learnableSkills = SkillsService.getLearnableSkills(unit);
+    const learnableActiveSkills = SkillsService.getLearnableActiveSkills(unit);
+    const pendingSkillSummaries = draft.skillIds
+      .map((skillId) => SkillsService.getSkillDefinition(unit, skillId))
+      .filter(Boolean)
+      .map((skill) => `<span class="meta-pill is-preview-up">${skill.name}</span>`)
+      .join("");
+    const signaturePassives = getSignaturePassiveDefinitions(unit);
+    const potentialMeta = StatsService.getPotentialMeta(unit);
+    const trainingCost = TavernService.getTrainingCost(unit);
+    const canTrain = (unit.trainingLevel || 0) < StatsService.getTrainingCap(unit);
+    const guildPromotion = TavernService.getRankPromotionRequirement(unit);
     const activeSets = effectivePreviewUnit && effectivePreviewUnit.equipmentBonus && effectivePreviewUnit.equipmentBonus.sets
       ? effectivePreviewUnit.equipmentBonus.sets
       : [];
@@ -1144,6 +1195,8 @@
       `    <span class="meta-pill rank-${String(unit.guildRank || "D").toLowerCase().replace("+", "plus")}">${formatRankBadge(unit.guildRank || "D")}</span>`,
       `    <span class="meta-pill">Lv.${unit.level}</span>`,
       `    <span class="meta-pill">EXP ${unit.exp}</span>`,
+      `    ${buildPotentialPill(unit)}`,
+      `    <span class="meta-pill ${canTrain ? "is-cyan" : "is-muted"}">훈련 ${unit.trainingLevel || 0}/${StatsService.getTrainingCap(unit)}</span>`,
       `    <span class="meta-pill is-gold">스탯 ${remainingStatPoints}</span>`,
       `    <span class="meta-pill is-cyan">스킬 ${remainingSkillPoints}</span>`,
       `    <span class="meta-pill ${isUnitSelectedForSortie(unit.id) ? "is-cyan" : "is-muted"}">${isUnitSelectedForSortie(unit.id) ? "출전 중" : "후방 대기"}</span>`,
@@ -1163,13 +1216,32 @@
       `    <span class="meta-pill ${spentStats ? "is-preview-up" : "is-muted"}">예약 스탯 ${spentStats}</span>`,
       `    <span class="meta-pill ${spentSkills ? "is-preview-up" : "is-muted"}">예약 스킬 ${spentSkills}</span>`,
       "  </div>",
-      `  <p>병종 역할: ${classProfile.role} / ${classProfile.summary}</p>`,
-      `  <p>운용 강점: ${classProfile.strengths}</p>`,
-      `  <p>상성 가이드: ${classProfile.matchup}</p>`,
-      `  <p>주의점: ${classProfile.caution}</p>`,
-      `  <p>장착 중: ${equippedItems || "없음"}</p>`,
-      activeSets.length ? `  <p>활성 세트: ${activeSets.map((setEntry) => `${setEntry.setName} ${setEntry.pieces}세트`).join(" / ")}</p>` : "",
-      activeSets.length ? `  <p>세트 효과: ${activeSets.map((setEntry) => setEntry.activeBonuses.map((bonus) => `${setEntry.setName} ${bonus.pieces}세트 - ${bonus.description}`).join(" / ")).join(" / ")}</p>` : "",
+      buildItemFeatureSection("성장 정보", [
+        '<div class="detail-metric-grid">',
+        buildDetailKeyValue("잠재력", potentialMeta.label, "violet"),
+        buildDetailKeyValue("훈련 단계", `${unit.trainingLevel || 0}/${StatsService.getTrainingCap(unit)}`, canTrain ? "cyan" : "muted"),
+        buildDetailKeyValue("길드 승급", guildPromotion ? `${guildPromotion.nextRank} ${guildPromotion.eligible ? "가능" : "대기"}` : "최고 등급", guildPromotion && guildPromotion.eligible ? "gold" : "muted"),
+        buildDetailKeyValue("고유 패시브", `${signaturePassives.length}개`, signaturePassives.length ? "gold" : "muted"),
+        "</div>",
+        guildPromotion
+          ? `<p>다음 길드 승급: Lv.${guildPromotion.minLevel} / 훈련 ${guildPromotion.minTrainingLevel} / ${guildPromotion.cost}G</p>`
+          : "<p>길드 최고 등급에 도달했습니다.</p>",
+        `<p>${canTrain ? `다음 훈련 비용 ${trainingCost}G` : "현재 잠재력 기준 훈련 한계에 도달했습니다."}</p>`
+      ].join(""), "is-summary"),
+      buildItemFeatureSection("병종 운용", [
+        `<p>${classProfile.role} / ${classProfile.summary}</p>`,
+        `<p>강점: ${classProfile.strengths}</p>`,
+        `<p>상성: ${classProfile.matchup}</p>`,
+        `<p>주의: ${classProfile.caution}</p>`
+      ].join(""), "is-stats"),
+      buildItemFeatureSection("고유 패시브", signaturePassives.length
+        ? `<div class="detail-token-list">${signaturePassives.map((skill) => `<span class="detail-token is-unique"><strong>${skill.name}</strong><small>${skill.description}</small></span>`).join("")}</div>`
+        : '<div class="detail-token-list"><span class="detail-token is-muted">고유 패시브 없음</span></div>', "is-affix"),
+      buildItemFeatureSection("장비 / 세트", [
+        `<p>장착 중: ${equippedItems || "없음"}</p>`,
+        activeSets.length ? `  <p>활성 세트: ${activeSets.map((setEntry) => `${setEntry.setName} ${setEntry.pieces}세트`).join(" / ")}</p>` : "  <p>활성 세트 없음</p>",
+        activeSets.length ? `  <p>세트 효과: ${activeSets.map((setEntry) => setEntry.activeBonuses.map((bonus) => `${setEntry.setName} ${bonus.pieces}세트 - ${bonus.description}`).join(" / ")).join(" / ")}</p>` : ""
+      ].filter(Boolean).join(""), "is-set"),
       `  <p>전직: ${promotionSummary}</p>`,
       `  <p>습득 패시브: ${learnedSkills.length ? learnedSkills.map((skill) => skill.name).join(", ") : "없음"}</p>`,
       learnedSkills.length ? `  <div class="detail-stats">${learnedSkills.map((skill) => buildKnownSkillBadge(skill, false)).join("")}</div>` : "",
@@ -1179,7 +1251,37 @@
           ? buildKnownSkillBadge(skill, true, { isEquipped: true, slotLabel: getSkillSlotLabel(index) })
           : `<span class="meta-pill is-muted">${getSkillSlotLabel(index)} 비어 있음</span>`
       )).join("")}</div>`,
-      `  <p>보유 액티브: ${learnedActiveSkills.length ? learnedActiveSkills.map((skill) => `${skill.name} Lv.${skill.skillLevel}`).join(", ") : "없음"}</p>`
+      `  <p>보유 액티브: ${learnedActiveSkills.length ? learnedActiveSkills.map((skill) => `${skill.name} Lv.${skill.skillLevel}`).join(", ") : "없음"}</p>`,
+      pendingSkillSummaries ? `  <p>확정 대기 스킬</p>` : "",
+      pendingSkillSummaries ? `  <div class="detail-stats">${pendingSkillSummaries}</div>` : "",
+      '  <div class="detail-stats progression-stat-buttons">',
+      StatsService.PRIMARY_STATS.map((statName) => (
+        `<button class="ghost-button small-button" type="button" data-menu-stat-draft="${statName}" ${remainingStatPoints <= 0 || previewPrimaryStats[statName] >= StatsService.STAT_LIMITS[statName] ? "disabled" : ""}>+ ${StatsService.PRIMARY_STAT_LABELS[statName]}</button>`
+      )).join(""),
+      "  </div>",
+      learnableSkills.length || learnableActiveSkills.length ? '  <div class="progression-skill-list">' : "",
+      learnableSkills.map((skill) => (
+        buildDraftableSkillCard(skill, unit, false, draft.skillIds.includes(skill.id), remainingSkillPoints)
+      )).join(""),
+      learnableActiveSkills.map((skill) => (
+        buildDraftableSkillCard(skill, unit, true, draft.skillIds.includes(skill.id), remainingSkillPoints)
+      )).join(""),
+      learnableSkills.length || learnableActiveSkills.length ? "  </div>" : "",
+      !learnableSkills.length && !learnableActiveSkills.length ? "  <p>현재 레벨에서 새로 배울 수 있는 스킬이 없습니다.</p>" : "",
+      '  <div class="detail-actions">',
+      `    <button class="primary-button small-button" type="button" data-train-unit="true" ${canTrain ? "" : "disabled"}>${canTrain ? `훈련 ${trainingCost}G` : "훈련 한계"}</button>`,
+      `    <button class="secondary-button small-button" type="button" data-promote-rank="true" ${guildPromotion && guildPromotion.eligible ? "" : "disabled"}>${guildPromotion ? `${guildPromotion.nextRank} 승급` : "최고 등급"}</button>`,
+      '    <button class="primary-button small-button" type="button" data-open-equipment="true">장착 관리</button>',
+      '    <button class="primary-button small-button" type="button" data-open-skill-modal="true">스킬 관리</button>',
+      `    <button class="secondary-button small-button" type="button" data-set-leader="true" ${appState.saveData.leaderUnitId === unit.id ? "disabled" : ""}>리더 지정</button>`,
+      '    <button class="secondary-button small-button" type="button" data-unequip-all="true">전체 해제</button>',
+      `    <button class="secondary-button small-button" type="button" data-toggle-sortie="true">${isUnitSelectedForSortie(unit.id) ? "후방 대기" : "출전 등록"}</button>`,
+      promotionOptions.map((promotion) => (
+        `<button class="secondary-button small-button" type="button" data-promote-class="${promotion.className}">${promotion.className} 전직</button>`
+      )).join(""),
+      spentStats || spentSkills ? '<button class="primary-button small-button" type="button" data-progression-confirm="true">성장 확정</button>' : "",
+      spentStats || spentSkills ? '<button class="ghost-button small-button" type="button" data-progression-cancel="true">예약 취소</button>' : "",
+      "  </div>"
     ].filter(Boolean).join("");
   }
 
@@ -1617,6 +1719,30 @@
     if (button.dataset.openSkillModal === "true") {
       closeDetailModal();
       openSkillModal(unit.id);
+      return;
+    }
+
+    if (button.dataset.trainUnit === "true") {
+      try {
+        const result = TavernService.trainUnit(appState.saveData, unit.id);
+        persistSession(appState.saveData, appState.settings);
+        refreshUnitDetailModal(unit.id);
+        showToast(`${result.unit.name} 훈련 완료 / ${StatsService.describeLevelGains(result.gains)}`);
+      } catch (error) {
+        showToast(error.message, true);
+      }
+      return;
+    }
+
+    if (button.dataset.promoteRank === "true") {
+      try {
+        const result = TavernService.promoteGuildRank(appState.saveData, unit.id);
+        persistSession(appState.saveData, appState.settings);
+        refreshUnitDetailModal(unit.id);
+        showToast(`${result.unit.name} 길드 등급 승급: ${result.previousRank} -> ${result.nextRank}`);
+      } catch (error) {
+        showToast(error.message, true);
+      }
       return;
     }
 
@@ -2469,108 +2595,10 @@
       "</div>"
     ].join("");
 
-    const draft = getProgressionDraft(selectedUnit.id);
-    const previewUnit = StatsService.previewUnitWithStatDraft(selectedUnit, draft.stats);
-    const effectivePreviewUnit = InventoryService.getEffectiveUnitStats(appState.saveData, previewUnit);
-    const equippedItems = InventoryService.getEquippedItems(appState.saveData, selectedUnit.id)
-      .map((item) => buildEquippedItemBadge(item))
-      .join("");
-    const classProfile = SkillsService.getClassProfile(selectedUnit);
-    const basePrimaryStats = StatsService.getPrimaryStats(selectedUnit);
-    const previewPrimaryStats = StatsService.getPrimaryStats(effectivePreviewUnit);
-    const equipmentBonus = effectivePreviewUnit && effectivePreviewUnit.equipmentBonus ? effectivePreviewUnit.equipmentBonus.primary || {} : {};
-    const spentStats = countDraftStats(draft);
-    const spentSkills = countDraftSkills(draft);
-    const remainingStatPoints = Math.max(0, (selectedUnit.statPoints || 0) - spentStats);
-    const remainingSkillPoints = Math.max(0, (selectedUnit.skillPoints || 0) - spentSkills);
-    const learnedSkills = SkillsService.getSkillsForUnit(selectedUnit);
-    const learnedActiveSkills = SkillsService.getActiveSkillsForUnit(selectedUnit);
-    const equippedActiveSkills = SkillsService.getActiveSkillLoadout(selectedUnit);
-    const learnableSkills = SkillsService.getLearnableSkills(selectedUnit);
-    const learnableActiveSkills = SkillsService.getLearnableActiveSkills(selectedUnit);
-    const pendingSkillSummaries = draft.skillIds
-      .map((skillId) => SkillsService.getSkillDefinition(selectedUnit, skillId))
-      .filter(Boolean)
-      .map((skill) => `<span class="meta-pill is-preview-up">${skill.name}</span>`)
-      .join("");
-
-    const promotionOptions = SkillsService.getPromotionOptions(selectedUnit);
-    const lockedPromotions = SkillsService.PROMOTION_TREE[selectedUnit.className] || [];
-    let promotionSummary = "전직 완료";
-
-    if (promotionOptions.length) {
-      promotionSummary = promotionOptions.map((promotion) => `${promotion.className} 전직 가능`).join(" / ");
-    } else if (lockedPromotions.length) {
-      promotionSummary = lockedPromotions
-        .map((promotion) => `${promotion.className} Lv.${promotion.unlockLevel} 필요`)
-        .join(" / ");
-    } else if ((selectedUnit.promotionHistory || []).length) {
-      const latestPromotion = selectedUnit.promotionHistory[selectedUnit.promotionHistory.length - 1];
-      promotionSummary = `${latestPromotion.from} -> ${latestPromotion.to}`;
-    }
-
-    detailTarget.innerHTML = [
-      `<div class="unit-summary ally">`,
-      `  <strong>${selectedUnit.name}</strong> <span>${selectedUnit.className}</span>`,
-      `  <p>Lv.${selectedUnit.level} / EXP ${selectedUnit.exp} / 스탯 ${remainingStatPoints} / 스킬 ${remainingSkillPoints}</p>`,
-      '  <div class="detail-stats">',
-      StatsService.PRIMARY_STATS.map((statName) => (
-        `    ${buildPrimaryStatPill(statName, basePrimaryStats[statName], previewPrimaryStats[statName], {
-          equipmentBonus: equipmentBonus[statName] || 0,
-          draftDelta: Number((draft.stats && draft.stats[statName]) || 0)
-        })}`
-      )).join(""),
-      "  </div>",
-      '  <div class="detail-stats">',
-      `    <span class="meta-pill">HP ${effectivePreviewUnit.maxHp}${effectivePreviewUnit.equipmentBonus && effectivePreviewUnit.equipmentBonus.legacy && effectivePreviewUnit.equipmentBonus.legacy.maxHp ? ` (+${effectivePreviewUnit.equipmentBonus.legacy.maxHp} 장비)` : ""}</span>`,
-      `    <span class="meta-pill">MOV ${effectivePreviewUnit.mov}${effectivePreviewUnit.equipmentBonus && effectivePreviewUnit.equipmentBonus.legacy && effectivePreviewUnit.equipmentBonus.legacy.mov ? ` (+${effectivePreviewUnit.equipmentBonus.legacy.mov} 장비)` : ""}</span>`,
-      `    <span class="meta-pill ${spentStats ? "is-preview-up" : "is-muted"}">예약 스탯 ${spentStats}</span>`,
-      `    <span class="meta-pill ${spentSkills ? "is-preview-up" : "is-muted"}">예약 스킬 ${spentSkills}</span>`,
-      "  </div>",
-      `  <p>길드 등급: <span class="meta-pill rank-${String(selectedUnit.guildRank || "D").toLowerCase().replace("+", "plus")}">${formatRankBadge(selectedUnit.guildRank || "D")}</span></p>`,
-      `  <p>${classProfile.role} / ${classProfile.summary}</p>`,
-      `  <p>장착 중: ${equippedItems || "없음"}</p>`,
-      `  <p>출전 상태: ${isUnitSelectedForSortie(selectedUnit.id) ? "출전 파티" : "대기 인원"} / ${appState.saveData.leaderUnitId === selectedUnit.id ? "현재 리더" : "일반 멤버"}</p>`,
-      `  <p>전직: ${promotionSummary}</p>`,
-      `  <p>장착 액티브: ${equippedActiveSkills.filter(Boolean).length ? equippedActiveSkills.filter(Boolean).map((skill) => skill.name).join(", ") : "없음"}</p>`,
-      learnedActiveSkills.length ? `  <div class="detail-stats">${learnedActiveSkills.map((skill) => buildKnownSkillBadge(skill, true, {
-        isEquipped: (selectedUnit.equippedActiveSkillIds || []).includes(skill.id),
-        slotLabel: (selectedUnit.equippedActiveSkillIds || []).includes(skill.id)
-          ? getSkillSlotLabel((selectedUnit.equippedActiveSkillIds || []).indexOf(skill.id))
-          : ""
-      })).join("")}</div>` : "",
-      pendingSkillSummaries ? `  <p>확정 대기 스킬</p>` : "",
-      pendingSkillSummaries ? `  <div class="detail-stats">${pendingSkillSummaries}</div>` : "",
-      '  <div class="detail-stats progression-stat-buttons">',
-      StatsService.PRIMARY_STATS.map((statName) => (
-        `<button class="ghost-button small-button" type="button" data-menu-stat-draft="${statName}" ${remainingStatPoints <= 0 || previewPrimaryStats[statName] >= StatsService.STAT_LIMITS[statName] ? "disabled" : ""}>+ ${StatsService.PRIMARY_STAT_LABELS[statName]}</button>`
-      )).join(""),
-      "  </div>",
-      learnableSkills.length || learnableActiveSkills.length ? '  <div class="progression-skill-list">' : "",
-      learnableSkills.map((skill) => (
-        buildDraftableSkillCard(skill, selectedUnit, false, draft.skillIds.includes(skill.id), remainingSkillPoints)
-      )).join(""),
-      learnableActiveSkills.map((skill) => (
-        buildDraftableSkillCard(skill, selectedUnit, true, draft.skillIds.includes(skill.id), remainingSkillPoints)
-      )).join(""),
-      learnableSkills.length || learnableActiveSkills.length ? "  </div>" : "",
-      !learnableSkills.length && !learnableActiveSkills.length ? "  <p>현재 레벨에서 새로 배울 수 있는 스킬이 없습니다.</p>" : "",
-      '  <div class="detail-actions">',
-      '    <button class="primary-button small-button" type="button" data-open-equipment="true">장착 관리</button>',
-      '    <button class="primary-button small-button" type="button" data-open-skill-modal="true">스킬 관리</button>',
-      `    <button class="secondary-button small-button" type="button" data-set-leader="true" ${appState.saveData.leaderUnitId === selectedUnit.id ? "disabled" : ""}>리더 지정</button>`,
-      '    <button class="secondary-button small-button" type="button" data-unequip-all="true">전체 해제</button>',
-      `    <button class="secondary-button small-button" type="button" data-toggle-sortie="true">${isUnitSelectedForSortie(selectedUnit.id) ? "후방 대기" : "출전 등록"}</button>`,
-      promotionOptions.map((promotion) => (
-        `<button class="secondary-button small-button" type="button" data-promote-class="${promotion.className}">${promotion.className} 전직</button>`
-      )).join(""),
-      spentStats || spentSkills ? '<button class="primary-button small-button" type="button" data-progression-confirm="true">성장 확정</button>' : "",
-      spentStats || spentSkills ? '<button class="ghost-button small-button" type="button" data-progression-cancel="true">예약 취소</button>' : "",
-      "  </div>",
-      "</div>"
-    ].join("");
+    detailTarget.innerHTML = buildUnitFullDetailMarkup(selectedUnit);
     appState.cachedUnitDetailUnitId = selectedUnit.id;
     appState.cachedUnitDetailMarkup = detailTarget.innerHTML;
+    detailTarget.onclick = (event) => handleUnitDetailModalInteraction(event, selectedUnit.id);
 
     rosterTarget.querySelectorAll("[data-menu-unit]").forEach((button) => {
       button.addEventListener("click", () => {
@@ -2822,14 +2850,8 @@
       const unit = candidate.unit;
       const rankClass = `rank-${String(candidate.guildRank || "D").toLowerCase().replace("+", "plus")}`;
       const recruited = !!candidate.recruitedAt;
-      const signaturePassive = candidate.signaturePassiveId
-        ? SkillsService.getSkillDefinition(unit, candidate.signaturePassiveId)
-        : null;
-      const summaryParts = [
-        `시작 장비 ${candidate.startingWeapon.name}`,
-        signaturePassive ? `고유 ${signaturePassive.name}` : null,
-        `${candidate.rankTitle}`
-      ].filter(Boolean);
+      const signaturePassives = getSignaturePassiveDefinitions(unit, candidate);
+      const potentialMeta = StatsService.getPotentialMeta(unit);
 
       return [
         `<article class="shop-card tavern-card rarity-${candidate.rarity} interactive-summary-card" data-open-detail="tavern" data-detail-id="${candidate.id}">`,
@@ -2837,8 +2859,9 @@
         '  <div class="inventory-meta">',
         `    <span class="meta-pill ${rankClass}">${candidate.guildRank}</span>`,
         `    <span class="meta-pill">Lv.${unit.level}</span>`,
+        `    <span class="meta-pill is-violet">잠재 ${potentialMeta.label}</span>`,
+        `    <span class="meta-pill ${signaturePassives.length ? "is-cyan" : "is-muted"}">고유 ${signaturePassives.length}</span>`,
         `    <span class="meta-pill is-gold">${candidate.hireCost}G</span>`,
-        signaturePassive ? '    <span class="meta-pill is-cyan">고유 패시브</span>' : "",
         '    <span class="inventory-click-hint">상세보기는 클릭</span>',
         `    <button class="primary-button small-button inventory-meta-action" type="button" data-recruit-adventurer="${candidate.id}" ${recruited ? "disabled" : ""}>${recruited ? "영입 완료" : "영입"}</button>`,
         "  </div>",

@@ -81,9 +81,9 @@
       classPool: ["로드", "랜서", "아처", "하이로드", "팔라딘", "스나이퍼", "클레릭", "비숍", "위저드", "소서러"],
       bonusStats: { maxHp: 3, str: 2, skl: 2, spd: 1, def: 1 }
     },
-    "S+": {
-      label: "S+",
-      title: "전설급 모험가",
+    SS: {
+      label: "SS",
+      title: "영웅급 모험가",
       cardRarity: "epic",
       cost: 980,
       minLevel: 5,
@@ -94,8 +94,23 @@
       partySlots: 5,
       classPool: ["하이로드", "팔라딘", "스나이퍼", "비숍", "위저드", "소서러"],
       bonusStats: { maxHp: 4, str: 2, skl: 2, spd: 2, def: 2, mov: 1 }
+    },
+    SSS: {
+      label: "SSS",
+      title: "천외천 모험가",
+      cardRarity: "primordial",
+      cost: 1480,
+      minLevel: 6,
+      maxLevel: 8,
+      passiveSkills: 4,
+      activeSkills: 3,
+      signaturePassiveChance: 0.96,
+      partySlots: 5,
+      classPool: ["하이로드", "팔라딘", "스나이퍼", "비숍", "위저드", "소서러"],
+      bonusStats: { maxHp: 6, str: 3, skl: 3, spd: 3, def: 3, mov: 1 }
     }
   };
+  const GUILD_RANK_ORDER = ["D", "C", "B", "A", "S", "SS", "SSS"];
 
   const RANK_WEIGHT_TABLE = [
     { rank: "D", weight: 24 },
@@ -103,84 +118,103 @@
     { rank: "B", weight: 24 },
     { rank: "A", weight: 14 },
     { rank: "S", weight: 6 },
-    { rank: "S+", weight: 2 }
+    { rank: "SS", weight: 2 },
+    { rank: "SSS", weight: 1 }
   ];
+  const POTENTIAL_ROLL_META = {
+    D: { min: 14, max: 38, jackpotChance: 0.08, jackpotMin: 72, jackpotMax: 97 },
+    C: { min: 18, max: 46, jackpotChance: 0.07, jackpotMin: 70, jackpotMax: 96 },
+    B: { min: 32, max: 62, jackpotChance: 0.05, jackpotMin: 74, jackpotMax: 98 },
+    A: { min: 48, max: 78, jackpotChance: 0.06, jackpotMin: 82, jackpotMax: 99 },
+    S: { min: 64, max: 90, jackpotChance: 0.08, jackpotMin: 88, jackpotMax: 100 },
+    SS: { min: 78, max: 96, jackpotChance: 0.12, jackpotMin: 92, jackpotMax: 100 },
+    SSS: { min: 90, max: 100, jackpotChance: 0.4, jackpotMin: 96, jackpotMax: 100 }
+  };
+  const RANK_PROMOTION_REQUIREMENTS = {
+    D: { nextRank: "C", minLevel: 12, minTrainingLevel: 1, cost: 300, rewardStatPoints: 1, rewardSkillPoints: 0, rewardGrowthPoints: 2 },
+    C: { nextRank: "B", minLevel: 20, minTrainingLevel: 2, cost: 650, rewardStatPoints: 1, rewardSkillPoints: 1, rewardGrowthPoints: 3 },
+    B: { nextRank: "A", minLevel: 35, minTrainingLevel: 3, cost: 1200, rewardStatPoints: 2, rewardSkillPoints: 1, rewardGrowthPoints: 4 },
+    A: { nextRank: "S", minLevel: 55, minTrainingLevel: 4, cost: 2400, rewardStatPoints: 2, rewardSkillPoints: 2, rewardGrowthPoints: 4 },
+    S: { nextRank: "SS", minLevel: 80, minTrainingLevel: 5, cost: 4800, rewardStatPoints: 3, rewardSkillPoints: 2, rewardGrowthPoints: 5 },
+    SS: { nextRank: "SSS", minLevel: 99, minTrainingLevel: 6, cost: 9600, rewardStatPoints: 4, rewardSkillPoints: 3, rewardGrowthPoints: 6 }
+  };
+  const SSS_NAME_POOL = ["다원", "승일", "대호", "문성", "지훈", "승인", "승민", "형록"];
 
   const CLASS_ARCHETYPES = {
     로드: {
       weaponType: "sword",
       baseStats: { maxHp: 18, str: 6, skl: 7, spd: 8, def: 4, mov: 5 },
-      namePool: ["카일", "에린", "루안", "세인"]
+      namePool: ["카일", "에린", "루안", "세인", "레오", "유성", "서준", "태린", "도현", "시우"]
     },
     하이로드: {
       weaponType: "sword",
       baseStats: { maxHp: 21, str: 8, skl: 8, spd: 8, def: 6, mov: 6 },
-      namePool: ["알렌", "시온", "에델", "르네"]
+      namePool: ["알렌", "시온", "에델", "르네", "이안", "현우", "아벨", "로엘", "태오", "민규"]
     },
     클레릭: {
       weaponType: "focus",
       baseStats: { maxHp: 15, str: 3, skl: 7, spd: 6, def: 3, mov: 5 },
-      namePool: ["엘린", "마리아", "요안", "세라"]
+      namePool: ["엘린", "마리아", "요안", "세라", "하윤", "은별", "리아", "유나", "서아", "지아"]
     },
     비숍: {
       weaponType: "focus",
       baseStats: { maxHp: 18, str: 4, skl: 9, spd: 7, def: 4, mov: 5 },
-      namePool: ["루시아", "에스텔", "라온", "미카"]
+      namePool: ["루시아", "에스텔", "라온", "미카", "세린", "아린", "엘리아", "소윤", "다해", "주은"]
     },
     메이지: {
       weaponType: "staff",
       baseStats: { maxHp: 14, str: 3, skl: 9, spd: 6, def: 2, mov: 5 },
-      namePool: ["리안", "시아", "유엘", "노아"]
+      namePool: ["리안", "시아", "유엘", "노아", "다인", "세온", "하람", "윤슬", "라엘", "태린"]
     },
     위저드: {
       weaponType: "staff",
       baseStats: { maxHp: 16, str: 4, skl: 11, spd: 7, def: 3, mov: 5 },
-      namePool: ["아린", "테아", "에린", "다온"]
+      namePool: ["아린", "테아", "에린", "다온", "예준", "로아", "지한", "유현", "도아", "시연"]
     },
     소서러: {
       weaponType: "staff",
       baseStats: { maxHp: 15, str: 4, skl: 10, spd: 8, def: 2, mov: 5 },
-      namePool: ["세온", "리브", "카엘", "하린"]
+      namePool: ["세온", "리브", "카엘", "하린", "민아", "레인", "도윤", "세희", "태이", "루하"]
     },
     랜서: {
       weaponType: "lance",
       baseStats: { maxHp: 20, str: 7, skl: 5, spd: 6, def: 6, mov: 4 },
-      namePool: ["브람", "린아", "테오", "세린"]
+      namePool: ["브람", "린아", "테오", "세린", "주혁", "재하", "수혁", "민석", "준호", "하율"]
     },
     팔라딘: {
       weaponType: "lance",
       baseStats: { maxHp: 23, str: 8, skl: 6, spd: 7, def: 8, mov: 5 },
-      namePool: ["드웨인", "마엘", "리트", "칼리아"]
+      namePool: ["드웨인", "마엘", "리트", "칼리아", "현석", "준혁", "태건", "서린", "시엘", "가람"]
     },
     아처: {
       weaponType: "bow",
       baseStats: { maxHp: 16, str: 5, skl: 8, spd: 7, def: 3, mov: 5 },
-      namePool: ["리아나", "하엘", "유라", "케인"]
+      namePool: ["리아나", "하엘", "유라", "케인", "서율", "하진", "지율", "민재", "로운", "시아"]
     },
     스나이퍼: {
       weaponType: "bow",
       baseStats: { maxHp: 18, str: 7, skl: 10, spd: 8, def: 4, mov: 5 },
-      namePool: ["테슬", "미르", "이벨", "카란"]
+      namePool: ["테슬", "미르", "이벨", "카란", "지후", "도겸", "아린", "세은", "이든", "태민"]
     },
     검사: {
       weaponType: "sword",
       baseStats: { maxHp: 17, str: 6, skl: 6, spd: 7, def: 3, mov: 5 },
-      namePool: ["유진", "라프", "나린", "델로"]
+      namePool: ["유진", "라프", "나린", "델로", "건우", "예성", "재민", "시후", "지성", "하온"]
     },
     브리건드: {
       weaponType: "axe",
       baseStats: { maxHp: 19, str: 8, skl: 4, spd: 5, def: 4, mov: 4 },
-      namePool: ["가론", "브릭", "네로", "하즈"]
+      namePool: ["가론", "브릭", "네로", "하즈", "도하", "태산", "준태", "성훈", "강우", "현빈"]
     },
     헌터: {
       weaponType: "bow",
       baseStats: { maxHp: 17, str: 5, skl: 7, spd: 6, def: 3, mov: 5 },
-      namePool: ["세아", "리브", "레온", "타니"]
+      namePool: ["세아", "리브", "레온", "타니", "하민", "수아", "지수", "은호", "시온", "도연"]
     },
     솔저: {
       weaponType: "lance",
       baseStats: { maxHp: 18, str: 6, skl: 5, spd: 5, def: 5, mov: 4 },
-      namePool: ["로건", "다엘", "베카", "소린"]
+      namePool: ["로건", "다엘", "베카", "소린", "민호", "태영", "주원", "도훈", "선우", "서호"]
     }
   };
 
@@ -304,6 +338,10 @@
     return list[Math.floor(Math.random() * list.length)];
   }
 
+  function randomBetween(min, max) {
+    return min + Math.floor(Math.random() * (Math.max(0, max - min) + 1));
+  }
+
   function shuffle(list) {
     const source = list.slice();
 
@@ -330,14 +368,16 @@
   function buildWeapon(type, unitId, rank) {
     const rankMeta = GUILD_RANK_META[rank] || GUILD_RANK_META.D;
     const base = Object.assign({}, WEAPON_PROFILE_BY_TYPE[type] || WEAPON_PROFILE_BY_TYPE.sword);
+    const weaponPowerBonus = rank === "SSS" ? 5 : rank === "SS" ? 4 : rank === "S" ? 2 : rank === "A" ? 1 : 0;
+    const weaponHitBonus = rank === "SSS" ? 10 : rank === "SS" ? 8 : rank === "S" ? 4 : rank === "A" ? 2 : 0;
 
     return {
       id: `guild-weapon-${unitId}`,
       name: base.name,
       type,
       slot: "weapon",
-      might: base.might + (rank === "S+" ? 3 : rank === "S" ? 2 : rank === "A" ? 1 : 0),
-      hit: base.hit + (rank === "S+" ? 6 : rank === "S" ? 4 : rank === "A" ? 2 : 0),
+      might: base.might + weaponPowerBonus,
+      hit: base.hit + weaponHitBonus,
       rangeMin: base.rangeMin,
       rangeMax: base.rangeMax,
       uses: base.uses,
@@ -360,13 +400,96 @@
     return target;
   }
 
-  function pickSignaturePassiveId(className, rankMeta, currentSkillIds) {
-    if (!rankMeta || Math.random() > Number(rankMeta.signaturePassiveChance || 0)) {
+  function getRankIndex(rank) {
+    const index = GUILD_RANK_ORDER.indexOf(rank);
+    return index >= 0 ? index : 0;
+  }
+
+  function getNextGuildRank(rank) {
+    const currentIndex = getRankIndex(rank);
+    return GUILD_RANK_ORDER[currentIndex + 1] || null;
+  }
+
+  function rollPotentialScore(rank) {
+    const rollMeta = POTENTIAL_ROLL_META[rank] || POTENTIAL_ROLL_META.D;
+
+    if (Math.random() <= Number(rollMeta.jackpotChance || 0)) {
+      return randomBetween(rollMeta.jackpotMin, rollMeta.jackpotMax);
+    }
+
+    return randomBetween(rollMeta.min, rollMeta.max);
+  }
+
+  function pickSignaturePassiveIds(className, rankMeta, currentSkillIds, options) {
+    const nextOptions = options || {};
+    const pool = shuffle(SIGNATURE_PASSIVE_POOL_BY_CLASS[className] || [])
+      .filter((skillId) => !currentSkillIds.includes(skillId));
+
+    if (!pool.length) {
+      return [];
+    }
+
+    let targetCount = 0;
+    const rank = nextOptions.rank || "D";
+    const potentialScore = Math.max(0, Number(nextOptions.potentialScore || 0));
+    const baseChance = Number(rankMeta && rankMeta.signaturePassiveChance || 0);
+
+    if (Math.random() <= baseChance) {
+      targetCount += 1;
+    }
+
+    const bonusChance = Math.min(
+      0.92,
+      baseChance * 0.55
+        + (rank === "D" ? 0.03 : rank === "C" ? 0.05 : 0)
+        + (potentialScore >= 75 ? 0.12 : potentialScore >= 60 ? 0.06 : 0)
+    );
+
+    if (Math.random() <= bonusChance) {
+      targetCount += 1;
+    }
+
+    const jackpotChance = Math.min(
+      0.48,
+      (rank === "D" ? 0.025 : rank === "C" ? 0.04 : rank === "B" ? 0.05 : rank === "A" ? 0.07 : rank === "S" ? 0.1 : 0.15)
+        + (potentialScore >= 90 ? 0.08 : 0)
+    );
+
+    if (Math.random() <= jackpotChance) {
+      targetCount = Math.max(targetCount, 2 + Math.floor(Math.random() * Math.min(2, pool.length)));
+    }
+
+    if (rank === "SS" && targetCount <= 0) {
+      targetCount = 1;
+    }
+
+    if (rank === "SSS") {
+      targetCount = Math.max(2, targetCount);
+    }
+
+    return pool.slice(0, Math.min(pool.length, targetCount));
+  }
+
+  function getTrainingCost(unit) {
+    const rankIndex = getRankIndex(unit && unit.guildRank || "D");
+    const trainingLevel = Math.max(0, Math.floor(Number(unit && unit.trainingLevel || 0)));
+    const level = Math.max(1, Math.floor(Number(unit && unit.level || 1)));
+    return 140 + rankIndex * 120 + trainingLevel * 160 + level * 18;
+  }
+
+  function getRankPromotionRequirement(unit) {
+    const requirement = RANK_PROMOTION_REQUIREMENTS[unit && unit.guildRank || "D"];
+
+    if (!requirement) {
       return null;
     }
 
-    const pool = shuffle(SIGNATURE_PASSIVE_POOL_BY_CLASS[className] || []);
-    return pool.find((skillId) => !currentSkillIds.includes(skillId)) || null;
+    return Object.assign({}, requirement, {
+      eligible: !!unit
+        && Math.max(1, Number(unit.level || 1)) >= requirement.minLevel
+        && Math.max(0, Number(unit.trainingLevel || 0)) >= requirement.minTrainingLevel,
+      currentRank: unit.guildRank || "D"
+    });
   }
 
   function buildAdventurerCandidate(block, slotIndex) {
@@ -375,10 +498,11 @@
     const className = pickRandom(rankMeta.classPool);
     const archetype = CLASS_ARCHETYPES[className] || CLASS_ARCHETYPES.검사;
     const level = rankMeta.minLevel + Math.floor(Math.random() * (rankMeta.maxLevel - rankMeta.minLevel + 1));
+    const potentialScore = rollPotentialScore(rank);
     const unitId = `tavern-${block}-${slotIndex}-${Math.floor(Math.random() * 100000)}`;
     const unit = {
       id: unitId,
-      name: pickRandom(archetype.namePool),
+      name: rank === "SSS" ? pickRandom(SSS_NAME_POOL) : pickRandom(archetype.namePool),
       team: "ally",
       className,
       level: 1,
@@ -396,9 +520,14 @@
       alive: true,
       weapon: null,
       guildRank: rank,
+      potentialScore,
+      trainingLevel: 0,
+      trainingAttempts: 0,
       statPoints: Math.max(0, rankMeta.partySlots - 1),
       skillPoints: 0,
       equippedItemIds: [],
+      signaturePassiveIds: [],
+      signaturePassiveId: null,
       specialSkillIds: [],
       specialActiveSkillIds: [],
       recruitSource: "tavern",
@@ -418,8 +547,14 @@
     SkillsService.normalizeUnitLearnedSkills(unit);
     unit.specialSkillIds = pickUniqueSkillIds(PASSIVE_SKILL_POOL[archetype.weaponType], rankMeta.passiveSkills);
     unit.specialActiveSkillIds = pickUniqueSkillIds(ACTIVE_SKILL_POOL[archetype.weaponType], rankMeta.activeSkills);
-    const signaturePassiveId = pickSignaturePassiveId(className, rankMeta, unit.specialSkillIds);
-    appendUniqueSkillId(unit.specialSkillIds, signaturePassiveId);
+    const signaturePassiveIds = pickSignaturePassiveIds(className, rankMeta, unit.specialSkillIds, {
+      rank,
+      potentialScore
+    });
+
+    signaturePassiveIds.forEach((skillId) => appendUniqueSkillId(unit.specialSkillIds, skillId));
+    unit.signaturePassiveIds = signaturePassiveIds.slice();
+    unit.signaturePassiveId = unit.signaturePassiveIds[0] || null;
 
     return {
       id: unitId,
@@ -428,7 +563,10 @@
       hireCost: rankMeta.cost,
       rarity: rankMeta.cardRarity,
       rankTitle: rankMeta.title,
-      signaturePassiveId,
+      potentialScore,
+      potentialTier: StatsService.getPotentialMeta(unit).id,
+      signaturePassiveId: unit.signaturePassiveId,
+      signaturePassiveIds: unit.signaturePassiveIds.slice(),
       refreshBlock: block,
       recruitedAt: null,
       startingWeapon: buildWeapon(archetype.weaponType, unitId, rank)
@@ -506,6 +644,93 @@
     };
   }
 
+  function trainUnit(saveData, unitId) {
+    const unit = (saveData.roster || []).find((entry) => entry.id === unitId);
+
+    if (!unit) {
+      throw new Error("훈련할 유닛을 찾을 수 없습니다.");
+    }
+
+    StatsService.normalizeUnitProgression(unit);
+
+    if ((unit.trainingLevel || 0) >= StatsService.getTrainingCap(unit)) {
+      throw new Error("이 유닛은 현재 잠재력 기준 훈련 한계에 도달했습니다.");
+    }
+
+    const cost = getTrainingCost(unit);
+
+    if ((saveData.partyGold || 0) < cost) {
+      throw new Error("훈련에 필요한 골드가 부족합니다.");
+    }
+
+    saveData.partyGold -= cost;
+    unit.trainingLevel += 1;
+    unit.trainingAttempts = Math.max(0, Number(unit.trainingAttempts || 0)) + 1;
+
+    const gains = StatsService.rollTrainingGains(unit);
+    StatsService.applyLevelGains(unit, gains);
+
+    return {
+      unit,
+      cost,
+      gains,
+      potentialMeta: StatsService.getPotentialMeta(unit)
+    };
+  }
+
+  function promoteGuildRank(saveData, unitId) {
+    const unit = (saveData.roster || []).find((entry) => entry.id === unitId);
+
+    if (!unit) {
+      throw new Error("승급할 유닛을 찾을 수 없습니다.");
+    }
+
+    StatsService.normalizeUnitProgression(unit);
+
+    const requirement = getRankPromotionRequirement(unit);
+
+    if (!requirement || !requirement.nextRank) {
+      throw new Error("이미 최고 길드 등급입니다.");
+    }
+
+    if ((unit.level || 1) < requirement.minLevel) {
+      throw new Error(`승급하려면 Lv.${requirement.minLevel} 이상이 필요합니다.`);
+    }
+
+    if ((unit.trainingLevel || 0) < requirement.minTrainingLevel) {
+      throw new Error(`승급하려면 훈련 ${requirement.minTrainingLevel}단계가 필요합니다.`);
+    }
+
+    if ((saveData.partyGold || 0) < requirement.cost) {
+      throw new Error("승급에 필요한 골드가 부족합니다.");
+    }
+
+    saveData.partyGold -= requirement.cost;
+
+    const previousRank = unit.guildRank || "D";
+    unit.guildRank = requirement.nextRank;
+    unit.rankPromotionHistory = unit.rankPromotionHistory || [];
+    unit.rankPromotionHistory.push({
+      from: previousRank,
+      to: requirement.nextRank,
+      promotedAtLevel: unit.level || 1,
+      promotedAtTrainingLevel: unit.trainingLevel || 0
+    });
+    unit.statPoints = Math.max(0, Number(unit.statPoints || 0)) + Number(requirement.rewardStatPoints || 0);
+    unit.skillPoints = Math.max(0, Number(unit.skillPoints || 0)) + Number(requirement.rewardSkillPoints || 0);
+
+    const gains = StatsService.rollLevelGains(unit, requirement.rewardGrowthPoints || 0);
+    StatsService.applyLevelGains(unit, gains);
+
+    return {
+      unit,
+      previousRank,
+      nextRank: requirement.nextRank,
+      requirement,
+      gains
+    };
+  }
+
   function setLeader(saveData, unitId) {
     const unit = (saveData.roster || []).find((entry) => entry.id === unitId);
 
@@ -524,9 +749,15 @@
   global.TavernService = {
     REFRESH_INTERVAL_MS,
     GUILD_RANK_META,
+    GUILD_RANK_ORDER,
     syncTavern,
     recruitAdventurer,
+    trainUnit,
+    promoteGuildRank,
     setLeader,
-    getRankMeta
+    getRankMeta,
+    getTrainingCost,
+    getRankPromotionRequirement,
+    getNextGuildRank
   };
 })(window);

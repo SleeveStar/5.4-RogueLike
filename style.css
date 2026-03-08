@@ -1331,6 +1331,27 @@ button:disabled {
   color: var(--epic);
 }
 
+.meta-pill.rank-ss {
+  border-color: rgba(255, 235, 143, 0.36);
+  background: linear-gradient(180deg, rgba(255, 235, 143, 0.18), rgba(255, 176, 94, 0.12));
+  color: #fff1b5;
+  box-shadow:
+    0 0 0 1px rgba(255, 235, 143, 0.14),
+    0 0 14px rgba(255, 214, 110, 0.14);
+}
+
+.meta-pill.rank-sss {
+  border-color: rgba(208, 245, 255, 0.42);
+  background:
+    radial-gradient(circle at top left, rgba(255, 249, 200, 0.22), transparent 55%),
+    linear-gradient(180deg, rgba(183, 243, 255, 0.2), rgba(255, 231, 173, 0.12));
+  color: #f7fff1;
+  box-shadow:
+    0 0 0 1px rgba(214, 247, 255, 0.16),
+    0 0 18px rgba(173, 237, 255, 0.18);
+  animation: preview-shimmer 1.4s ease-in-out infinite;
+}
+
 .meta-pill.rarity-common {
   border-color: rgba(255, 255, 255, 0.18);
   background: rgba(255, 255, 255, 0.08);

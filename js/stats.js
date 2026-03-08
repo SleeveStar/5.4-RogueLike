@@ -23,6 +23,56 @@
     int: 99999,
     luk: 99999
   };
+  const POTENTIAL_METAS = [
+    {
+      id: "muted",
+      label: "미약",
+      minScore: 0,
+      guaranteedGrowthBonus: 0,
+      extraGrowthChance: 0.04,
+      trainingCap: 2
+    },
+    {
+      id: "steady",
+      label: "보통",
+      minScore: 20,
+      guaranteedGrowthBonus: 0,
+      extraGrowthChance: 0.18,
+      trainingCap: 3
+    },
+    {
+      id: "keen",
+      label: "우수",
+      minScore: 40,
+      guaranteedGrowthBonus: 1,
+      extraGrowthChance: 0.1,
+      trainingCap: 4
+    },
+    {
+      id: "elite",
+      label: "탁월",
+      minScore: 60,
+      guaranteedGrowthBonus: 1,
+      extraGrowthChance: 0.35,
+      trainingCap: 5
+    },
+    {
+      id: "genius",
+      label: "천재",
+      minScore: 75,
+      guaranteedGrowthBonus: 2,
+      extraGrowthChance: 0.15,
+      trainingCap: 6
+    },
+    {
+      id: "transcendent",
+      label: "초월",
+      minScore: 90,
+      guaranteedGrowthBonus: 2,
+      extraGrowthChance: 0.45,
+      trainingCap: 7
+    }
+  ];
 
   const CLASS_GROWTH_WEIGHTS = {
     로드: { str: 1.15, dex: 1.0, vit: 1.1, int: 0.75, luk: 1.0 },
@@ -136,12 +186,42 @@
     return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
   }
 
+  function pickFirstDefined() {
+    for (let index = 0; index < arguments.length; index += 1) {
+      if (arguments[index] !== undefined && arguments[index] !== null && arguments[index] !== "") {
+        return arguments[index];
+      }
+    }
+
+    return undefined;
+  }
+
   function getUnitById(saveData, unitId) {
     return (saveData.roster || []).find((unit) => unit.id === unitId) || null;
   }
 
   function getPrimaryStatLabels() {
     return Object.assign({}, PRIMARY_STAT_LABELS);
+  }
+
+  function getPotentialMetaFromScore(score) {
+    const normalizedScore = clamp(Math.round(Number(score || 0)), 0, 100);
+
+    for (let index = POTENTIAL_METAS.length - 1; index >= 0; index -= 1) {
+      if (normalizedScore >= POTENTIAL_METAS[index].minScore) {
+        return POTENTIAL_METAS[index];
+      }
+    }
+
+    return POTENTIAL_METAS[0];
+  }
+
+  function getPotentialMeta(unit) {
+    return getPotentialMetaFromScore(unit && unit.potentialScore);
+  }
+
+  function getTrainingCap(unit) {
+    return getPotentialMeta(unit).trainingCap;
   }
 
   function getPrimaryStatDescription(statName) {
@@ -273,6 +353,24 @@
 
     unit.statPoints = Math.max(0, Number(unit.statPoints || 0));
     unit.skillPoints = Math.max(0, Number(unit.skillPoints || 0));
+    unit.potentialScore = clamp(
+      Math.round(Number(pickFirstDefined(unit.potentialScore, unit.potentialValue, 36) || 36)),
+      0,
+      100
+    );
+    unit.potentialTier = getPotentialMetaFromScore(unit.potentialScore).id;
+    unit.trainingLevel = clamp(Math.floor(Number(unit.trainingLevel || 0)), 0, getTrainingCap(unit));
+    unit.trainingAttempts = Math.max(0, Math.floor(Number(unit.trainingAttempts || 0)));
+    unit.rankPromotionHistory = Array.isArray(unit.rankPromotionHistory) ? unit.rankPromotionHistory : [];
+    unit.signaturePassiveIds = Array.from(
+      new Set(
+        []
+          .concat(Array.isArray(unit.signaturePassiveIds) ? unit.signaturePassiveIds : [])
+          .concat(unit.signaturePassiveId ? [unit.signaturePassiveId] : [])
+          .filter(Boolean)
+      )
+    );
+    unit.signaturePassiveId = unit.signaturePassiveIds[0] || null;
     recalculateUnitStats(unit, { keepHpFull: !unit.hp || unit.hp >= unit.maxHp });
     return unit;
   }
@@ -327,9 +425,27 @@
     return PRIMARY_STATS[0];
   }
 
+  function rollChancePoint(chance) {
+    return Math.random() < Math.max(0, Number(chance || 0)) ? 1 : 0;
+  }
+
+  function getLevelGrowthBudget(unit, totalPoints) {
+    const baseBudget = Math.max(1, Math.floor(Number(totalPoints || 5)));
+    const potentialMeta = getPotentialMeta(unit);
+    const trainingLevel = Math.max(0, Math.floor(Number(unit && unit.trainingLevel || 0)));
+    const trainingGuaranteedBonus = Math.floor(trainingLevel / 2);
+    const trainingExtraChance = Math.min(0.78, (trainingLevel % 2) * 0.22 + trainingLevel * 0.06);
+
+    return baseBudget
+      + Number(potentialMeta.guaranteedGrowthBonus || 0)
+      + rollChancePoint(potentialMeta.extraGrowthChance)
+      + trainingGuaranteedBonus
+      + rollChancePoint(trainingExtraChance);
+  }
+
   function rollLevelGains(unit, totalPoints) {
     const growth = createEmptyGrowth();
-    const budget = Math.max(1, Number(totalPoints || 5));
+    const budget = getLevelGrowthBudget(unit, totalPoints);
 
     for (let index = 0; index < budget; index += 1) {
       const statName = rollWeightedPrimaryStat(unit.className);
@@ -337,6 +453,15 @@
     }
 
     return growth;
+  }
+
+  function rollTrainingGains(unit) {
+    const potentialMeta = getPotentialMeta(unit);
+    const packageSize = 2
+      + Math.floor(Math.max(0, Number(unit && unit.trainingLevel || 0)) / 3)
+      + (Number(potentialMeta.guaranteedGrowthBonus || 0) >= 2 ? 1 : 0);
+
+    return rollLevelGains(unit, packageSize);
   }
 
   function applyLevelGains(unit, gains) {
@@ -449,12 +574,15 @@
     PRIMARY_STATS,
     PRIMARY_STAT_LABELS,
     PRIMARY_STAT_DESCRIPTIONS,
+    POTENTIAL_METAS,
     ALLOCATABLE_STATS: PRIMARY_STATS,
     STAT_LIMITS: PRIMARY_STAT_LIMITS,
     getUnitById,
     getPrimaryStatLabels,
     getPrimaryStatDescription,
     getPrimaryStats,
+    getPotentialMeta,
+    getTrainingCap,
     getClassGrowthWeights,
     derivePrimaryStatsFromLegacy,
     computeDerivedStats,
@@ -462,6 +590,7 @@
     normalizeUnitProgression,
     normalizeRosterProgression,
     rollLevelGains,
+    rollTrainingGains,
     applyLevelGains,
     previewUnitWithStatDraft,
     allocateStatPoint,

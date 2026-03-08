@@ -3287,6 +3287,37 @@
     }
   }
 
+  function calculateStageClearExpReward() {
+    if (!state.battle) {
+      return 0;
+    }
+
+    if (state.battle.stageId === ENDLESS_STAGE_ID) {
+      const floor = Math.max(1, Number(state.battle.endlessFloor || 1));
+      return 18 + floor * 4;
+    }
+
+    const rewardGold = Math.max(0, Number(state.battle.rewardGold || 0));
+    return Math.max(20, Math.round(rewardGold * 0.24));
+  }
+
+  function grantStageClearExperience() {
+    const rewardExp = calculateStageClearExpReward();
+
+    if (rewardExp <= 0 || !state.battle) {
+      return 0;
+    }
+
+    state.battle.units
+      .filter((unit) => unit.team === "ally")
+      .forEach((unit) => {
+        applyExperience(unit, rewardExp);
+        addLog(`${unit.name} 스테이지 클리어 경험치 +${rewardExp}`);
+      });
+
+    return rewardExp;
+  }
+
   function setSkillCooldown(unit, skill) {
     unit.skillCooldowns = unit.skillCooldowns || {};
     const reduction = Math.max(0, Number(unit.hiddenStats && unit.hiddenStats.cooldownReduction || 0));
@@ -3578,6 +3609,7 @@
     const campaign = ensureCampaignState();
     const endless = ensureEndlessState();
     const rewardGold = state.battle.rewardGold || 0;
+    const rewardExp = grantStageClearExperience();
     const rewardItems = (state.battle.rewardHistory || []).map((item) => item.name);
     const recruitedUnits = grantRecruitRewards(state.battle.stageId);
 
@@ -3590,6 +3622,7 @@
       stageName: state.battle.stageName,
       result: state.battle.status,
       rewardGold,
+      rewardExp,
       rewardItems,
       recruitedUnits,
       endlessFloor: state.battle.stageId === ENDLESS_STAGE_ID ? endless.currentFloor : null,
