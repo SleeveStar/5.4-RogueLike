@@ -197,7 +197,7 @@
 
   function getStatTooltipTrigger(target) {
     return target && target.closest
-      ? target.closest(".stat-tooltip-pill[data-stat-tooltip]")
+      ? target.closest("[data-stat-tooltip]")
       : null;
   }
 
@@ -689,6 +689,14 @@
     }
 
     return `<span class="meta-pill stat-tooltip-pill ${draftDelta > 0 ? "is-preview-up" : ""}" data-stat-tooltip="${escapeAttribute(description)}">${label} ${previewValue}${bonusParts.length ? ` (${bonusParts.join(" / ")})` : ""}</span>`;
+  }
+
+  function wrapMarkupWithTooltip(markup, tooltipText, className) {
+    if (!tooltipText) {
+      return markup;
+    }
+
+    return `<span class="${className || "tooltip-anchor"}" data-stat-tooltip="${escapeAttribute(tooltipText)}">${markup}</span>`;
   }
 
   function buildEquippedItemBadge(item) {
@@ -1421,8 +1429,18 @@
     const guildPromotion = TavernService.getRankPromotionRequirement(unit);
     const promotionOptions = SkillsService.getPromotionOptions(unit);
     const lockedPromotions = SkillsService.PROMOTION_TREE[unit.className] || [];
+    const dismissDisabledReason = (appState.saveData.roster || []).length <= 1
+      ? "파티에 마지막 1명만 남아 있으면 방출할 수 없습니다."
+      : (appState.saveData.stageStatus === "in_progress" && appState.saveData.battleState
+        ? "진행 중인 전투가 있을 때는 캐릭터를 방출할 수 없습니다."
+        : "");
     const dismissDisabled = (appState.saveData.roster || []).length <= 1
       || (appState.saveData.stageStatus === "in_progress" && !!appState.saveData.battleState);
+    const dismissButtonMarkup = wrapMarkupWithTooltip(
+      `<button class="ghost-button small-button" type="button" data-dismiss-unit="true" ${dismissDisabled ? "disabled" : ""}>방출</button>`,
+      dismissDisabled ? dismissDisabledReason : "",
+      "tooltip-anchor button-tooltip-anchor"
+    );
     let promotionSummary = "전직 완료";
 
     if (promotionOptions.length) {
@@ -1522,7 +1540,7 @@
       `    <button class="secondary-button small-button" type="button" data-set-leader="true" ${appState.saveData.leaderUnitId === unit.id ? "disabled" : ""}>리더 지정</button>`,
       '    <button class="secondary-button small-button" type="button" data-unequip-all="true">전체 해제</button>',
       `    <button class="secondary-button small-button" type="button" data-toggle-sortie="true">${isUnitSelectedForSortie(unit.id) ? "후방 대기" : "출전 등록"}</button>`,
-      `    <button class="ghost-button small-button" type="button" data-dismiss-unit="true" ${dismissDisabled ? "disabled" : ""}>방출</button>`,
+      `    ${dismissButtonMarkup}`,
       promotionOptions.map((promotion) => (
         `<button class="secondary-button small-button" type="button" data-promote-class="${promotion.className}">${promotion.className} 전직</button>`
       )).join(""),
@@ -1585,10 +1603,135 @@
       return "<p>사용자 정보를 불러올 수 없습니다.</p>";
     }
 
+    const saveData = appState.saveData;
+    const campaign = saveData.campaign || {};
+    const tavern = saveData.tavern || {};
+    const selectedStage = BattleService.getStageCatalog(saveData).find((stage) => stage.selected);
+    const visibleStages = BattleService.getStageCatalog(saveData).filter((stage) => !stage.hidden);
+    const availableStages = visibleStages.filter((stage) => stage.available);
+    const endlessRun = BattleService.getEndlessRunSummary(saveData);
+    const endlessCurrentRun = BattleService.getEndlessCurrentRunSummary(saveData);
+    const rewardCodex = BattleService.getRewardCodex(saveData);
+    const leaderUnit = getLeaderUnit(saveData);
+    const roster = saveData.roster || [];
+    const inventory = saveData.inventory || [];
+    const selectedPartyUnits = (saveData.selectedPartyIds || [])
+      .map((unitId) => roster.find((unit) => unit.id === unitId))
+      .filter(Boolean);
+    const partyCount = selectedPartyUnits.length;
+    const equipmentInventory = inventory.filter((item) => InventoryService.isEquipment(item));
+    const equippedCount = equipmentInventory.filter((item) => !!item.equippedBy).length;
+    const equipRate = equipmentInventory.length ? Math.round((equippedCount / equipmentInventory.length) * 100) : 0;
+    const clearedCount = (campaign.clearedStageIds || []).length;
+    const discoveredRewardCount = rewardCodex.filter((reward) => reward.discovered).length;
+    const lastResult = campaign.lastResult
+      ? `${campaign.lastResult.stageName} / ${campaign.lastResult.result === "victory" ? "승리" : "패배"}`
+      : "없음";
+    const lastSavedAt = saveData.lastSavedAt
+      ? new Date(saveData.lastSavedAt).toLocaleString("ko-KR")
+      : "기록 없음";
+    const averageLevel = roster.length
+      ? (roster.reduce((sum, unit) => sum + Number(unit.level || 1), 0) / roster.length).toFixed(1)
+      : "0.0";
+    const highestPotentialUnit = roster.slice().sort((left, right) => (
+      Number(right.potentialScore || 0) - Number(left.potentialScore || 0)
+    ))[0] || null;
+    const trainingLeadUnit = roster.slice().sort((left, right) => {
+      const trainingDiff = Number(right.trainingLevel || 0) - Number(left.trainingLevel || 0);
+
+      if (trainingDiff !== 0) {
+        return trainingDiff;
+      }
+
+      return Number(right.level || 1) - Number(left.level || 1);
+    })[0] || null;
+    const tavernLineup = (tavern.lineup || []).filter((candidate) => !candidate.recruitedAt);
+    const bestCandidate = tavernLineup.slice().sort((left, right) => {
+      const leftScore = Number(left.potentialScore || (left.unit && left.unit.potentialScore) || 0);
+      const rightScore = Number(right.potentialScore || (right.unit && right.unit.potentialScore) || 0);
+      return rightScore - leftScore;
+    })[0] || null;
+    const bestCandidateScore = bestCandidate
+      ? Number(bestCandidate.potentialScore || (bestCandidate.unit && bestCandidate.unit.potentialScore) || 36)
+      : 0;
+    const bestCandidatePotentialLabel = bestCandidate
+      ? StatsService.getPotentialMeta({ potentialScore: bestCandidateScore }).label
+      : "없음";
+    const headlineCopy = saveData.stageStatus === "in_progress"
+      ? `${selectedStage ? selectedStage.name : saveData.stageId}에서 전투가 진행 중입니다. ${leaderUnit ? `${leaderUnit.name}이(가) 선두에서 전열을 유지하고 있습니다.` : "현재 파티가 교전 상태를 유지하고 있습니다."}`
+      : `${selectedStage ? selectedStage.name : saveData.stageId} 출격을 준비 중입니다. ${leaderUnit ? `${leaderUnit.name}을(를) 중심으로 다음 공략 루트를 정비하고 있습니다.` : "현재 파티 편성이 비어 있습니다."}`;
+    const supportCopy = `전체 평균 레벨 ${averageLevel}, 장비 착용률 ${equipRate}%입니다. 최근 전투 결과는 ${lastResult}이며, 마지막 저장 시각은 ${lastSavedAt}입니다.`;
+    const currentRunLabel = endlessCurrentRun
+      ? `${endlessCurrentRun.floorsCleared}층 돌파 / 정예 ${endlessCurrentRun.eliteDefeated} / 피해 ${endlessCurrentRun.damageDealt}`
+      : "현재 진행 중인 균열 런 없음";
+
     return [
       `<div class="item-title-row"><strong class="card-title">${appState.currentUserId}</strong><span class="card-subtitle">마이페이지</span></div>`,
-      `  <p>${formatPlayerSummary(appState.currentUserId, appState.saveData, appState.settings).replace(/\n/g, "<br>")}</p>`,
-      `  <p>${formatSaveSummary(appState.saveData).replace(/\n/g, "<br>")}</p>`
+      '  <div class="detail-metric-grid compact-profile-grid">',
+      buildDetailKeyValue("현 지휘관", leaderUnit ? `${leaderUnit.name} / ${leaderUnit.className}` : "없음", "gold"),
+      buildDetailKeyValue("작전 축", selectedStage ? selectedStage.name : saveData.stageId, "cyan"),
+      buildDetailKeyValue("전력 평균", `Lv.${averageLevel}`, "violet"),
+      buildDetailKeyValue("보유 골드", `${saveData.partyGold || 0}G`, "gold"),
+      "</div>",
+      buildItemFeatureSection("지휘 브리핑", [
+        `<p class="detail-summary-copy">${headlineCopy}</p>`,
+        `<p class="detail-summary-copy">${supportCopy}</p>`,
+        '<div class="detail-token-list">',
+        `  <span class="detail-token is-stat">출전 편성 ${partyCount}/${MAX_SORTIE_SIZE}</span>`,
+        `  <span class="detail-token is-stat">가용 스테이지 ${availableStages.length}/${visibleStages.length}</span>`,
+        `  <span class="detail-token is-stat">보스 도감 ${discoveredRewardCount}/${rewardCodex.length}</span>`,
+        `  <span class="detail-token is-stat">최근 저장 ${lastSavedAt}</span>`,
+        '</div>'
+      ].join(""), "is-summary"),
+      buildItemFeatureSection("전력 스냅샷", [
+        '<div class="detail-metric-grid compact-profile-grid">',
+        buildDetailKeyValue("소속 인원", `${roster.length}명 / 출전 ${partyCount}명`, "gold"),
+        buildDetailKeyValue("장비 가동률", `${equippedCount}/${equipmentInventory.length || 0}개`, "cyan"),
+        buildDetailKeyValue("최고 잠재", highestPotentialUnit ? `${highestPotentialUnit.name} / ${StatsService.getPotentialMeta(highestPotentialUnit).label}` : "없음", "violet"),
+        buildDetailKeyValue("훈련 선두", trainingLeadUnit ? `${trainingLeadUnit.name} / ${trainingLeadUnit.trainingLevel || 0}단계` : "없음", "gold"),
+        '</div>',
+        '<div class="detail-token-list">',
+        (selectedPartyUnits.length
+          ? selectedPartyUnits.map((unit, index) => `  <span class="detail-token is-stat">${index + 1}번 편성 ${unit.name} / ${unit.className}</span>`).join("")
+          : '  <span class="detail-token is-stat">현재 출전 편성 비어 있음</span>'),
+        '</div>'
+      ].join(""), "is-stats"),
+      buildItemFeatureSection("탐사 기록", [
+        '<div class="detail-metric-grid compact-profile-grid">',
+        buildDetailKeyValue("전역 클리어", `${clearedCount}개`, clearedCount ? "gold" : "muted"),
+        buildDetailKeyValue("보상 식별", `${discoveredRewardCount}/${rewardCodex.length}`, discoveredRewardCount ? "cyan" : "muted"),
+        buildDetailKeyValue("균열 최고", `${saveData.endless && saveData.endless.bestFloor ? saveData.endless.bestFloor : 1}층`, "violet"),
+        buildDetailKeyValue("현재 런", endlessCurrentRun ? `${endlessCurrentRun.highestFloor || 1}층 도달` : "대기 중", "gold"),
+        '</div>',
+        `<p class="detail-summary-copy">${endlessRun ? `최근 균열에서는 ${endlessRun.floor}층까지 진입했고 결과는 ${endlessRun.result === "defeat" ? "패배" : "돌파"}였습니다.` : "아직 기록된 균열 원정이 없습니다. 다음 런에서 첫 브리핑 로그가 쌓입니다."}</p>`,
+        '<div class="detail-token-list">',
+        `  <span class="detail-token is-stat">최근 전투 ${lastResult}</span>`,
+        `  <span class="detail-token is-stat">현재 균열 ${currentRunLabel}</span>`,
+        (endlessRun && endlessRun.relicNames && endlessRun.relicNames.length
+          ? endlessRun.relicNames.slice(0, 3).map((name) => `  <span class="detail-token is-stat">최근 확보 유물 ${name}</span>`).join("")
+          : '  <span class="detail-token is-stat">최근 확보 유물 없음</span>'),
+        '</div>'
+      ].join(""), "is-affix"),
+      buildItemFeatureSection("주점 레이더", [
+        '<div class="detail-metric-grid compact-profile-grid">',
+        buildDetailKeyValue("대기 명단", `${tavernLineup.length}명`, tavernLineup.length ? "gold" : "muted"),
+        buildDetailKeyValue("최상위 후보", bestCandidate ? `${bestCandidate.unit.name} / ${bestCandidate.unit.className}` : "대기 없음", "cyan"),
+        buildDetailKeyValue("후보 잠재", bestCandidate ? bestCandidatePotentialLabel : "없음", "violet"),
+        buildDetailKeyValue("리더 등급", leaderUnit ? formatRankBadge(leaderUnit.guildRank || "D") : "없음", "gold"),
+        '</div>',
+        `<p class="detail-summary-copy">${tavernLineup.length
+          ? `현재 주점에는 ${tavernLineup.length}명의 지원자가 대기 중입니다. 가장 눈에 띄는 후보는 ${bestCandidate.unit.name}이며, 잠재력 평가는 ${bestCandidatePotentialLabel}입니다.`
+          : "현재 주점 대기 명단이 비어 있습니다. 시간이 지나거나 새로고침 후 새로운 지원자를 확인할 수 있습니다."}</p>`,
+        '<div class="detail-token-list">',
+        (tavernLineup.length
+          ? tavernLineup.slice(0, 3).map((candidate) => {
+            const candidateScore = Number(candidate.potentialScore || (candidate.unit && candidate.unit.potentialScore) || 36);
+            const potentialLabel = StatsService.getPotentialMeta({ potentialScore: candidateScore }).label;
+            return `  <span class="detail-token is-stat">${candidate.unit.name} / ${candidate.unit.className} / ${potentialLabel} / ${candidate.hireCost || 0}G</span>`;
+          }).join("")
+          : '  <span class="detail-token is-stat">새 명단 대기 중</span>'),
+        '</div>'
+      ].join(""), "is-set")
     ].join("");
   }
 

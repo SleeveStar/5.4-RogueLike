@@ -393,6 +393,19 @@ body.use-floating-stat-tooltip .stat-tooltip-pill::after {
   display: none;
 }
 
+.tooltip-anchor {
+  display: inline-flex;
+  align-items: center;
+}
+
+.button-tooltip-anchor {
+  max-width: 100%;
+}
+
+.button-tooltip-anchor > button {
+  width: 100%;
+}
+
 .floating-stat-tooltip {
   position: fixed;
   top: 0;
