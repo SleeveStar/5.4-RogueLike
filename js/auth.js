@@ -61,7 +61,12 @@
     cachedUnitDetailUnitId: null,
     cachedUnitDetailMarkup: "",
     toastTimer: null,
-    menuClockTimer: null
+    menuClockTimer: null,
+    floatingTooltip: {
+      trigger: null,
+      element: null,
+      rafId: 0
+    }
   };
 
   const screenIds = [
@@ -96,6 +101,136 @@
     appState.toastTimer = setTimeout(() => {
       toast.classList.remove("visible");
     }, 2600);
+  }
+
+  function ensureFloatingStatTooltip() {
+    if (appState.floatingTooltip.element && appState.floatingTooltip.element.isConnected) {
+      return appState.floatingTooltip.element;
+    }
+
+    const tooltip = document.createElement("div");
+    tooltip.className = "floating-stat-tooltip";
+    tooltip.setAttribute("aria-hidden", "true");
+    document.body.appendChild(tooltip);
+    appState.floatingTooltip.element = tooltip;
+    return tooltip;
+  }
+
+  function cancelFloatingStatTooltipFrame() {
+    if (appState.floatingTooltip.rafId) {
+      cancelAnimationFrame(appState.floatingTooltip.rafId);
+      appState.floatingTooltip.rafId = 0;
+    }
+  }
+
+  function positionFloatingStatTooltip(trigger) {
+    if (!trigger || !trigger.isConnected) {
+      hideFloatingStatTooltip();
+      return;
+    }
+
+    const tooltip = ensureFloatingStatTooltip();
+    const triggerRect = trigger.getBoundingClientRect();
+    const viewportPadding = 12;
+    const gap = 12;
+
+    tooltip.classList.remove("is-above", "is-below");
+    tooltip.style.left = "0px";
+    tooltip.style.top = "0px";
+
+    const tooltipRect = tooltip.getBoundingClientRect();
+    let left = triggerRect.left + (triggerRect.width / 2) - (tooltipRect.width / 2);
+    left = Math.max(viewportPadding, Math.min(left, window.innerWidth - tooltipRect.width - viewportPadding));
+
+    let top = triggerRect.top - tooltipRect.height - gap;
+    let sideClass = "is-above";
+
+    if (top < viewportPadding) {
+      top = triggerRect.bottom + gap;
+      sideClass = "is-below";
+    }
+
+    if (top + tooltipRect.height > window.innerHeight - viewportPadding) {
+      top = Math.max(viewportPadding, window.innerHeight - tooltipRect.height - viewportPadding);
+    }
+
+    tooltip.style.left = `${Math.round(left)}px`;
+    tooltip.style.top = `${Math.round(top)}px`;
+    tooltip.classList.add(sideClass);
+  }
+
+  function scheduleFloatingStatTooltipPosition(trigger) {
+    cancelFloatingStatTooltipFrame();
+    appState.floatingTooltip.rafId = requestAnimationFrame(() => {
+      appState.floatingTooltip.rafId = 0;
+      positionFloatingStatTooltip(trigger);
+    });
+  }
+
+  function showFloatingStatTooltip(trigger) {
+    const tooltipText = trigger && trigger.dataset ? trigger.dataset.statTooltip : "";
+
+    if (!tooltipText) {
+      hideFloatingStatTooltip();
+      return;
+    }
+
+    const tooltip = ensureFloatingStatTooltip();
+    appState.floatingTooltip.trigger = trigger;
+    tooltip.textContent = tooltipText;
+    tooltip.classList.add("visible");
+    tooltip.setAttribute("aria-hidden", "false");
+    scheduleFloatingStatTooltipPosition(trigger);
+  }
+
+  function hideFloatingStatTooltip() {
+    cancelFloatingStatTooltipFrame();
+    appState.floatingTooltip.trigger = null;
+
+    if (!appState.floatingTooltip.element) {
+      return;
+    }
+
+    appState.floatingTooltip.element.classList.remove("visible", "is-above", "is-below");
+    appState.floatingTooltip.element.setAttribute("aria-hidden", "true");
+  }
+
+  function getStatTooltipTrigger(target) {
+    return target && target.closest
+      ? target.closest(".stat-tooltip-pill[data-stat-tooltip]")
+      : null;
+  }
+
+  function handleStatTooltipMouseOver(event) {
+    const trigger = getStatTooltipTrigger(event.target);
+
+    if (!trigger) {
+      return;
+    }
+
+    showFloatingStatTooltip(trigger);
+  }
+
+  function handleStatTooltipMouseOut(event) {
+    const currentTrigger = appState.floatingTooltip.trigger;
+
+    if (!currentTrigger || !currentTrigger.contains(event.target)) {
+      return;
+    }
+
+    if (event.relatedTarget && currentTrigger.contains(event.relatedTarget)) {
+      return;
+    }
+
+    hideFloatingStatTooltip();
+  }
+
+  function handleFloatingStatTooltipViewportChange() {
+    if (!appState.floatingTooltip.trigger) {
+      return;
+    }
+
+    scheduleFloatingStatTooltipPosition(appState.floatingTooltip.trigger);
   }
 
   const MAIN_PANEL_META = {
@@ -480,6 +615,8 @@
       host.innerHTML = "";
     }
 
+    hideFloatingStatTooltip();
+
     appState.equipmentModal.unitId = null;
     appState.equipmentModal.hoveredItemId = null;
     appState.equipmentModal.hoveredSlotKey = null;
@@ -494,6 +631,8 @@
       host.innerHTML = "";
     }
 
+    hideFloatingStatTooltip();
+
     appState.skillModal.unitId = null;
     appState.skillModal.hoveredSkillId = null;
     appState.skillModal.dragSkillId = null;
@@ -505,6 +644,8 @@
     if (host) {
       host.innerHTML = "";
     }
+
+    hideFloatingStatTooltip();
 
     appState.detailModal.type = null;
     appState.detailModal.id = null;
@@ -1280,6 +1421,8 @@
     const guildPromotion = TavernService.getRankPromotionRequirement(unit);
     const promotionOptions = SkillsService.getPromotionOptions(unit);
     const lockedPromotions = SkillsService.PROMOTION_TREE[unit.className] || [];
+    const dismissDisabled = (appState.saveData.roster || []).length <= 1
+      || (appState.saveData.stageStatus === "in_progress" && !!appState.saveData.battleState);
     let promotionSummary = "전직 완료";
 
     if (promotionOptions.length) {
@@ -1379,6 +1522,7 @@
       `    <button class="secondary-button small-button" type="button" data-set-leader="true" ${appState.saveData.leaderUnitId === unit.id ? "disabled" : ""}>리더 지정</button>`,
       '    <button class="secondary-button small-button" type="button" data-unequip-all="true">전체 해제</button>',
       `    <button class="secondary-button small-button" type="button" data-toggle-sortie="true">${isUnitSelectedForSortie(unit.id) ? "후방 대기" : "출전 등록"}</button>`,
+      `    <button class="ghost-button small-button" type="button" data-dismiss-unit="true" ${dismissDisabled ? "disabled" : ""}>방출</button>`,
       promotionOptions.map((promotion) => (
         `<button class="secondary-button small-button" type="button" data-promote-class="${promotion.className}">${promotion.className} 전직</button>`
       )).join(""),
@@ -1939,6 +2083,27 @@
         persistSession(appState.saveData, appState.settings);
         refreshUnitDetailModal(unit.id);
         showToast(`${unit.name}을(를) 파티 리더로 지정했습니다.`);
+      } catch (error) {
+        showToast(error.message, true);
+      }
+      return;
+    }
+
+    if (button.dataset.dismissUnit === "true") {
+      if (!global.confirm(`${unit.name}을(를) 파티에서 방출하시겠습니까? 장착 중인 장비는 모두 해제됩니다.`)) {
+        return;
+      }
+
+      try {
+        const result = TavernService.dismissUnit(appState.saveData, unit.id);
+        clearProgressionDraft(unit.id);
+        appState.cachedUnitDetailUnitId = null;
+        appState.cachedUnitDetailMarkup = "";
+        appState.selectedMenuUnitId = result.leaderUnit ? result.leaderUnit.id : null;
+        persistSession(appState.saveData, appState.settings);
+        renderMainMenu();
+        closeDetailModal();
+        showToast(`${result.unit.name}을(를) 파티에서 방출했습니다.`);
       } catch (error) {
         showToast(error.message, true);
       }
@@ -3486,6 +3651,10 @@
       appState.inventoryView.page = 1;
       renderInventoryList();
     });
+    document.addEventListener("mouseover", handleStatTooltipMouseOver);
+    document.addEventListener("mouseout", handleStatTooltipMouseOut);
+    window.addEventListener("scroll", handleFloatingStatTooltipViewportChange, true);
+    window.addEventListener("resize", handleFloatingStatTooltipViewportChange);
     document.addEventListener("keydown", (event) => {
       if (event.key === "Escape" && appState.equipmentModal.unitId) {
         closeEquipmentModal();
@@ -3532,6 +3701,7 @@
   }
 
   function init() {
+    document.body.classList.add("use-floating-stat-tooltip");
     BattleView.init({
       getSession: getCurrentSession,
       persistSession,

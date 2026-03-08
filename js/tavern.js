@@ -742,6 +742,49 @@
     return unit;
   }
 
+  function dismissUnit(saveData, unitId) {
+    const roster = saveData.roster || [];
+    const unit = roster.find((entry) => entry.id === unitId);
+
+    if (!unit) {
+      throw new Error("방출할 유닛을 찾을 수 없습니다.");
+    }
+
+    if (roster.length <= 1) {
+      throw new Error("마지막 남은 캐릭터는 방출할 수 없습니다.");
+    }
+
+    if (saveData.stageStatus === "in_progress" && saveData.battleState) {
+      throw new Error("진행 중인 전투가 있을 때는 캐릭터를 방출할 수 없습니다.");
+    }
+
+    (unit.equippedItemIds || []).slice().forEach((itemId) => {
+      InventoryService.unequipItem(saveData, itemId);
+    });
+
+    saveData.roster = roster.filter((entry) => entry.id !== unitId);
+    saveData.selectedPartyIds = (saveData.selectedPartyIds || [])
+      .filter((selectedId) => selectedId !== unitId)
+      .slice(0, MAX_SORTIE_SIZE);
+
+    if (!saveData.selectedPartyIds.length) {
+      saveData.selectedPartyIds = (saveData.roster || [])
+        .slice(0, MAX_SORTIE_SIZE)
+        .map((entry) => entry.id);
+    }
+
+    const nextLeader = (saveData.roster || []).find((entry) => entry.id === saveData.leaderUnitId)
+      || (saveData.roster || [])[0]
+      || null;
+
+    saveData.leaderUnitId = nextLeader ? nextLeader.id : null;
+
+    return {
+      unit,
+      leaderUnit: nextLeader
+    };
+  }
+
   function getRankMeta(rank) {
     return GUILD_RANK_META[rank] || GUILD_RANK_META.D;
   }
@@ -755,6 +798,7 @@
     trainUnit,
     promoteGuildRank,
     setLeader,
+    dismissUnit,
     getRankMeta,
     getTrainingCost,
     getRankPromotionRequirement,
