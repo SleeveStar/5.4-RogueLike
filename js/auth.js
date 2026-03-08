@@ -1268,9 +1268,9 @@
         actions: [
           {
             id: "equip",
-            label: "장착 대상 선택",
+            label: item.equippedBy ? "이미 장착 중" : "장착 대상 선택",
             className: "secondary-button",
-            disabled: !isEquipmentItem,
+            disabled: !isEquipmentItem || !!item.equippedBy,
             onClick() {
               openDetailModal("equip-target", item.id);
             }
@@ -1943,10 +1943,10 @@
 
     host.innerHTML = [
       '<div class="modal-backdrop menu-modal-backdrop">',
-      '  <div class="modal-panel modal-panel-wide">',
+      '  <div class="modal-panel modal-panel-wide equipment-modal-panel">',
       '    <button id="menu-modal-close-button" class="ghost-button modal-close-button" type="button">닫기</button>',
       '    <div class="modal-body equipment-modal-body">',
-      `      <div class="item-title-row equipment-modal-header"><strong class="card-title">${unit.name} 장착 관리</strong><span class="card-subtitle">${unit.className}</span></div>`,
+      `      <div class="item-title-row equipment-modal-header"><strong class="card-title">${unit.name} 장착 관리</strong><span class="card-subtitle">${unit.className}</span><button class="secondary-button small-button equipment-summary-button" type="button" data-show-equipment-summary="true">${unit.name} 장비 상세</button></div>`,
       '      <div class="equipment-modal-layout">',
       '        <section class="equipment-slot-column">',
       '          <h3>장비 슬롯</h3>',
@@ -1979,12 +1979,23 @@
             const rarity = InventoryService.getRarityMeta(item.rarity);
             const ownerText = item.equippedBy ? `${getUnitNameById(item.equippedBy)} / ${InventoryService.getSlotLabel(item.equippedSlotKey || InventoryService.getCompatibleSlotKeys(item)[0] || item.slot)}` : "미장착";
             const equipLabel = item.equippedBy === unit.id ? "재장착" : item.equippedBy ? "교체 장착" : "장착";
+            const equippedStateClass = item.equippedBy
+              ? item.equippedBy === unit.id
+                ? "is-equipped-self"
+                : "is-equipped-other"
+              : "";
+            const equippedStateText = item.equippedBy
+              ? item.equippedBy === unit.id
+                ? "현재 장착중"
+                : "다른 유닛 장착중"
+              : "";
 
             return [
-              `<article class="inventory-card equipment-item-card rarity-${item.rarity}" draggable="true" data-modal-item="${item.id}">`,
+              `<article class="inventory-card equipment-item-card rarity-${item.rarity} ${equippedStateClass}" draggable="true" data-modal-item="${item.id}">`,
               `  <div class="item-title-row"><strong class="card-title">${item.name}</strong><span class="card-subtitle">${rarity.label}</span></div>`,
               '  <div class="inventory-meta">',
               `    <span class="meta-pill">${InventoryService.getTypeLabel(item.type || item.slot)}</span>`,
+              equippedStateText ? `    <span class="meta-pill is-crimson equipment-state-pill">${equippedStateText}</span>` : "",
               `    <span class="meta-pill ${item.equippedBy ? "is-cyan" : "is-muted"}">${ownerText}</span>`,
               "  </div>",
               `  <p>${InventoryService.describeItem(item)}</p>`,
@@ -2010,12 +2021,6 @@
     ].join("");
 
     const backdrop = host.querySelector(".menu-modal-backdrop");
-    const hoveredReset = () => {
-      appState.equipmentModal.hoveredItemId = null;
-      appState.equipmentModal.hoveredSlotKey = null;
-      renderEquipmentDetailPanel(unit);
-    };
-
     getElement("menu-modal-close-button").addEventListener("click", closeEquipmentModal);
     backdrop.addEventListener("click", (event) => {
       if (event.target === backdrop) {
@@ -2027,12 +2032,11 @@
       const slotKey = slotCard.dataset.equipSlot;
       const slotItemId = slotCard.dataset.slotItemId || null;
 
-      slotCard.addEventListener("mouseenter", () => {
+      slotCard.addEventListener("click", () => {
         appState.equipmentModal.hoveredItemId = slotItemId;
         appState.equipmentModal.hoveredSlotKey = slotKey;
         renderEquipmentDetailPanel(unit);
       });
-      slotCard.addEventListener("mouseleave", hoveredReset);
       slotCard.addEventListener("dragover", (event) => {
         const draggedItem = InventoryService.getItemById(appState.saveData, appState.equipmentModal.dragItemId);
 
@@ -2072,12 +2076,11 @@
     host.querySelectorAll("[data-modal-item]").forEach((card) => {
       const itemId = card.dataset.modalItem;
 
-      card.addEventListener("mouseenter", () => {
+      card.addEventListener("click", () => {
         appState.equipmentModal.hoveredItemId = itemId;
         appState.equipmentModal.hoveredSlotKey = null;
         renderEquipmentDetailPanel(unit);
       });
-      card.addEventListener("mouseleave", hoveredReset);
       card.addEventListener("dragstart", (event) => {
         appState.equipmentModal.dragItemId = itemId;
 
@@ -2108,6 +2111,14 @@
           ? Math.min(totalPages, currentPage + 1)
           : Math.max(1, currentPage - 1);
         renderEquipmentModal();
+      });
+    });
+
+    host.querySelectorAll("[data-show-equipment-summary]").forEach((button) => {
+      button.addEventListener("click", () => {
+        appState.equipmentModal.hoveredItemId = null;
+        appState.equipmentModal.hoveredSlotKey = null;
+        renderEquipmentDetailPanel(unit);
       });
     });
 
@@ -2607,7 +2618,7 @@
 
     target.innerHTML = visibleItems.map((item) => {
       const rarity = InventoryService.getRarityMeta(item.rarity);
-      const equipDisabled = InventoryService.isEquipment(item) ? "" : "disabled";
+      const equipDisabled = InventoryService.isEquipment(item) && !item.equippedBy ? "" : "disabled";
       const unequipDisabled = item.equippedBy ? "" : "disabled";
       const useDisabled = !selectedUnit || !InventoryService.isConsumable(item) ? "disabled" : "";
       const ownerText = item.equippedBy
@@ -2625,7 +2636,7 @@
           "  </div>"
         ].join(""),
         '  <div class="button-row">',
-        `    <button class="secondary-button small-button" type="button" data-menu-equip="${item.id}" ${equipDisabled}>장착</button>`,
+        `    <button class="secondary-button small-button" type="button" data-menu-equip="${item.id}" ${equipDisabled}>${item.equippedBy ? "장착중" : "장착"}</button>`,
         `    <button class="secondary-button small-button" type="button" data-menu-use="${item.id}" ${useDisabled}>사용</button>`,
         `    <button class="ghost-button small-button" type="button" data-menu-unequip="${item.id}" ${unequipDisabled}>해제</button>`,
         "  </div>",

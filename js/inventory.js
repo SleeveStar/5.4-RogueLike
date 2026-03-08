@@ -1947,11 +1947,10 @@
   }
 
   function equipItemToUnit(saveData, unitId, itemId, preferredSlotKey) {
+    normalizeInventoryState(saveData);
     const unit = getUnitById(saveData, unitId);
     const item = getItemById(saveData, itemId);
     const previousOwnerId = item ? item.equippedBy : null;
-
-    normalizeInventoryState(saveData);
 
     if (!unit || !item) {
       throw new Error("장착 대상 유닛 또는 아이템을 찾을 수 없습니다.");

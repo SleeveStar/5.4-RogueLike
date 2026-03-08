@@ -3000,6 +3000,8 @@ button:disabled {
 
 .modal-panel.modal-panel-wide {
   width: min(1180px, 100%);
+  max-height: min(90vh, 980px);
+  overflow: auto;
 }
 
 .modal-close-button {
@@ -3022,24 +3024,44 @@ button:disabled {
 
 .equipment-modal-body {
   display: grid;
-  gap: var(--space-16);
+  gap: 12px;
+  overflow: visible;
 }
 
 .equipment-modal-header {
   align-items: center;
+  justify-content: space-between;
+  padding-right: 88px;
+}
+
+.equipment-modal-panel {
+  position: relative;
+}
+
+.equipment-modal-panel .modal-close-button {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  z-index: 2;
+  margin: 0;
+}
+
+.equipment-summary-button {
+  margin-left: auto;
 }
 
 .equipment-modal-layout {
   display: grid;
-  grid-template-columns: minmax(320px, 0.95fr) minmax(0, 1.35fr);
-  gap: var(--space-18);
+  grid-template-columns: minmax(0, 0.98fr) minmax(0, 1.02fr);
+  gap: 12px;
   min-height: 0;
+  overflow: hidden;
 }
 
 .equipment-slot-column,
 .equipment-inventory-column {
   display: grid;
-  gap: var(--space-12);
+  gap: 8px;
   min-height: 0;
 }
 
@@ -3052,8 +3074,8 @@ button:disabled {
 
 .equipment-slot-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--space-12);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
 }
 
 .equipment-slot-card,
@@ -3062,8 +3084,61 @@ button:disabled {
   gap: var(--space-10);
 }
 
+.equipment-item-card.is-equipped-self,
+.equipment-item-card.is-equipped-other {
+  border-color: rgba(255, 110, 120, 0.3);
+  box-shadow: 0 0 0 1px rgba(255, 110, 120, 0.12), 0 18px 32px rgba(0, 0, 0, 0.18);
+}
+
+.equipment-item-card.is-equipped-self::after,
+.equipment-item-card.is-equipped-other::after {
+  background: linear-gradient(180deg, rgba(255, 110, 120, 0.92), transparent 88%);
+  opacity: 0.92;
+}
+
+.equipment-item-card.is-equipped-self .card-title,
+.equipment-item-card.is-equipped-other .card-title {
+  color: #ffb3b8;
+}
+
+.equipment-state-pill {
+  font-weight: 900;
+  letter-spacing: 0.02em;
+  box-shadow: 0 0 0 1px rgba(255, 110, 120, 0.12), 0 0 18px rgba(255, 110, 120, 0.14);
+}
+
 .equipment-slot-card {
-  min-height: 154px;
+  min-height: 98px;
+  gap: 4px;
+  padding: 9px 9px 8px;
+}
+
+.equipment-slot-card .item-title-row {
+  gap: 3px;
+}
+
+.equipment-slot-card .card-title {
+  font-size: 0.76rem;
+}
+
+.equipment-slot-card .card-subtitle {
+  font-size: 0.56rem;
+}
+
+.equipment-slot-card p {
+  margin: 0;
+  font-size: 0.72rem;
+  line-height: 1.22;
+}
+
+.equipment-slot-card .inventory-meta {
+  gap: 4px;
+}
+
+.equipment-slot-card .meta-pill {
+  min-height: 20px;
+  padding: 0 6px;
+  font-size: 0.62rem;
 }
 
 .equipment-slot-card.is-empty {
@@ -3088,8 +3163,8 @@ button:disabled {
 
 .equipment-inventory-list {
   display: grid;
-  gap: var(--space-12);
-  max-height: 50vh;
+  gap: 8px;
+  max-height: 40vh;
   overflow: auto;
   padding-right: 4px;
 }
@@ -3100,12 +3175,78 @@ button:disabled {
 
 .equipment-detail-panel {
   display: grid;
-  gap: var(--space-10);
-  min-height: 140px;
+  gap: 8px;
+  min-height: 164px;
+  max-height: 164px;
+  position: relative;
+  overflow: auto;
 }
 
 .equipment-detail-panel .detail-stats {
   margin-bottom: 0;
+  overflow: visible;
+}
+
+.equipment-detail-panel .stat-tooltip-pill::before,
+.equipment-detail-panel .stat-tooltip-pill::after {
+  left: 0;
+}
+
+.equipment-detail-panel .stat-tooltip-pill::before {
+  transform: translateX(0) translateY(6px);
+  width: min(220px, calc(100vw - 120px));
+}
+
+.equipment-detail-panel .stat-tooltip-pill::after {
+  transform: translateX(12px) translateY(6px);
+}
+
+.equipment-detail-panel .stat-tooltip-pill:hover::before,
+.equipment-detail-panel .stat-tooltip-pill:hover::after,
+.equipment-detail-panel .stat-tooltip-pill:focus-visible::before,
+.equipment-detail-panel .stat-tooltip-pill:focus-visible::after {
+  transform: translateX(0) translateY(0);
+}
+
+.equipment-detail-panel .stat-tooltip-pill:hover::after,
+.equipment-detail-panel .stat-tooltip-pill:focus-visible::after {
+  transform: translateX(12px) translateY(0);
+}
+
+.equipment-detail-panel p {
+  font-size: 0.84rem;
+  line-height: 1.38;
+}
+
+.equipment-modal-header {
+  gap: 6px;
+}
+
+.equipment-modal-header .card-title {
+  font-size: 1.02rem;
+}
+
+.equipment-modal-header .card-subtitle {
+  font-size: 0.72rem;
+}
+
+.equipment-slot-column h3,
+.equipment-inventory-column h3 {
+  font-size: 0.92rem;
+}
+
+.equipment-slot-column > .item-title-row,
+.equipment-inventory-column > .item-title-row {
+  gap: 6px;
+}
+
+.equipment-slot-column > .item-title-row .meta-pill,
+.equipment-inventory-column > .item-title-row .meta-pill,
+.equipment-detail-panel .meta-pill,
+.equipment-detail-panel .stat-tooltip-pill {
+  min-height: 22px;
+  padding: 0 7px;
+  font-size: 0.68rem;
 }
 
 .skill-modal-body {
