@@ -431,7 +431,7 @@
       mapTiles: MAP_TEMPLATE,
       allySpawns: ALLY_SPAWNS,
       enemySpawns: ENEMY_SPAWN_CANDIDATES,
-      enemyBonus: 0,
+      enemyBonus: 1,
       rewardGold: 120,
       introLines: [
         "리아: 첫 실전이지만 물러설 수 없어. 전열을 정비해.",
@@ -444,7 +444,7 @@
         className: "검사",
         weaponType: "sword",
         spawn: { x: 11, y: 1 },
-        levelBonus: 1,
+        levelBonus: 2,
         maxHpBonus: 4,
         statBonuses: { str: 2, skl: 1, spd: 1, def: 1 },
         movBonus: 0,
@@ -1918,7 +1918,8 @@
     const floorBonus = Math.max(0, Number(stageDefinition.enemyBonus || 0));
 
     if (stageDefinition.id !== ENDLESS_STAGE_ID) {
-      return Math.max(1, 1 + floorBonus + Math.floor(Math.random() * 2));
+      const stageAnchor = Math.max(1, averageLevel, 1 + floorBonus);
+      return Math.max(1, stageAnchor + Math.floor(Math.random() * 2));
     }
 
     const floorPressure = Math.floor(floorBonus / 3);
