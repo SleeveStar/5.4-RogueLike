@@ -1781,6 +1781,7 @@
 
     const body = [
       `<h3>${snapshot.battle.pendingChoice.title}</h3>`,
+      snapshot.battle.pendingChoice.description ? `<p>${snapshot.battle.pendingChoice.description}</p>` : "",
       '<div class="modal-list">'
     ];
 
@@ -1789,6 +1790,8 @@
         ? "유물"
         : snapshot.battle.pendingChoice.type === "shop"
           ? `${choice.price}G`
+          : snapshot.battle.pendingChoice.type === "contact"
+            ? "접촉"
           : "사건";
       body.push([
         '<article class="modal-card cutscene-card">',

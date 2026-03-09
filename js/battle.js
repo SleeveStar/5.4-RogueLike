@@ -734,6 +734,163 @@
     ]
   };
 
+  const ENDLESS_CONTACT_RECRUITS = {
+    rift_mercenary: {
+      unit: {
+        id: "rift-recruit-mercenary",
+        name: "카인",
+        team: "ally",
+        className: "검사",
+        level: 3,
+        exp: 0,
+        hp: 18,
+        maxHp: 18,
+        str: 7,
+        skl: 7,
+        spd: 6,
+        def: 4,
+        mov: 5,
+        x: 0,
+        y: 0,
+        acted: false,
+        alive: true,
+        weapon: "rift-recruit-mercenary-sword",
+        guildRank: "B",
+        potentialScore: 58,
+        trainingLevel: 1,
+        trainingAttempts: 0,
+        statPoints: 1,
+        skillPoints: 1,
+        equippedItemIds: ["rift-recruit-mercenary-sword"]
+      },
+      items: [
+        {
+          id: "rift-recruit-mercenary-sword",
+          name: "균열 용병검",
+          type: "sword",
+          slot: "weapon",
+          might: 7,
+          hit: 90,
+          rangeMin: 1,
+          rangeMax: 1,
+          uses: 42,
+          rarity: "rare",
+          equippedBy: "rift-recruit-mercenary"
+        }
+      ]
+    },
+    rift_scout: {
+      unit: {
+        id: "rift-recruit-scout",
+        name: "세린",
+        team: "ally",
+        className: "헌터",
+        level: 3,
+        exp: 0,
+        hp: 17,
+        maxHp: 17,
+        str: 6,
+        skl: 8,
+        spd: 7,
+        def: 3,
+        mov: 5,
+        x: 0,
+        y: 0,
+        acted: false,
+        alive: true,
+        weapon: "rift-recruit-scout-bow",
+        guildRank: "B",
+        potentialScore: 61,
+        trainingLevel: 1,
+        trainingAttempts: 0,
+        statPoints: 1,
+        skillPoints: 1,
+        equippedItemIds: ["rift-recruit-scout-bow"]
+      },
+      items: [
+        {
+          id: "rift-recruit-scout-bow",
+          name: "균열 정찰활",
+          type: "bow",
+          slot: "weapon",
+          might: 6,
+          hit: 92,
+          rangeMin: 2,
+          rangeMax: 2,
+          uses: 38,
+          rarity: "rare",
+          equippedBy: "rift-recruit-scout"
+        }
+      ]
+    }
+  };
+
+  const ENDLESS_CONTACT_EVENTS = {
+    wandering_mercenary: {
+      id: "wandering_mercenary",
+      markerType: "npc",
+      markerLabel: "용병",
+      title: "길 잃은 용병",
+      prompt: "무너진 벽 틈에서 부상당한 용병이 손을 든다. 아직 싸울 의지는 남아 있는 듯하다."
+    },
+    lost_scout: {
+      id: "lost_scout",
+      markerType: "npc",
+      markerLabel: "정찰",
+      title: "실종된 정찰병",
+      prompt: "균열 안쪽에서 길을 잃은 정찰병이 지도를 움켜쥔 채 구조를 요청한다."
+    },
+    sealed_anvil: {
+      id: "sealed_anvil",
+      markerType: "site",
+      markerLabel: "공방",
+      title: "봉인된 모루",
+      prompt: "오래된 균열 공방의 모루가 미약한 열기를 뿜는다. 건드리면 장비를 손볼 수 있을 것 같다."
+    },
+    whisper_shrine: {
+      id: "whisper_shrine",
+      markerType: "site",
+      markerLabel: "제단",
+      title: "속삭이는 제단",
+      prompt: "붕괴한 제단에서 균열의 목소리가 들려온다. 대가를 치르면 축복을 얻을 수 있을지 모른다."
+    },
+    buried_cache: {
+      id: "buried_cache",
+      markerType: "site",
+      markerLabel: "보급",
+      title: "매몰된 보급고",
+      prompt: "잔해 아래 숨겨진 보급 상자가 보인다. 무리해서라도 열어볼 가치가 있어 보인다."
+    },
+    echo_mirror: {
+      id: "echo_mirror",
+      markerType: "site",
+      markerLabel: "거울",
+      title: "회귀의 거울",
+      prompt: "균열 속 거울이 파티의 전투 기억을 비춘다. 비친 기억을 손대면 성장의 흐름이나 투자 방향까지 흔들 수 있을 것 같다."
+    },
+    veteran_mentor: {
+      id: "veteran_mentor",
+      markerType: "npc",
+      markerLabel: "교관",
+      title: "균열의 교관",
+      prompt: "낡은 군복을 입은 베테랑이 전장을 훑어보며 선다. 아직 손끝에 남은 전술과 단련법을 넘겨줄 수 있다고 한다."
+    },
+    rift_medic: {
+      id: "rift_medic",
+      markerType: "npc",
+      markerLabel: "의무",
+      title: "균열 의무관",
+      prompt: "붕대와 약품 냄새를 풍기는 의무관이 부상자를 살핀다. 상처를 꿰매는 대가로 오래 남을 처방도 내릴 수 있다고 한다."
+    },
+    shattered_observatory: {
+      id: "shattered_observatory",
+      markerType: "site",
+      markerLabel: "관측",
+      title: "부서진 관측소",
+      prompt: "무너진 천문 관측소의 렌즈가 균열 심부를 비춘다. 별흔을 읽어내면 전술이나 잠재를 끌어올릴 수 있을 것 같다."
+    }
+  };
+
   const subscribers = [];
   const state = {
     active: false,
@@ -1003,6 +1160,439 @@
   function clearEventChain() {
     const currentRun = ensureEndlessRunState();
     currentRun.chainState = null;
+  }
+
+  function grantFixedItems(itemIds) {
+    const granted = [];
+
+    (itemIds || []).forEach((itemId) => {
+      const item = InventoryService.buildShopItem(itemId);
+
+      if (!item) {
+        return;
+      }
+
+      InventoryService.addItemToInventory(state.saveData, item);
+      state.battle.rewardHistory.push(item);
+      granted.push(item);
+    });
+
+    return granted;
+  }
+
+  function grantPartyStatPoints(amount) {
+    getSelectedPartyUnits().forEach((unit) => {
+      unit.statPoints = Math.max(0, Number(unit.statPoints || 0)) + Number(amount || 0);
+    });
+  }
+
+  function grantPartySkillPoints(amount) {
+    getSelectedPartyUnits().forEach((unit) => {
+      unit.skillPoints = Math.max(0, Number(unit.skillPoints || 0)) + Number(amount || 0);
+    });
+  }
+
+  function grantPartyPermanentPrimaryGains(gains) {
+    const normalizedGains = gains || {};
+
+    getSelectedPartyUnits().forEach((unit) => {
+      StatsService.applyLevelGains(unit, normalizedGains);
+    });
+  }
+
+  function grantLeaderPermanentPrimaryGains(gains) {
+    const leader = getPersistentUnit(state.saveData && state.saveData.leaderUnitId);
+
+    if (!leader) {
+      return;
+    }
+
+    StatsService.applyLevelGains(leader, gains || {});
+  }
+
+  function grantPartyPotentialScore(amount) {
+    getSelectedPartyUnits().forEach((unit) => {
+      StatsService.grantPotentialScore(unit, amount || 0);
+    });
+  }
+
+  function grantPartyTrainingLevels(amount) {
+    getSelectedPartyUnits().forEach((unit) => {
+      StatsService.grantTrainingLevel(unit, amount || 0);
+    });
+  }
+
+  function restoreSelectedPartyHealth(amount, fullRestore) {
+    let restoredCount = 0;
+
+    getSelectedPartyUnits().forEach((persistentUnit) => {
+      const targetAmount = fullRestore
+        ? Math.max(0, Number(persistentUnit.maxHp || 0) - Number(persistentUnit.hp || 0))
+        : Math.max(0, Number(amount || 0));
+      const healed = Math.min(targetAmount, Math.max(0, Number(persistentUnit.maxHp || 0) - Number(persistentUnit.hp || 0)));
+
+      if (healed <= 0) {
+        return;
+      }
+
+      persistentUnit.hp = Math.min(persistentUnit.maxHp, Number(persistentUnit.hp || 0) + healed);
+      const battleUnit = getUnitById(persistentUnit.id);
+
+      if (battleUnit) {
+        battleUnit.hp = Math.min(battleUnit.maxHp, Number(battleUnit.hp || 0) + healed);
+      }
+
+      restoredCount += 1;
+    });
+
+    return restoredCount;
+  }
+
+  function applyEndlessGrowthChoice(choice, labelPrefix) {
+    const prefix = labelPrefix || "이벤트";
+
+    if (choice.primaryStatGains) {
+      grantPartyPermanentPrimaryGains(choice.primaryStatGains);
+      addLog(`${prefix} 영구 성장: 출전 파티 ${StatsService.describeLevelGains(choice.primaryStatGains)}`);
+    }
+
+    if (choice.leaderPrimaryStatGains) {
+      grantLeaderPermanentPrimaryGains(choice.leaderPrimaryStatGains);
+      addLog(`${prefix} 영구 성장: 리더 ${StatsService.describeLevelGains(choice.leaderPrimaryStatGains)}`);
+    }
+
+    if ((choice.potentialScoreAmount || 0) > 0) {
+      grantPartyPotentialScore(choice.potentialScoreAmount || 0);
+      addLog(`${prefix} 영구 성장: 출전 파티 잠재 점수 +${choice.potentialScoreAmount}`);
+    }
+
+    if ((choice.trainingLevelAmount || 0) > 0) {
+      grantPartyTrainingLevels(choice.trainingLevelAmount || 0);
+      addLog(`${prefix} 영구 성장: 출전 파티 훈련 레벨 +${choice.trainingLevelAmount}`);
+    }
+  }
+
+  function syncSelectedBattleUnitsFromPersistent() {
+    getSelectedPartyUnits().forEach((unit) => {
+      syncBattleUnitEquipmentState(unit.id);
+    });
+  }
+
+  function grantEncounterRecruit(templateId, floor) {
+    const template = ENDLESS_CONTACT_RECRUITS[templateId];
+
+    if (!template) {
+      throw new Error("합류시킬 모험가 정보를 찾을 수 없습니다.");
+    }
+
+    const recruitUnit = clone(template.unit);
+    const recruitItems = clone(template.items || []);
+    const suffix = `${floor || 1}-${Math.floor(Math.random() * 100000)}`;
+    const originalUnitId = recruitUnit.id;
+    const targetLevel = Math.max(recruitUnit.level || 1, Math.min(12, Number(floor || 1) + 1));
+
+    recruitUnit.id = `${recruitUnit.id}-${suffix}`;
+    recruitUnit.weapon = recruitItems[0] ? `${recruitItems[0].id}-${suffix}` : null;
+    recruitUnit.equippedItemIds = recruitItems.map((item) => `${item.id}-${suffix}`);
+    recruitUnit.hiredAt = new Date().toISOString();
+
+    recruitItems.forEach((item) => {
+      item.id = `${item.id}-${suffix}`;
+      item.equippedBy = recruitUnit.id;
+    });
+
+    StatsService.normalizeUnitProgression(recruitUnit);
+    SkillsService.normalizeUnitLearnedSkills(recruitUnit);
+
+    for (let currentLevel = (recruitUnit.level || 1) + 1; currentLevel <= targetLevel; currentLevel += 1) {
+      StatsService.applyLevelGains(recruitUnit, StatsService.rollLevelGains(recruitUnit, 5));
+      recruitUnit.level = currentLevel;
+    }
+
+    recruitUnit.hp = recruitUnit.maxHp;
+    state.saveData.roster = state.saveData.roster || [];
+    state.saveData.inventory = state.saveData.inventory || [];
+    state.saveData.roster.push(recruitUnit);
+    recruitItems.forEach((item) => InventoryService.addItemToInventory(state.saveData, item));
+
+    if ((state.saveData.selectedPartyIds || []).length < ALLY_SPAWNS.length) {
+      state.saveData.selectedPartyIds.push(recruitUnit.id);
+    }
+
+    return {
+      unit: recruitUnit,
+      items: recruitItems,
+      templateId,
+      originalUnitId
+    };
+  }
+
+  function buildContactChoiceSet(encounterId, floor) {
+    const normalizedFloor = Math.max(1, Number(floor || 1));
+    const goldBase = 60 + normalizedFloor * 10;
+    const expBase = 16 + normalizedFloor * 2;
+    const repairBase = 8 + Math.floor(normalizedFloor / 2);
+
+    if (encounterId === "wandering_mercenary") {
+      return {
+        title: ENDLESS_CONTACT_EVENTS[encounterId].title,
+        description: ENDLESS_CONTACT_EVENTS[encounterId].prompt,
+        choices: [
+          {
+            id: "recruit_mercenary",
+            title: "동행을 제안한다",
+            description: `${120 + normalizedFloor * 8}G를 건네고 검사를 파티에 합류시킨다.`,
+            goldCost: 120 + normalizedFloor * 8,
+            recruitTemplateId: "rift_mercenary"
+          },
+          {
+            id: "buy_field_supplies",
+            title: "남은 보급을 사들인다",
+            description: `${90 + normalizedFloor * 6}G를 내고 고급 물약과 장비 정비를 받는다.`,
+            goldCost: 90 + normalizedFloor * 6,
+            fixedItemIds: ["shop-hi-potion", "shop-potion"],
+            repairAmount: repairBase
+          },
+          {
+            id: "guide_and_move_on",
+            title: "길만 알려주고 보낸다",
+            description: `${goldBase}G를 받고 서로 갈 길을 간다.`,
+            goldReward: goldBase
+          }
+        ]
+      };
+    }
+
+    if (encounterId === "lost_scout") {
+      return {
+        title: ENDLESS_CONTACT_EVENTS[encounterId].title,
+        description: ENDLESS_CONTACT_EVENTS[encounterId].prompt,
+        choices: [
+          {
+            id: "rescue_scout",
+            title: "구조해 파티에 합류시킨다",
+            description: "정찰병이 감사의 뜻으로 활을 들고 합류한다.",
+            recruitTemplateId: "rift_scout"
+          },
+          {
+            id: "take_route_notes",
+            title: "정찰 기록만 받는다",
+            description: `출전 파티 전원이 EXP ${expBase}와 스킬 포인트 +1을 얻는다.`,
+            expReward: expBase,
+            skillPointAmount: 1
+          },
+          {
+            id: "escort_to_exit",
+            title: "탈출로를 열어준다",
+            description: `${goldBase + 30}G와 회복 물약 1개를 받는다.`,
+            goldReward: goldBase + 30,
+            fixedItemIds: ["shop-potion"]
+          }
+        ]
+      };
+    }
+
+    if (encounterId === "sealed_anvil") {
+      return {
+        title: ENDLESS_CONTACT_EVENTS[encounterId].title,
+        description: ENDLESS_CONTACT_EVENTS[encounterId].prompt,
+        choices: [
+          {
+            id: "reforge_weapons",
+            title: "무기를 재단련한다",
+            description: `장착 무기 내구를 ${repairBase + 4} 회복하고 랜덤 장비 1개를 얻는다.`,
+            repairAmount: repairBase + 4,
+            lootLevel: normalizedFloor + 2
+          },
+          {
+            id: "salvage_fragments",
+            title: "파편만 회수한다",
+            description: `${goldBase + 20}G와 수호 부적 1개를 확보한다.`,
+            goldReward: goldBase + 20,
+            fixedItemIds: ["shop-guardian-charm"]
+          },
+          {
+            id: "leave_anvil",
+            title: "공방을 지나친다",
+            description: "위험을 감수하지 않고 그대로 통과한다."
+          }
+        ]
+      };
+    }
+
+    if (encounterId === "echo_mirror") {
+      return {
+        title: ENDLESS_CONTACT_EVENTS[encounterId].title,
+        description: ENDLESS_CONTACT_EVENTS[encounterId].prompt,
+        choices: [
+          {
+            id: "mirror_rethread",
+            title: "기억을 되감는다",
+            description: "기억 재편 두루마리 1개를 얻는다. 수동 분배한 1차 스탯을 다시 찍을 수 있다.",
+            fixedItemIds: ["shop-stat-reset-scroll"]
+          },
+          {
+            id: "mirror_awaken",
+            title: "잠재를 비춘다",
+            description: "출전 파티 전원의 잠재 점수 +4, EXP 소량 획득.",
+            potentialScoreAmount: 4,
+            expReward: Math.floor(expBase / 2)
+          },
+          {
+            id: "mirror_graft",
+            title: "전투 감각을 이식한다",
+            description: "리더의 STR+1, DEX+1, LUK+1 영구 상승.",
+            leaderPrimaryStatGains: { str: 1, dex: 1, luk: 1 }
+          }
+        ]
+      };
+    }
+
+    if (encounterId === "veteran_mentor") {
+      return {
+        title: ENDLESS_CONTACT_EVENTS[encounterId].title,
+        description: ENDLESS_CONTACT_EVENTS[encounterId].prompt,
+        choices: [
+          {
+            id: "mentor_field_drill",
+            title: "실전 훈련을 받는다",
+            description: "출전 파티 전원의 STR+1, VIT+1 영구 상승.",
+            primaryStatGains: { str: 1, vit: 1 }
+          },
+          {
+            id: "mentor_growth_route",
+            title: "성장 경로를 전수받는다",
+            description: "출전 파티 전원의 훈련 레벨 +1, 스킬 포인트 +1.",
+            trainingLevelAmount: 1,
+            skillPointAmount: 1
+          },
+          {
+            id: "mentor_tactical_cache",
+            title: "전술 메모와 보급을 받는다",
+            description: `EXP ${expBase}와 기억 재편 두루마리 1개를 확보한다.`,
+            expReward: expBase,
+            fixedItemIds: ["shop-stat-reset-scroll"]
+          }
+        ]
+      };
+    }
+
+    if (encounterId === "rift_medic") {
+      return {
+        title: ENDLESS_CONTACT_EVENTS[encounterId].title,
+        description: ENDLESS_CONTACT_EVENTS[encounterId].prompt,
+        choices: [
+          {
+            id: "medic_emergency_aid",
+            title: "응급 처치를 맡긴다",
+            description: "출전 파티 전원의 HP를 전부 회복하고 회복 물약 1개를 받는다.",
+            fullRecoverParty: true,
+            fixedItemIds: ["shop-potion"]
+          },
+          {
+            id: "medic_rehab_course",
+            title: "재활 처방을 받는다",
+            description: "출전 파티 전원의 VIT+1 영구 상승과 훈련 레벨 +1.",
+            primaryStatGains: { vit: 1 },
+            trainingLevelAmount: 1
+          },
+          {
+            id: "medic_supply_swap",
+            title: "약품만 거래한다",
+            description: `${goldBase}G를 내고 고급 물약 2개와 기억 재편 두루마리 1개를 얻는다.`,
+            goldCost: goldBase,
+            fixedItemIds: ["shop-hi-potion", "shop-hi-potion", "shop-stat-reset-scroll"]
+          }
+        ]
+      };
+    }
+
+    if (encounterId === "shattered_observatory") {
+      return {
+        title: ENDLESS_CONTACT_EVENTS[encounterId].title,
+        description: ENDLESS_CONTACT_EVENTS[encounterId].prompt,
+        choices: [
+          {
+            id: "observatory_star_chart",
+            title: "별흔 지도를 해독한다",
+            description: "출전 파티 전원의 잠재 점수 +3과 랜덤 장비 1개를 얻는다.",
+            potentialScoreAmount: 3,
+            lootLevel: normalizedFloor + 2
+          },
+          {
+            id: "observatory_focus_lens",
+            title: "조준 렌즈를 맞춘다",
+            description: "출전 파티 전원의 DEX+1, LUK+1 영구 상승.",
+            primaryStatGains: { dex: 1, luk: 1 }
+          },
+          {
+            id: "observatory_logbook",
+            title: "관측 일지만 챙긴다",
+            description: `EXP ${expBase}와 스킬 포인트 +1, ${goldBase + 20}G를 획득한다.`,
+            expReward: expBase,
+            skillPointAmount: 1,
+            goldReward: goldBase + 20
+          }
+        ]
+      };
+    }
+
+    if (encounterId === "whisper_shrine") {
+      return {
+        title: ENDLESS_CONTACT_EVENTS[encounterId].title,
+        description: ENDLESS_CONTACT_EVENTS[encounterId].prompt,
+        choices: [
+          {
+            id: "accept_blessing",
+            title: "속삭임을 받아들인다",
+            description: "출전 파티 전원의 INT+1, LUK+1 영구 상승과 스킬 포인트 +1.",
+            primaryStatGains: { int: 1, luk: 1 },
+            skillPointAmount: 1
+          },
+          {
+            id: "offer_gold",
+            title: "공물을 바친다",
+            description: `${80 + normalizedFloor * 8}G를 바치고 잠재 점수 +3과 추가 전리품을 얻는다.`,
+            goldCost: 80 + normalizedFloor * 8,
+            lootLevel: normalizedFloor + 1,
+            expReward: Math.floor(expBase / 2),
+            potentialScoreAmount: 3
+          },
+          {
+            id: "refuse_shrine",
+            title: "제단을 거절한다",
+            description: "축복도 대가도 없이 물러난다."
+          }
+        ]
+      };
+    }
+
+    return {
+      title: ENDLESS_CONTACT_EVENTS.buried_cache.title,
+      description: ENDLESS_CONTACT_EVENTS.buried_cache.prompt,
+      choices: [
+        {
+          id: "open_cache",
+          title: "보급고를 개방한다",
+          description: `${goldBase + 40}G와 랜덤 장비 1개를 획득한다.`,
+          goldReward: goldBase + 40,
+          lootLevel: normalizedFloor + 1
+        },
+        {
+          id: "sort_supplies",
+          title: "보급만 챙긴다",
+          description: "회복 물약 2개와 고급 물약 1개를 확보한다.",
+          fixedItemIds: ["shop-potion", "shop-potion", "shop-hi-potion"]
+        },
+        {
+          id: "mark_cache",
+          title: "위치만 기록한다",
+          description: `출전 파티 전원이 EXP ${Math.floor(expBase / 2)}를 얻고 DEX+1이 영구 상승한다.`,
+          expReward: Math.floor(expBase / 2),
+          primaryStatGains: { dex: 1 }
+        }
+      ]
+    };
   }
 
   function resolveEventChain(choice) {
@@ -1293,6 +1883,34 @@
         title: "심연 전리품",
         description: `현재 층 기준의 랜덤 장비 1개를 획득한다.`,
         lootLevel: normalizedFloor + 1
+      },
+      {
+        id: "memory_archive",
+        title: "기억 재편 서고",
+        description: "기억 재편 두루마리 1개와 스킬 포인트 +1을 확보한다.",
+        fixedItemIds: ["shop-stat-reset-scroll"],
+        skillPointAmount: 1
+      },
+      {
+        id: "rift_dojo",
+        title: "균열 연무장",
+        description: `출전 파티 전원의 훈련 레벨 +1, EXP ${Math.floor(trainingExp / 2)} 획득.`,
+        trainingLevelAmount: 1,
+        expReward: Math.floor(trainingExp / 2)
+      },
+      {
+        id: "star_chart_table",
+        title: "별흔 항도",
+        description: "출전 파티 전원의 잠재 점수 +3과 DEX+1 영구 상승.",
+        potentialScoreAmount: 3,
+        primaryStatGains: { dex: 1 }
+      },
+      {
+        id: "oath_furnace",
+        title: "맹세의 화로",
+        description: `${90 + normalizedFloor * 8}G를 바치고 출전 파티 전원의 STR+1, VIT+1 영구 상승을 얻는다.`,
+        goldCost: 90 + normalizedFloor * 8,
+        primaryStatGains: { str: 1, vit: 1 }
       }
     ];
 
@@ -1454,6 +2072,48 @@
     return result;
   }
 
+  function buildEndlessContactMarkers(floorType, floor, mapTiles, existingMarkers, random) {
+    if ((floorType !== "combat" && floorType !== "boss") || floor < 2) {
+      return [];
+    }
+
+    const markerKeys = new Set((existingMarkers || []).map((marker) => `${marker.x},${marker.y}`));
+    const protectedKeys = new Set(
+      ALLY_SPAWNS
+        .concat(ENEMY_SPAWN_CANDIDATES)
+        .concat((existingMarkers || []).map((marker) => ({ x: marker.x, y: marker.y })))
+        .map((position) => `${position.x},${position.y}`)
+    );
+    const encounterPool = floorType === "boss"
+      ? ["sealed_anvil", "whisper_shrine", "buried_cache"]
+      : Object.keys(ENDLESS_CONTACT_EVENTS);
+    const passableTiles = shuffleWithRandom(collectPassableTiles(mapTiles, protectedKeys), random)
+      .filter((tile) => tile.x >= 3 && tile.x <= 10 && tile.y >= 1 && tile.y <= 6 && !markerKeys.has(`${tile.x},${tile.y}`));
+    const markerCount = floorType === "boss" ? 1 : (floor >= 8 && random() > 0.55 ? 2 : 1);
+    const markers = [];
+
+    for (let index = 0; index < markerCount; index += 1) {
+      const tile = passableTiles[index];
+      const encounterId = encounterPool[Math.floor(random() * encounterPool.length)];
+      const encounter = ENDLESS_CONTACT_EVENTS[encounterId];
+
+      if (!tile || !encounter) {
+        continue;
+      }
+
+      markers.push({
+        id: `contact-${encounterId}-${floor}-${index}`,
+        x: tile.x,
+        y: tile.y,
+        type: encounter.markerType,
+        label: encounter.markerLabel,
+        encounterId
+      });
+    }
+
+    return markers;
+  }
+
   function buildEndlessDungeonLayout(floorType, floor, random) {
     const width = MAP_WIDTH;
     const height = MAP_HEIGHT;
@@ -1577,6 +2237,11 @@
       { x: entranceCenter.x, y: entranceCenter.y, type: "entry", label: "입구" },
       { x: goalCenter.x, y: goalCenter.y, type: goalMarker.type, label: goalMarker.label }
     ];
+
+    mapMarkers.push.apply(
+      mapMarkers,
+      buildEndlessContactMarkers(floorType, floor, mapTiles, mapMarkers, random)
+    );
 
     return {
       tiles: mapTiles,
@@ -1784,7 +2449,12 @@
 
     battleUnit.primaryStats = clone(effectiveUnit.primaryStats || persistentUnit.primaryStats || {});
     battleUnit.hiddenStats = clone(effectiveUnit.hiddenStats || persistentUnit.hiddenStats || {});
+    battleUnit.statPoints = persistentUnit.statPoints || 0;
     battleUnit.skillPoints = persistentUnit.skillPoints || 0;
+    battleUnit.potentialScore = persistentUnit.potentialScore || 0;
+    battleUnit.trainingLevel = persistentUnit.trainingLevel || 0;
+    battleUnit.trainingAttempts = persistentUnit.trainingAttempts || 0;
+    battleUnit.spentPrimaryStats = clone(persistentUnit.spentPrimaryStats || {});
     battleUnit.learnedSkillIds = clone(persistentUnit.learnedSkillIds || []);
     battleUnit.learnedActiveSkillIds = clone(persistentUnit.learnedActiveSkillIds || []);
     battleUnit.equippedActiveSkillIds = clone(persistentUnit.equippedActiveSkillIds || []);
@@ -1900,6 +2570,47 @@
       battle.logs.push("이벤트층 효과: 하나의 사건을 선택해 즉시 혜택을 얻을 수 있다.");
       battle.lastEventText = "불안정한 균열 사건이 발생했다.";
     }
+  }
+
+  function getEncounterMarkerAt(x, y) {
+    return state.battle && state.battle.map && state.battle.map.markers
+      ? state.battle.map.markers.find((marker) => marker.x === x && marker.y === y && marker.encounterId)
+      : null;
+  }
+
+  function removeBattleMarker(markerId) {
+    if (!state.battle || !state.battle.map || !markerId) {
+      return;
+    }
+
+    state.battle.map.markers = (state.battle.map.markers || []).filter((marker) => marker.id !== markerId);
+  }
+
+  function triggerContactEncounter(unit, x, y) {
+    if (!state.battle || state.battle.pendingChoice || !unit || unit.team !== "ally") {
+      return false;
+    }
+
+    const marker = getEncounterMarkerAt(x, y);
+    const encounter = marker ? ENDLESS_CONTACT_EVENTS[marker.encounterId] : null;
+
+    if (!marker || !encounter) {
+      return false;
+    }
+
+    const choiceSet = buildContactChoiceSet(marker.encounterId, state.battle.endlessFloor || 1);
+    state.battle.pendingChoice = {
+      type: "contact",
+      title: choiceSet.title,
+      description: choiceSet.description,
+      choices: choiceSet.choices,
+      markerId: marker.id,
+      encounterId: marker.encounterId,
+      unitId: unit.id
+    };
+    addLog(`[접촉] ${choiceSet.title}`);
+    state.battle.lastEventText = `${choiceSet.title}에 접촉했다.`;
+    return true;
   }
 
   function hydrateBattleState() {
@@ -2589,6 +3300,10 @@
       persistentUnit.mov = battleUnit.mov;
       persistentUnit.statPoints = battleUnit.statPoints || 0;
       persistentUnit.skillPoints = battleUnit.skillPoints || 0;
+      persistentUnit.potentialScore = battleUnit.potentialScore || persistentUnit.potentialScore || 0;
+      persistentUnit.trainingLevel = battleUnit.trainingLevel || 0;
+      persistentUnit.trainingAttempts = battleUnit.trainingAttempts || 0;
+      persistentUnit.spentPrimaryStats = clone(battleUnit.spentPrimaryStats || persistentUnit.spentPrimaryStats || {});
       persistentUnit.learnedSkillIds = clone(battleUnit.learnedSkillIds || persistentUnit.learnedSkillIds || []);
       persistentUnit.learnedActiveSkillIds = clone(battleUnit.learnedActiveSkillIds || persistentUnit.learnedActiveSkillIds || []);
       persistentUnit.equippedActiveSkillIds = clone(battleUnit.equippedActiveSkillIds || persistentUnit.equippedActiveSkillIds || []);
@@ -3106,6 +3821,7 @@
       spentCost: preview.totalCost
     };
     clearMovePreview();
+    triggerContactEncounter(unit, unit.x, unit.y);
     refreshSelectionState(unit);
     addLog(`${unit.name} 이동 확정: (${unit.x}, ${unit.y}) / 남은 이동 ${getRemainingMovement(unit)}`);
     syncPersistentFromBattle({ keepBattleState: true });
@@ -4217,7 +4933,16 @@
 
     try {
       const result = InventoryService.applyConsumableToUnit(state.saveData, unit, itemId);
-      addLog(`${unit.name}이(가) ${result.item.name} 사용, HP ${result.healed} 회복`);
+
+      if (result.effectKind === "heal") {
+        addLog(`${unit.name}이(가) ${result.item.name} 사용, HP ${result.healed} 회복`);
+      } else if (result.effectKind === "reset_stats") {
+        syncBattleUnitEquipmentState(unit.id);
+        addLog(`${unit.name}이(가) ${result.item.name} 사용, 스탯 포인트 ${result.refundedPoints} 반환`);
+      } else {
+        addLog(`${unit.name}이(가) ${result.item.name} 사용`);
+      }
+
       finalizeUnitAction(unit);
       syncPersistentFromBattle({ keepBattleState: true });
       notify();
@@ -4743,6 +5468,14 @@
     }
 
     if (state.battle.pendingChoice.type === "event") {
+      if ((choice.goldCost || 0) > 0) {
+        if ((state.saveData.partyGold || 0) < (choice.goldCost || 0)) {
+          throw new Error("골드가 부족합니다.");
+        }
+
+        state.saveData.partyGold -= choice.goldCost || 0;
+      }
+
       if (choice.eventKind === "chain_start" && choice.chainId) {
         const chainState = startEventChain(choice.chainId);
         addLog(`연속 사건 시작: ${chainState.name}`);
@@ -4775,6 +5508,11 @@
         addLog(`이벤트 선택: 출전 파티 전원이 EXP ${choice.expReward || 0} 획득`);
       }
 
+      if ((choice.skillPointAmount || 0) > 0) {
+        grantPartySkillPoints(choice.skillPointAmount || 0);
+        addLog(`이벤트 선택: 출전 파티 전원의 스킬 포인트 +${choice.skillPointAmount || 0}`);
+      }
+
       if (choice.id === "weapon_maintenance") {
         const repairedCount = repairSelectedPartyWeapons(choice.repairAmount || 0);
         addLog(`이벤트 선택: 장착 무기 ${repairedCount}개 정비 (+${choice.repairAmount || 0})`);
@@ -4785,10 +5523,17 @@
         addLog(`이벤트 선택: ${items.map((item) => item.name).join(", ")} 확보`);
       }
 
+      if (choice.fixedItemIds && choice.fixedItemIds.length) {
+        const items = grantFixedItems(choice.fixedItemIds);
+        addLog(`이벤트 선택: ${items.map((item) => item.name).join(", ")} 확보`);
+      }
+
       if (choice.id === "rift_spoils") {
         const item = grantEventLoot(choice.lootLevel || (state.battle.endlessFloor || 1));
         addLog(`이벤트 선택: ${item.name} 확보`);
       }
+
+      applyEndlessGrowthChoice(choice, "이벤트");
 
       if (choice.id === "relic_echo") {
         if (!choice.relicId || state.saveData.endless.relicIds.includes(choice.relicId)) {
@@ -4819,9 +5564,74 @@
         addLog(`이벤트 선택: ${choice.price}G 지불 후 ${charm.name}, ${potion.name} 확보`);
       }
 
+      if ((choice.fullRecoverParty || false) || (choice.healPartyAmount || 0) > 0) {
+        const healedCount = restoreSelectedPartyHealth(choice.healPartyAmount || 0, choice.fullRecoverParty);
+        addLog(`이벤트 선택: 출전 파티 ${healedCount}명 회복`);
+      }
+
+      syncSelectedBattleUnitsFromPersistent();
+
       if (!choice.eventKind) {
         state.battle.lastEventText = `${choice.title} 선택 완료`;
       }
+    }
+
+    if (state.battle.pendingChoice.type === "contact") {
+      if ((choice.goldCost || 0) > 0) {
+        if ((state.saveData.partyGold || 0) < (choice.goldCost || 0)) {
+          throw new Error("골드가 부족합니다.");
+        }
+
+        state.saveData.partyGold -= choice.goldCost || 0;
+      }
+
+      if ((choice.goldReward || 0) > 0) {
+        state.saveData.partyGold += choice.goldReward || 0;
+        updateEndlessRunStat((currentRun) => {
+          currentRun.goldEarned += choice.goldReward || 0;
+        });
+      }
+
+      if ((choice.expReward || 0) > 0) {
+        grantPartyExperience(choice.expReward || 0);
+      }
+
+      if ((choice.statPointAmount || 0) > 0) {
+        grantPartyStatPoints(choice.statPointAmount || 0);
+      }
+
+      if ((choice.skillPointAmount || 0) > 0) {
+        grantPartySkillPoints(choice.skillPointAmount || 0);
+      }
+
+      applyEndlessGrowthChoice(choice, "접촉 이벤트");
+
+      if ((choice.repairAmount || 0) > 0) {
+        repairSelectedPartyWeapons(choice.repairAmount || 0);
+      }
+
+      if (choice.fixedItemIds && choice.fixedItemIds.length) {
+        grantFixedItems(choice.fixedItemIds);
+      }
+
+      if (Number.isFinite(choice.lootLevel)) {
+        grantEventLoot(choice.lootLevel);
+      }
+
+      if (choice.recruitTemplateId) {
+        const recruit = grantEncounterRecruit(choice.recruitTemplateId, state.battle.endlessFloor || 1);
+        addLog(`접촉 이벤트: ${recruit.unit.name} 합류`);
+      }
+
+      if ((choice.fullRecoverParty || false) || (choice.healPartyAmount || 0) > 0) {
+        const healedCount = restoreSelectedPartyHealth(choice.healPartyAmount || 0, choice.fullRecoverParty);
+        addLog(`접촉 이벤트 선택: 출전 파티 ${healedCount}명 회복`);
+      }
+
+      removeBattleMarker(state.battle.pendingChoice.markerId);
+      syncSelectedBattleUnitsFromPersistent();
+      state.battle.lastEventText = `${choice.title} 처리 완료`;
+      addLog(`접촉 이벤트 선택: ${choice.title}`);
     }
 
     state.battle.pendingChoice = null;

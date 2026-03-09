@@ -3414,6 +3414,18 @@ body.use-floating-stat-tooltip .stat-tooltip-pill::after {
   color: var(--gold-300);
 }
 
+.tile-marker-npc {
+  border-color: rgba(143, 230, 255, 0.36);
+  color: #8fe6ff;
+  background: rgba(9, 20, 31, 0.9);
+}
+
+.tile-marker-site {
+  border-color: rgba(210, 180, 255, 0.34);
+  color: #dcb6ff;
+  background: rgba(19, 14, 31, 0.9);
+}
+
 .tile-marker-boss {
   border-color: rgba(255, 138, 159, 0.38);
   color: var(--crimson-300);

@@ -220,29 +220,83 @@
 
   const WEAPON_PROFILE_BY_TYPE = {
     sword: { name: "길드 장검", might: 5, hit: 88, rangeMin: 1, rangeMax: 1, uses: 40 },
+    greatsword: { name: "길드 대검", might: 8, hit: 78, rangeMin: 1, rangeMax: 1, uses: 32 },
+    tachi: { name: "길드 태도", might: 6, hit: 90, rangeMin: 1, rangeMax: 1, uses: 35 },
+    katana: { name: "길드 카타나", might: 6, hit: 92, rangeMin: 1, rangeMax: 1, uses: 33 },
+    hwando: { name: "길드 환도", might: 7, hit: 86, rangeMin: 1, rangeMax: 1, uses: 36 },
     lance: { name: "길드 장창", might: 6, hit: 82, rangeMin: 1, rangeMax: 1, uses: 38 },
+    spear: { name: "길드 장창", might: 6, hit: 84, rangeMin: 1, rangeMax: 1, uses: 36 },
+    halberd: { name: "길드 할버드", might: 8, hit: 78, rangeMin: 1, rangeMax: 1, uses: 30 },
     bow: { name: "길드 장궁", might: 5, hit: 90, rangeMin: 2, rangeMax: 2, uses: 34 },
+    shortbow: { name: "길드 단궁", might: 4, hit: 94, rangeMin: 2, rangeMax: 2, uses: 34 },
+    longbow: { name: "길드 장궁", might: 6, hit: 86, rangeMin: 2, rangeMax: 3, uses: 28 },
+    crossbow: { name: "길드 석궁", might: 7, hit: 82, rangeMin: 2, rangeMax: 2, uses: 30 },
     axe: { name: "길드 전투도끼", might: 7, hit: 76, rangeMin: 1, rangeMax: 1, uses: 36 },
+    handaxe: { name: "길드 손도끼", might: 6, hit: 80, rangeMin: 1, rangeMax: 2, uses: 30 },
+    battleaxe: { name: "길드 전투도끼", might: 8, hit: 76, rangeMin: 1, rangeMax: 1, uses: 32 },
+    greataxe: { name: "길드 대도끼", might: 10, hit: 70, rangeMin: 1, rangeMax: 1, uses: 26 },
     focus: { name: "길드 성구", might: 4, hit: 92, rangeMin: 1, rangeMax: 2, uses: 34 },
-    staff: { name: "길드 마도지팡이", might: 5, hit: 90, rangeMin: 1, rangeMax: 3, uses: 30 }
+    staff: { name: "길드 마도지팡이", might: 5, hit: 90, rangeMin: 1, rangeMax: 3, uses: 30 },
+    wand: { name: "길드 완드", might: 4, hit: 94, rangeMin: 1, rangeMax: 2, uses: 34 },
+    tome: { name: "길드 고서", might: 5, hit: 88, rangeMin: 1, rangeMax: 2, uses: 32 },
+    grimoire: { name: "길드 마도서", might: 6, hit: 86, rangeMin: 1, rangeMax: 3, uses: 28 }
   };
 
   const PASSIVE_SKILL_POOL = {
     sword: ["warlord_presence", "fortress_heart"],
+    greatsword: ["warlord_presence", "fortress_heart"],
+    tachi: ["warlord_presence", "fortress_heart"],
+    katana: ["warlord_presence", "fortress_heart"],
+    hwando: ["warlord_presence", "fortress_heart"],
     lance: ["fortress_heart", "warlord_presence"],
+    spear: ["fortress_heart", "warlord_presence"],
+    halberd: ["fortress_heart", "warlord_presence"],
     bow: ["eagle_commander", "warlord_presence"],
+    shortbow: ["eagle_commander", "warlord_presence"],
+    longbow: ["eagle_commander", "warlord_presence"],
+    crossbow: ["eagle_commander", "warlord_presence"],
     axe: ["warlord_presence", "fortress_heart"],
+    handaxe: ["warlord_presence", "fortress_heart"],
+    battleaxe: ["warlord_presence", "fortress_heart"],
+    greataxe: ["warlord_presence", "fortress_heart"],
     focus: ["saint_guard", "oracle_insight", "mystic_barrier"],
-    staff: ["mana_well", "spell_overflow", "mystic_barrier"]
+    staff: ["mana_well", "spell_overflow", "mystic_barrier"],
+    wand: ["mana_well", "spell_overflow", "mystic_barrier"],
+    tome: ["mana_well", "spell_overflow", "mystic_barrier"],
+    grimoire: ["mana_well", "spell_overflow", "mystic_barrier"]
   };
 
   const ACTIVE_SKILL_POOL = {
     sword: ["boss_cleave", "frenzy_assault", "adamant_guard"],
+    greatsword: ["boss_cleave", "frenzy_assault", "adamant_guard"],
+    tachi: ["boss_cleave", "frenzy_assault", "adamant_guard"],
+    katana: ["boss_cleave", "frenzy_assault", "adamant_guard"],
+    hwando: ["boss_cleave", "frenzy_assault", "adamant_guard"],
     lance: ["guard_roar", "adamant_guard", "boss_cleave"],
+    spear: ["guard_roar", "adamant_guard", "boss_cleave"],
+    halberd: ["guard_roar", "adamant_guard", "boss_cleave"],
     bow: ["rain_of_arrows", "marked_shot", "adamant_guard"],
+    shortbow: ["rain_of_arrows", "marked_shot", "adamant_guard"],
+    longbow: ["rain_of_arrows", "marked_shot", "adamant_guard"],
+    crossbow: ["rain_of_arrows", "marked_shot", "adamant_guard"],
     axe: ["frenzy_assault", "boss_cleave", "adamant_guard"],
+    handaxe: ["frenzy_assault", "boss_cleave", "adamant_guard"],
+    battleaxe: ["frenzy_assault", "boss_cleave", "adamant_guard"],
+    greataxe: ["frenzy_assault", "boss_cleave", "adamant_guard"],
     focus: ["sanctuary_wave", "oracle_ray", "holy_lance"],
-    staff: ["arcane_orb", "nova_burst", "ether_spear"]
+    staff: ["arcane_orb", "nova_burst", "ether_spear"],
+    wand: ["arcane_orb", "nova_burst", "ether_spear"],
+    tome: ["arcane_orb", "nova_burst", "ether_spear"],
+    grimoire: ["arcane_orb", "nova_burst", "ether_spear"]
+  };
+
+  const STARTING_WEAPON_VARIANTS = {
+    sword: ["sword", "greatsword", "tachi", "katana", "hwando"],
+    lance: ["lance", "spear", "halberd", "hwando"],
+    axe: ["axe", "handaxe", "battleaxe", "greataxe", "greatsword"],
+    bow: ["bow", "shortbow", "longbow", "crossbow"],
+    focus: ["focus", "tome"],
+    staff: ["staff", "wand", "tome", "grimoire"]
   };
 
   const SIGNATURE_PASSIVE_POOL_BY_CLASS = {
@@ -390,6 +444,15 @@
     });
 
     return weapon;
+  }
+
+  function pickStartingWeaponType(className, baseType) {
+    const allowedTypes = InventoryService.getClassWeaponTypes(className);
+    const preferredTypes = (STARTING_WEAPON_VARIANTS[baseType] || [baseType])
+      .filter((type) => allowedTypes.includes(type));
+    const pool = preferredTypes.length ? preferredTypes : allowedTypes;
+
+    return pickRandom(pool && pool.length ? pool : [baseType || "sword"]);
   }
 
   function pickUniqueSkillIds(pool, count) {
@@ -552,8 +615,9 @@
     applyBonusStats(unit, rankMeta.bonusStats);
     unit.hp = unit.maxHp;
     SkillsService.normalizeUnitLearnedSkills(unit);
-    unit.specialSkillIds = pickUniqueSkillIds(PASSIVE_SKILL_POOL[archetype.weaponType], rankMeta.passiveSkills);
-    unit.specialActiveSkillIds = pickUniqueSkillIds(ACTIVE_SKILL_POOL[archetype.weaponType], rankMeta.activeSkills);
+    const startingWeaponType = pickStartingWeaponType(className, archetype.weaponType);
+    unit.specialSkillIds = pickUniqueSkillIds(PASSIVE_SKILL_POOL[startingWeaponType], rankMeta.passiveSkills);
+    unit.specialActiveSkillIds = pickUniqueSkillIds(ACTIVE_SKILL_POOL[startingWeaponType], rankMeta.activeSkills);
     const signaturePassiveIds = pickSignaturePassiveIds(className, rankMeta, unit.specialSkillIds, {
       rank,
       potentialScore
@@ -580,7 +644,7 @@
       signaturePassiveIds: unit.signaturePassiveIds.slice(),
       refreshBlock: block,
       recruitedAt: null,
-      startingWeapon: buildWeapon(archetype.weaponType, unitId, rank, level)
+      startingWeapon: buildWeapon(startingWeaponType, unitId, rank, level)
     };
   }
 

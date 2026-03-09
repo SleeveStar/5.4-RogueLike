@@ -2,7 +2,8 @@
 
 (function attachCombatService(global) {
   const SkillsService = global.SkillsService;
-  const MAGIC_WEAPON_TYPES = ["focus", "staff"];
+  const MAGIC_WEAPON_TYPES = ["focus", "staff", "wand", "tome", "grimoire"];
+  const BOW_FAMILY_TYPES = ["bow", "shortbow", "longbow", "crossbow"];
   const TERRAIN_MODIFIERS = {
     plain: { avoid: 0, defense: 0, moveCost: 1 },
     forest: { avoid: 12, defense: 1, moveCost: 2 },
@@ -14,6 +15,10 @@
 
   function clamp(value, min, max) {
     return Math.max(min, Math.min(max, value));
+  }
+
+  function getInventoryService() {
+    return global.InventoryService || null;
   }
 
   function getTerrainModifier(tileType) {
@@ -50,8 +55,22 @@
     return !!weapon && MAGIC_WEAPON_TYPES.includes(weapon.type);
   }
 
+  function isBowFamilyWeapon(weapon) {
+    return !!weapon && BOW_FAMILY_TYPES.includes(weapon.type);
+  }
+
   function hasAilment(unit) {
     return (unit && unit.statusEffects || []).some((effect) => effect && effect.kind === "ailment");
+  }
+
+  function applyHiddenBonusMap(baseStats, hiddenBonus) {
+    const nextStats = Object.assign({}, baseStats || {});
+
+    Object.keys(hiddenBonus || {}).forEach((statName) => {
+      nextStats[statName] = Number(nextStats[statName] || 0) + Number(hiddenBonus[statName] || 0);
+    });
+
+    return nextStats;
   }
 
   function getEffectiveWeaponRange(unit, context) {
@@ -68,7 +87,7 @@
     const attackerTileType = context && context.attackerTileType;
     const attackerElevation = context && context.attackerElevation || 0;
     const defenderElevation = context && context.defenderElevation || 0;
-    const rangedHighGroundBonus = weapon.type === "bow" && (attackerTileType === "hill" || attackerElevation > defenderElevation) ? 1 : 0;
+    const rangedHighGroundBonus = isBowFamilyWeapon(weapon) && (attackerTileType === "hill" || attackerElevation > defenderElevation) ? 1 : 0;
     const hiddenRangeBonus = Math.max(0, Number(unit && unit.hiddenStats && unit.hiddenStats.rangeBonus || 0));
 
     return {
@@ -92,7 +111,7 @@
     const dy = Math.abs(fromPosition.y - toPosition.y);
     const baseDistance = Math.max(dx, dy);
 
-    if (weapon && weapon.type === "bow" && dx > 0 && dy > 0) {
+    if (isBowFamilyWeapon(weapon) && dx > 0 && dy > 0) {
       return baseDistance + 1;
     }
 
@@ -131,8 +150,19 @@
     const effectiveRange = getEffectiveWeaponRange(attacker, context);
     const isRangedHit = distance >= 2;
     const forestRangedAvoidBonus = context.defenderTileType === "forest" && distance >= 2 ? 6 : 0;
-    const attackerHidden = attacker.hiddenStats || {};
-    const defenderHidden = defender.hiddenStats || {};
+    const inventoryService = getInventoryService();
+    const attackerHidden = applyHiddenBonusMap(
+      attacker.hiddenStats || {},
+      inventoryService && inventoryService.getWeaponProficiencyHiddenBonus
+        ? inventoryService.getWeaponProficiencyHiddenBonus(attacker, weapon).hiddenBonus
+        : null
+    );
+    const defenderHidden = applyHiddenBonusMap(
+      defender.hiddenStats || {},
+      inventoryService && inventoryService.getWeaponProficiencyHiddenBonus
+        ? inventoryService.getWeaponProficiencyHiddenBonus(defender, getWeapon(defender)).hiddenBonus
+        : null
+    );
     const usesMagic = context && context.damageType === "magic"
       ? true
       : context && context.damageType === "physical"

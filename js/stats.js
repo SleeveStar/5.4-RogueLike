@@ -353,6 +353,7 @@
 
     unit.statPoints = Math.max(0, Number(unit.statPoints || 0));
     unit.skillPoints = Math.max(0, Number(unit.skillPoints || 0));
+    unit.spentPrimaryStats = createSpentPrimaryStatsMap(unit.spentPrimaryStats);
     unit.potentialScore = clamp(
       Math.round(Number(pickFirstDefined(unit.potentialScore, unit.potentialValue, 36) || 36)),
       0,
@@ -392,6 +393,16 @@
       int: 0,
       luk: 0
     };
+  }
+
+  function createSpentPrimaryStatsMap(source) {
+    const spent = createEmptyGrowth();
+
+    PRIMARY_STATS.forEach((statName) => {
+      spent[statName] = normalizePrimaryGainValue(source && source[statName]);
+    });
+
+    return spent;
   }
 
   function normalizePrimaryGainValue(value) {
@@ -526,6 +537,7 @@
 
     unit.primaryStats[statName] += 1;
     unit.statPoints -= 1;
+    unit.spentPrimaryStats[statName] += 1;
     recalculateUnitStats(unit, { keepHpFull: unit.hp >= unit.maxHp });
     return unit;
   }
@@ -557,9 +569,71 @@
 
     PRIMARY_STATS.forEach((statName) => {
       unit.primaryStats[statName] += Number(pending[statName] || 0);
+      unit.spentPrimaryStats[statName] += Number(pending[statName] || 0);
     });
     unit.statPoints -= totalSpent;
     recalculateUnitStats(unit, { keepHpFull: unit.hp >= unit.maxHp });
+    return unit;
+  }
+
+  function resetAllocatedPrimaryStats(saveData, unitId) {
+    const unit = getUnitById(saveData, unitId);
+
+    if (!unit) {
+      throw new Error("초기화할 유닛을 찾을 수 없습니다.");
+    }
+
+    normalizeUnitProgression(unit);
+    const refundedPoints = PRIMARY_STATS.reduce((sum, statName) => (
+      sum + Number(unit.spentPrimaryStats[statName] || 0)
+    ), 0);
+
+    if (refundedPoints <= 0) {
+      throw new Error("되돌릴 스탯 투자 내역이 없습니다.");
+    }
+
+    PRIMARY_STATS.forEach((statName) => {
+      unit.primaryStats[statName] = clamp(
+        unit.primaryStats[statName] - Number(unit.spentPrimaryStats[statName] || 0),
+        1,
+        PRIMARY_STAT_LIMITS[statName]
+      );
+      unit.spentPrimaryStats[statName] = 0;
+    });
+    unit.statPoints += refundedPoints;
+    recalculateUnitStats(unit, { keepHpFull: unit.hp >= unit.maxHp });
+    return {
+      unit,
+      refundedPoints
+    };
+  }
+
+  function grantPotentialScore(unit, amount) {
+    if (!unit || !amount) {
+      return unit;
+    }
+
+    unit.potentialScore = clamp(
+      Math.round(Number(unit.potentialScore || 0) + Number(amount || 0)),
+      0,
+      100
+    );
+    unit.potentialTier = getPotentialMetaFromScore(unit.potentialScore).id;
+    unit.trainingLevel = clamp(Math.floor(Number(unit.trainingLevel || 0)), 0, getTrainingCap(unit));
+    return unit;
+  }
+
+  function grantTrainingLevel(unit, amount) {
+    if (!unit || !amount) {
+      return unit;
+    }
+
+    normalizeUnitProgression(unit);
+    unit.trainingLevel = clamp(
+      Math.floor(Number(unit.trainingLevel || 0)) + Math.floor(Number(amount || 0)),
+      0,
+      getTrainingCap(unit)
+    );
     return unit;
   }
 
@@ -595,6 +669,9 @@
     previewUnitWithStatDraft,
     allocateStatPoint,
     applyStatDraft,
+    resetAllocatedPrimaryStats,
+    grantPotentialScore,
+    grantTrainingLevel,
     describeLevelGains
   };
 })(window);

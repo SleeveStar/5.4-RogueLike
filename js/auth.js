@@ -532,6 +532,22 @@
     return (appState.saveData && appState.saveData.selectedPartyIds) || [];
   }
 
+  function formatConsumableUseMessage(unit, result) {
+    if (!unit || !result) {
+      return "소모품을 사용했습니다.";
+    }
+
+    if (result.effectKind === "heal") {
+      return `${unit.name} 회복 +${result.healed}`;
+    }
+
+    if (result.effectKind === "reset_stats") {
+      return `${unit.name} 스탯 포인트 ${result.refundedPoints} 재분배 가능`;
+    }
+
+    return `${unit.name}이(가) ${result.item ? result.item.name : "소모품"}을 사용했습니다.`;
+  }
+
   function isUnitSelectedForSortie(unitId) {
     return getSelectedPartyIds().includes(unitId);
   }
@@ -2004,7 +2020,7 @@
               const result = InventoryService.applyConsumableToUnit(appState.saveData, selectedUnit, item.id);
               persistSession(appState.saveData, appState.settings);
               closeDetailModal();
-              showToast(`${selectedUnit.name} 회복 +${result.healed}`);
+              showToast(formatConsumableUseMessage(selectedUnit, result));
             }
           },
           {
@@ -3434,7 +3450,7 @@
           const unit = getSelectedMenuUnit();
           const result = InventoryService.applyConsumableToUnit(appState.saveData, unit, button.dataset.menuUse);
           persistSession(appState.saveData, appState.settings);
-          showToast(`${unit.name} 회복 +${result.healed}`);
+          showToast(formatConsumableUseMessage(unit, result));
         } catch (error) {
           showToast(error.message, true);
         }

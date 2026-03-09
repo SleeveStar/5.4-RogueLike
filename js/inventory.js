@@ -2,6 +2,7 @@
 
 (function attachInventoryService(global) {
   const StorageService = global.StorageService;
+  const StatsService = global.StatsService;
   const PRIMARY_STATS = ["str", "dex", "vit", "int", "luk"];
 
   const RARITY_ORDER = [
@@ -48,10 +49,25 @@
 
   const ITEM_TYPE_META = {
     sword: "검",
+    greatsword: "대검",
+    tachi: "태도",
+    katana: "카타나",
+    hwando: "환도",
     lance: "창",
+    spear: "장창",
+    halberd: "할버드",
     bow: "활",
+    shortbow: "단궁",
+    longbow: "장궁",
+    crossbow: "석궁",
     axe: "도끼",
+    handaxe: "손도끼",
+    battleaxe: "전투도끼",
+    greataxe: "대도끼",
     staff: "지팡이",
+    wand: "완드",
+    tome: "고서",
+    grimoire: "마도서",
     shield: "방패",
     quiver: "화살통",
     focus: "성구",
@@ -160,56 +176,125 @@
     "lootQualityBonus"
   ]);
 
-  const CLASS_WEAPONS = {
-    로드: ["sword"],
-    하이로드: ["sword"],
-    클레릭: ["focus"],
-    비숍: ["focus"],
-    메이지: ["staff"],
-    위저드: ["staff"],
-    소서러: ["staff"],
-    랜서: ["lance"],
-    팔라딘: ["lance"],
-    아처: ["bow"],
-    스나이퍼: ["bow"],
-    검사: ["sword"],
-    브리건드: ["axe"],
-    헌터: ["bow"],
-    솔저: ["lance"]
+  const WEAPON_TYPES_BY_DISCIPLINE = {
+    physical: [
+      "sword", "greatsword", "tachi", "katana", "hwando",
+      "lance", "spear", "halberd",
+      "axe", "handaxe", "battleaxe", "greataxe",
+      "bow", "shortbow", "longbow", "crossbow"
+    ],
+    magic: ["staff", "wand", "tome", "grimoire", "focus"]
   };
 
-  Object.assign(CLASS_WEAPONS, {
-    블레이드로드: ["sword"],
-    소드마스터: ["sword"],
-    엠퍼러: ["sword"],
-    검성: ["sword"],
-    오버로드: ["sword"],
-    스타블레이드: ["sword"],
-    가디언: ["lance"],
-    센티넬: ["lance"],
-    홀리랜서: ["lance"],
-    포트리스: ["lance"],
-    아크랜서: ["lance"],
-    이지스로드: ["lance"],
-    레인저: ["bow"],
-    트래퍼: ["bow"],
-    호크아이: ["bow"],
-    그림트래퍼: ["bow"],
-    천궁성: ["bow"],
-    나이트메어헌트: ["bow"],
-    버서커: ["axe"],
-    워브레이커: ["axe"],
-    데스브링어: ["axe"],
-    월드이터: ["axe"],
-    오라클: ["focus"],
-    세라핌: ["focus"],
-    인퀴지터: ["focus"],
-    성녀: ["focus"],
-    아크저지: ["focus"],
-    아크메이지: ["staff"],
-    워록: ["staff"],
-    대현자: ["staff"],
-    보이드로드: ["staff"]
+  const WEAPON_FAMILY_BY_TYPE = {
+    sword: "blade",
+    greatsword: "blade",
+    tachi: "blade",
+    katana: "blade",
+    hwando: "blade",
+    lance: "polearm",
+    spear: "polearm",
+    halberd: "polearm",
+    bow: "ranged",
+    shortbow: "ranged",
+    longbow: "ranged",
+    crossbow: "ranged",
+    axe: "cleaver",
+    handaxe: "cleaver",
+    battleaxe: "cleaver",
+    greataxe: "cleaver",
+    staff: "arcane",
+    wand: "arcane",
+    tome: "arcane",
+    grimoire: "arcane",
+    focus: "sacred"
+  };
+
+  const CLASS_WEAPON_DISCIPLINES = {
+    로드: "physical",
+    하이로드: "physical",
+    클레릭: "magic",
+    비숍: "magic",
+    메이지: "magic",
+    위저드: "magic",
+    소서러: "magic",
+    랜서: "physical",
+    팔라딘: "physical",
+    아처: "physical",
+    스나이퍼: "physical",
+    검사: "physical",
+    브리건드: "physical",
+    헌터: "physical",
+    솔저: "physical",
+    블레이드로드: "physical",
+    소드마스터: "physical",
+    엠퍼러: "physical",
+    검성: "physical",
+    오버로드: "physical",
+    스타블레이드: "physical",
+    가디언: "physical",
+    센티넬: "physical",
+    홀리랜서: "physical",
+    포트리스: "physical",
+    아크랜서: "physical",
+    이지스로드: "physical",
+    레인저: "physical",
+    트래퍼: "physical",
+    호크아이: "physical",
+    그림트래퍼: "physical",
+    천궁성: "physical",
+    나이트메어헌트: "physical",
+    버서커: "physical",
+    워브레이커: "physical",
+    데스브링어: "physical",
+    월드이터: "physical",
+    오라클: "magic",
+    세라핌: "magic",
+    인퀴지터: "magic",
+    성녀: "magic",
+    아크저지: "magic",
+    아크메이지: "magic",
+    워록: "magic",
+    대현자: "magic",
+    보이드로드: "magic"
+  };
+
+  const CLASS_WEAPONS = Object.keys(CLASS_WEAPON_DISCIPLINES).reduce((accumulator, className) => {
+    const discipline = CLASS_WEAPON_DISCIPLINES[className];
+    accumulator[className] = (WEAPON_TYPES_BY_DISCIPLINE[discipline] || ["sword"]).slice();
+    return accumulator;
+  }, {});
+
+  const CLASS_WEAPON_PROFICIENCY = {};
+  [
+    "로드", "하이로드", "블레이드로드", "소드마스터", "엠퍼러", "검성", "오버로드", "스타블레이드", "검사"
+  ].forEach((className) => {
+    CLASS_WEAPON_PROFICIENCY[className] = { favoredFamilies: ["blade"], toleratedFamilies: ["polearm"] };
+  });
+  [
+    "랜서", "팔라딘", "가디언", "센티넬", "홀리랜서", "포트리스", "아크랜서", "이지스로드", "솔저"
+  ].forEach((className) => {
+    CLASS_WEAPON_PROFICIENCY[className] = { favoredFamilies: ["polearm"], toleratedFamilies: ["blade"] };
+  });
+  [
+    "아처", "스나이퍼", "레인저", "트래퍼", "호크아이", "그림트래퍼", "천궁성", "나이트메어헌트", "헌터"
+  ].forEach((className) => {
+    CLASS_WEAPON_PROFICIENCY[className] = { favoredFamilies: ["ranged"], toleratedFamilies: ["blade"] };
+  });
+  [
+    "브리건드", "버서커", "워브레이커", "데스브링어", "월드이터"
+  ].forEach((className) => {
+    CLASS_WEAPON_PROFICIENCY[className] = { favoredFamilies: ["cleaver"], toleratedFamilies: ["blade", "polearm"] };
+  });
+  [
+    "메이지", "위저드", "소서러", "아크메이지", "워록", "대현자", "보이드로드"
+  ].forEach((className) => {
+    CLASS_WEAPON_PROFICIENCY[className] = { favoredFamilies: ["arcane"], toleratedFamilies: ["sacred"] };
+  });
+  [
+    "클레릭", "비숍", "오라클", "세라핌", "인퀴지터", "성녀", "아크저지"
+  ].forEach((className) => {
+    CLASS_WEAPON_PROFICIENCY[className] = { favoredFamilies: ["sacred"], toleratedFamilies: ["arcane"] };
   });
 
   const LOOT_TEMPLATES = [
@@ -230,6 +315,70 @@
       base: { might: 5, hit: 86, rangeMin: 1, rangeMax: 1, uses: 35 }
     },
     {
+      key: "greatsword",
+      names: {
+        common: "철대검",
+        uncommon: "개척 대검",
+        rare: "청강 대검",
+        unique: "사자 대검",
+        legendary: "태양 대검",
+        epic: "성운 대검",
+        mystic: "발뭉",
+        primordial: "거성 절단자"
+      },
+      slot: "weapon",
+      type: "greatsword",
+      base: { might: 8, hit: 76, rangeMin: 1, rangeMax: 1, uses: 30 }
+    },
+    {
+      key: "tachi",
+      names: {
+        common: "철태도",
+        uncommon: "바람 태도",
+        rare: "유광 태도",
+        unique: "군청 태도",
+        legendary: "홍염 태도",
+        epic: "월광 태도",
+        mystic: "무명태도",
+        primordial: "천개일섬"
+      },
+      slot: "weapon",
+      type: "tachi",
+      base: { might: 6, hit: 90, rangeMin: 1, rangeMax: 1, uses: 34 }
+    },
+    {
+      key: "katana",
+      names: {
+        common: "철카타나",
+        uncommon: "유풍 카타나",
+        rare: "청운 카타나",
+        unique: "적월 카타나",
+        legendary: "폭심 카타나",
+        epic: "혜광 카타나",
+        mystic: "무라마사",
+        primordial: "공허를 가르는 칼날"
+      },
+      slot: "weapon",
+      type: "katana",
+      base: { might: 6, hit: 92, rangeMin: 1, rangeMax: 1, uses: 32 }
+    },
+    {
+      key: "hwando",
+      names: {
+        common: "철환도",
+        uncommon: "청풍 환도",
+        rare: "은광 환도",
+        unique: "군영 환도",
+        legendary: "황염 환도",
+        epic: "패왕 환도",
+        mystic: "칠지도",
+        primordial: "일월환도"
+      },
+      slot: "weapon",
+      type: "hwando",
+      base: { might: 7, hit: 84, rangeMin: 1, rangeMax: 1, uses: 36 }
+    },
+    {
       key: "lance",
       names: {
         common: "철창",
@@ -244,6 +393,38 @@
       slot: "weapon",
       type: "lance",
       base: { might: 6, hit: 80, rangeMin: 1, rangeMax: 1, uses: 32 }
+    },
+    {
+      key: "spear",
+      names: {
+        common: "철장창",
+        uncommon: "청풍 장창",
+        rare: "은광 장창",
+        unique: "군영 장창",
+        legendary: "폭열 장창",
+        epic: "성운 장창",
+        mystic: "게이볼그",
+        primordial: "관통의 첫 별"
+      },
+      slot: "weapon",
+      type: "spear",
+      base: { might: 6, hit: 84, rangeMin: 1, rangeMax: 1, uses: 36 }
+    },
+    {
+      key: "halberd",
+      names: {
+        common: "철할버드",
+        uncommon: "전투 할버드",
+        rare: "청명 할버드",
+        unique: "기사 할버드",
+        legendary: "황염 할버드",
+        epic: "천광 할버드",
+        mystic: "용익월",
+        primordial: "세계수의 단두"
+      },
+      slot: "weapon",
+      type: "halberd",
+      base: { might: 8, hit: 78, rangeMin: 1, rangeMax: 1, uses: 30 }
     },
     {
       key: "bow",
@@ -262,6 +443,54 @@
       base: { might: 5, hit: 88, rangeMin: 2, rangeMax: 2, uses: 30 }
     },
     {
+      key: "shortbow",
+      names: {
+        common: "사냥 단궁",
+        uncommon: "질풍 단궁",
+        rare: "청영 단궁",
+        unique: "매눈 단궁",
+        legendary: "혜성 단궁",
+        epic: "성광 단궁",
+        mystic: "요정 단궁",
+        primordial: "첫 사냥의 활"
+      },
+      slot: "weapon",
+      type: "shortbow",
+      base: { might: 4, hit: 94, rangeMin: 2, rangeMax: 2, uses: 34 }
+    },
+    {
+      key: "longbow",
+      names: {
+        common: "사냥 장궁",
+        uncommon: "산맥 장궁",
+        rare: "유성 장궁",
+        unique: "매사냥 장궁",
+        legendary: "태양 장궁",
+        epic: "천공 장궁",
+        mystic: "아르테미스 장궁",
+        primordial: "여명의 장현"
+      },
+      slot: "weapon",
+      type: "longbow",
+      base: { might: 6, hit: 86, rangeMin: 2, rangeMax: 3, uses: 28 }
+    },
+    {
+      key: "crossbow",
+      names: {
+        common: "철석궁",
+        uncommon: "강화 석궁",
+        rare: "청동 석궁",
+        unique: "공성 석궁",
+        legendary: "황금 석궁",
+        epic: "천쇄 석궁",
+        mystic: "가스트라페테스",
+        primordial: "개벽의 노궁"
+      },
+      slot: "weapon",
+      type: "crossbow",
+      base: { might: 7, hit: 82, rangeMin: 2, rangeMax: 2, uses: 30 }
+    },
+    {
       key: "staff",
       names: {
         common: "견습 지팡이",
@@ -278,6 +507,54 @@
       base: { might: 5, hit: 90, rangeMin: 1, rangeMax: 3, uses: 30 }
     },
     {
+      key: "wand",
+      names: {
+        common: "견습 완드",
+        uncommon: "은빛 완드",
+        rare: "청광 완드",
+        unique: "현인 완드",
+        legendary: "성광 완드",
+        epic: "혜성 완드",
+        mystic: "머큐리 완드",
+        primordial: "시원의 마도핵"
+      },
+      slot: "weapon",
+      type: "wand",
+      base: { might: 4, hit: 94, rangeMin: 1, rangeMax: 2, uses: 34 }
+    },
+    {
+      key: "tome",
+      names: {
+        common: "낡은 고서",
+        uncommon: "봉인 고서",
+        rare: "청람 고서",
+        unique: "지혜의 고서",
+        legendary: "황금 고서",
+        epic: "별운 고서",
+        mystic: "솔로몬의 서",
+        primordial: "창세의 서판"
+      },
+      slot: "weapon",
+      type: "tome",
+      base: { might: 5, hit: 88, rangeMin: 1, rangeMax: 2, uses: 32 }
+    },
+    {
+      key: "grimoire",
+      names: {
+        common: "검은 마도서",
+        uncommon: "심연 마도서",
+        rare: "청명 마도서",
+        unique: "현자의 마도서",
+        legendary: "혜성 마도서",
+        epic: "천문 마도서",
+        mystic: "네크로노미콘",
+        primordial: "원초의 서고"
+      },
+      slot: "weapon",
+      type: "grimoire",
+      base: { might: 6, hit: 86, rangeMin: 1, rangeMax: 3, uses: 28 }
+    },
+    {
       key: "axe",
       names: {
         common: "철도끼",
@@ -292,6 +569,54 @@
       slot: "weapon",
       type: "axe",
       base: { might: 7, hit: 74, rangeMin: 1, rangeMax: 1, uses: 28 }
+    },
+    {
+      key: "handaxe",
+      names: {
+        common: "철손도끼",
+        uncommon: "질풍 손도끼",
+        rare: "청염 손도끼",
+        unique: "투척 손도끼",
+        legendary: "폭열 손도끼",
+        epic: "천광 손도끼",
+        mystic: "프란시스카",
+        primordial: "유성 파편도끼"
+      },
+      slot: "weapon",
+      type: "handaxe",
+      base: { might: 6, hit: 80, rangeMin: 1, rangeMax: 2, uses: 30 }
+    },
+    {
+      key: "battleaxe",
+      names: {
+        common: "철전투도끼",
+        uncommon: "청강 전투도끼",
+        rare: "은광 전투도끼",
+        unique: "장군 전투도끼",
+        legendary: "태양 전투도끼",
+        epic: "성운 전투도끼",
+        mystic: "라브리스",
+        primordial: "천둥 분단도"
+      },
+      slot: "weapon",
+      type: "battleaxe",
+      base: { might: 8, hit: 76, rangeMin: 1, rangeMax: 1, uses: 32 }
+    },
+    {
+      key: "greataxe",
+      names: {
+        common: "철대도끼",
+        uncommon: "개척 대도끼",
+        rare: "청명 대도끼",
+        unique: "거인 대도끼",
+        legendary: "폭군 대도끼",
+        epic: "천추 대도끼",
+        mystic: "미노스 파쇄도",
+        primordial: "종말의 도끼날"
+      },
+      slot: "weapon",
+      type: "greataxe",
+      base: { might: 10, hit: 70, rangeMin: 1, rangeMax: 1, uses: 26 }
     },
     {
       key: "focus",
@@ -477,18 +802,70 @@
       effect: { kind: "heal", amount: 18 }
     },
     {
+      id: "shop-stat-reset-scroll",
+      name: "기억 재편 두루마리",
+      type: "consumable",
+      slot: "consumable",
+      rarity: "rare",
+      price: 180,
+      description: "수동으로 분배한 1차 스탯 포인트를 모두 회수해 다시 투자할 수 있게 한다.",
+      effect: { kind: "reset_stats" }
+    },
+    {
       id: "shop-iron-sword",
       name: "철검 보급품",
       type: "sword",
       slot: "weapon",
       rarity: "common",
       price: 120,
-      description: "로드와 검사 계열이 사용할 수 있는 표준 검.",
+      description: "물리 계열이 두루 다루기 쉬운 표준 검.",
       might: 6,
       hit: 88,
       rangeMin: 1,
       rangeMax: 1,
       uses: 36
+    },
+    {
+      id: "shop-greatsword-crate",
+      name: "대검 보급품",
+      type: "greatsword",
+      slot: "weapon",
+      rarity: "uncommon",
+      price: 142,
+      description: "무겁지만 위력이 높은 대검 계열 무기.",
+      might: 9,
+      hit: 78,
+      rangeMin: 1,
+      rangeMax: 1,
+      uses: 30
+    },
+    {
+      id: "shop-katana-kit",
+      name: "카타나 보급품",
+      type: "katana",
+      slot: "weapon",
+      rarity: "uncommon",
+      price: 148,
+      description: "날렵한 검격에 어울리는 카타나 계열 무기.",
+      might: 7,
+      hit: 92,
+      rangeMin: 1,
+      rangeMax: 1,
+      uses: 32
+    },
+    {
+      id: "shop-hwando-kit",
+      name: "환도 보급품",
+      type: "hwando",
+      slot: "weapon",
+      rarity: "rare",
+      price: 158,
+      description: "무게와 안정감을 챙긴 환도 계열 무기.",
+      might: 8,
+      hit: 86,
+      rangeMin: 1,
+      rangeMax: 1,
+      uses: 34
     },
     {
       id: "shop-iron-lance",
@@ -497,12 +874,26 @@
       slot: "weapon",
       rarity: "common",
       price: 128,
-      description: "랜서와 솔저 계열이 사용할 수 있는 표준 창.",
+      description: "물리 계열이 안정적으로 운용할 수 있는 표준 창.",
       might: 7,
       hit: 80,
       rangeMin: 1,
       rangeMax: 1,
       uses: 34
+    },
+    {
+      id: "shop-halberd-crate",
+      name: "할버드 보급품",
+      type: "halberd",
+      slot: "weapon",
+      rarity: "uncommon",
+      price: 146,
+      description: "묵직한 일격에 특화된 할버드 계열 무기.",
+      might: 8,
+      hit: 78,
+      rangeMin: 1,
+      rangeMax: 1,
+      uses: 30
     },
     {
       id: "shop-hunter-bow",
@@ -511,12 +902,54 @@
       slot: "weapon",
       rarity: "common",
       price: 124,
-      description: "아처와 헌터 계열이 사용할 수 있는 활.",
+      description: "물리 계열이 사용할 수 있는 기본 활.",
       might: 6,
       hit: 86,
       rangeMin: 2,
       rangeMax: 2,
       uses: 32
+    },
+    {
+      id: "shop-shortbow-kit",
+      name: "단궁 보급품",
+      type: "shortbow",
+      slot: "weapon",
+      rarity: "uncommon",
+      price: 134,
+      description: "가볍고 명중이 높은 단궁 계열 무기.",
+      might: 4,
+      hit: 94,
+      rangeMin: 2,
+      rangeMax: 2,
+      uses: 34
+    },
+    {
+      id: "shop-longbow-kit",
+      name: "장궁 보급품",
+      type: "longbow",
+      slot: "weapon",
+      rarity: "rare",
+      price: 156,
+      description: "긴 사거리를 가진 장궁 계열 무기.",
+      might: 6,
+      hit: 86,
+      rangeMin: 2,
+      rangeMax: 3,
+      uses: 28
+    },
+    {
+      id: "shop-crossbow-kit",
+      name: "석궁 보급품",
+      type: "crossbow",
+      slot: "weapon",
+      rarity: "rare",
+      price: 162,
+      description: "무겁지만 강한 일격을 주는 석궁 계열 무기.",
+      might: 7,
+      hit: 82,
+      rangeMin: 2,
+      rangeMax: 2,
+      uses: 30
     },
     {
       id: "shop-apprentice-staff",
@@ -525,12 +958,54 @@
       slot: "weapon",
       rarity: "common",
       price: 134,
-      description: "메이지 계열이 사용하는 마도 지팡이. 긴 사거리와 마법 화력을 지원한다.",
+      description: "마법 계열이 사용하는 마도 지팡이. 긴 사거리와 마법 화력을 지원한다.",
       might: 5,
       hit: 90,
       rangeMin: 1,
       rangeMax: 3,
       uses: 30
+    },
+    {
+      id: "shop-combat-wand",
+      name: "전투 완드",
+      type: "wand",
+      slot: "weapon",
+      rarity: "uncommon",
+      price: 138,
+      description: "빠른 마력 유도에 특화된 완드.",
+      might: 4,
+      hit: 94,
+      rangeMin: 1,
+      rangeMax: 2,
+      uses: 34
+    },
+    {
+      id: "shop-sealed-tome",
+      name: "봉인 고서",
+      type: "tome",
+      slot: "weapon",
+      rarity: "rare",
+      price: 154,
+      description: "안정적인 마력 증폭을 제공하는 고서.",
+      might: 5,
+      hit: 90,
+      rangeMin: 1,
+      rangeMax: 2,
+      uses: 32
+    },
+    {
+      id: "shop-rift-grimoire",
+      name: "균열 마도서",
+      type: "grimoire",
+      slot: "weapon",
+      rarity: "rare",
+      price: 168,
+      description: "긴 사거리와 높은 위력을 가진 마도서.",
+      might: 6,
+      hit: 86,
+      rangeMin: 1,
+      rangeMax: 3,
+      uses: 28
     },
     {
       id: "shop-sanctified-focus",
@@ -539,12 +1014,54 @@
       slot: "weapon",
       rarity: "uncommon",
       price: 146,
-      description: "클레릭과 비숍이 사용하는 성광 촉매. 회복과 성광 마법 운용을 돕는다.",
+      description: "마법 계열이 사용하는 성광 촉매. 회복과 성광 마법 운용을 돕는다.",
       might: 4,
       hit: 92,
       rangeMin: 1,
       rangeMax: 2,
       uses: 32
+    },
+    {
+      id: "shop-handaxe-kit",
+      name: "손도끼 보급품",
+      type: "handaxe",
+      slot: "weapon",
+      rarity: "uncommon",
+      price: 144,
+      description: "가볍게 던지거나 찍어누를 수 있는 손도끼 계열 무기.",
+      might: 6,
+      hit: 80,
+      rangeMin: 1,
+      rangeMax: 2,
+      uses: 30
+    },
+    {
+      id: "shop-battleaxe-kit",
+      name: "전투도끼 보급품",
+      type: "battleaxe",
+      slot: "weapon",
+      rarity: "rare",
+      price: 154,
+      description: "균형 잡힌 위력의 전투도끼 계열 무기.",
+      might: 8,
+      hit: 76,
+      rangeMin: 1,
+      rangeMax: 1,
+      uses: 32
+    },
+    {
+      id: "shop-greataxe-kit",
+      name: "대도끼 보급품",
+      type: "greataxe",
+      slot: "weapon",
+      rarity: "rare",
+      price: 170,
+      description: "아주 무겁지만 압도적인 일격을 주는 대도끼.",
+      might: 10,
+      hit: 70,
+      rangeMin: 1,
+      rangeMax: 1,
+      uses: 26
     },
     {
       id: "shop-vanguard-helm",
@@ -1873,6 +2390,122 @@
     return CLASS_WEAPONS[className] || ["sword"];
   }
 
+  function getWeaponFamily(type) {
+    return WEAPON_FAMILY_BY_TYPE[type] || "";
+  }
+
+  function getWeaponDiscipline(type) {
+    if ((WEAPON_TYPES_BY_DISCIPLINE.magic || []).includes(type)) {
+      return "magic";
+    }
+
+    if ((WEAPON_TYPES_BY_DISCIPLINE.physical || []).includes(type)) {
+      return "physical";
+    }
+
+    return "";
+  }
+
+  function getWeaponProficiency(unit, weaponOrType) {
+    const type = typeof weaponOrType === "string"
+      ? weaponOrType
+      : weaponOrType && weaponOrType.type;
+    const family = getWeaponFamily(type);
+    const discipline = getWeaponDiscipline(type);
+    const profile = unit && unit.className ? CLASS_WEAPON_PROFICIENCY[unit.className] : null;
+
+    if (!type || !family || !discipline || !profile) {
+      return {
+        tier: "neutral",
+        family,
+        discipline,
+        label: "보통",
+        description: "특별한 무기 적성 보정이 없다."
+      };
+    }
+
+    if ((profile.favoredFamilies || []).includes(family)) {
+      return {
+        tier: "favored",
+        family,
+        discipline,
+        label: "특기",
+        description: "직업 숙련 무기라 명중과 화력이 오른다."
+      };
+    }
+
+    if ((profile.toleratedFamilies || []).includes(family)) {
+      return {
+        tier: "tolerated",
+        family,
+        discipline,
+        label: "보조 숙련",
+        description: "다룰 수는 있지만 주특기만큼 강하지는 않다."
+      };
+    }
+
+    return {
+      tier: "awkward",
+      family,
+      discipline,
+      label: "비숙련",
+      description: "장착은 가능하지만 무기 적성이 맞지 않아 전투 효율이 떨어진다."
+    };
+  }
+
+  function getWeaponProficiencyHiddenBonus(unit, weaponOrType) {
+    const proficiency = getWeaponProficiency(unit, weaponOrType);
+    const hiddenBonus = createHiddenBonusMap();
+    const isMagicDiscipline = proficiency.discipline === "magic";
+    const isSacredFamily = proficiency.family === "sacred";
+
+    if (proficiency.tier === "favored") {
+      hiddenBonus.accuracy += 6;
+
+      if (isMagicDiscipline) {
+        hiddenBonus.magicAttack += 2;
+        hiddenBonus.skillPower += 2;
+        hiddenBonus.magicDamagePercent += 0.08;
+        hiddenBonus.healPower += isSacredFamily ? 2 : 1;
+      } else {
+        hiddenBonus.physicalAttack += 2;
+        hiddenBonus.critChance += 0.03;
+        hiddenBonus.physicalDamagePercent += 0.08;
+      }
+    } else if (proficiency.tier === "tolerated") {
+      hiddenBonus.accuracy += 2;
+
+      if (isMagicDiscipline) {
+        hiddenBonus.magicAttack += 1;
+        hiddenBonus.skillPower += 1;
+        hiddenBonus.magicDamagePercent += 0.03;
+        hiddenBonus.healPower += isSacredFamily ? 1 : 0;
+      } else {
+        hiddenBonus.physicalAttack += 1;
+        hiddenBonus.critChance += 0.01;
+        hiddenBonus.physicalDamagePercent += 0.03;
+      }
+    } else if (proficiency.tier === "awkward") {
+      hiddenBonus.accuracy -= 8;
+
+      if (isMagicDiscipline) {
+        hiddenBonus.magicAttack -= 2;
+        hiddenBonus.skillPower -= 1;
+        hiddenBonus.magicDamagePercent -= 0.1;
+        hiddenBonus.healPower -= isSacredFamily ? 1 : 0;
+      } else {
+        hiddenBonus.physicalAttack -= 2;
+        hiddenBonus.critChance -= 0.03;
+        hiddenBonus.physicalDamagePercent -= 0.1;
+      }
+    }
+
+    return {
+      proficiency,
+      hiddenBonus
+    };
+  }
+
   function getEquipSlotLayout() {
     return EQUIP_SLOT_LAYOUT.slice();
   }
@@ -2294,22 +2927,57 @@
 
   function applyConsumableToUnit(saveData, unit, itemId) {
     const item = getItemById(saveData, itemId);
+    const persistentUnit = unit && saveData && saveData.roster
+      ? (saveData.roster || []).find((entry) => entry.id === unit.id) || null
+      : null;
+    const targetUnit = persistentUnit || unit;
 
-    if (!unit || !item || !isConsumable(item)) {
+    if (!targetUnit || !item || !isConsumable(item)) {
       throw new Error("사용할 수 없는 소모품입니다.");
     }
 
     if (item.effect.kind === "heal") {
-      if (unit.hp >= unit.maxHp) {
+      if (Number(targetUnit.hp || 0) >= Number(targetUnit.maxHp || 0)) {
         throw new Error("이미 HP가 최대입니다.");
       }
 
-      const healed = Math.min(item.effect.amount, unit.maxHp - unit.hp);
-      unit.hp += healed;
+      const healed = Math.min(item.effect.amount, targetUnit.maxHp - targetUnit.hp);
+      targetUnit.hp += healed;
+
+      if (persistentUnit && unit !== persistentUnit) {
+        unit.hp = targetUnit.hp;
+      }
+
       removeItemFromInventory(saveData, itemId);
       return {
         item,
+        effectKind: "heal",
         healed
+      };
+    }
+
+    if (item.effect.kind === "reset_stats") {
+      const resetResult = StatsService.resetAllocatedPrimaryStats(saveData, targetUnit.id);
+
+      if (persistentUnit && unit !== persistentUnit) {
+        unit.primaryStats = clone(resetResult.unit.primaryStats || {});
+        unit.hiddenStats = clone(resetResult.unit.hiddenStats || {});
+        unit.maxHp = resetResult.unit.maxHp;
+        unit.hp = Math.min(Math.max(1, Number(unit.hp || resetResult.unit.hp || resetResult.unit.maxHp)), resetResult.unit.maxHp);
+        unit.str = resetResult.unit.str;
+        unit.skl = resetResult.unit.skl;
+        unit.spd = resetResult.unit.spd;
+        unit.def = resetResult.unit.def;
+        unit.mov = resetResult.unit.mov;
+        unit.statPoints = resetResult.unit.statPoints || 0;
+        unit.skillPoints = resetResult.unit.skillPoints || 0;
+      }
+
+      removeItemFromInventory(saveData, itemId);
+      return {
+        item,
+        effectKind: "reset_stats",
+        refundedPoints: resetResult.refundedPoints
       };
     }
 
@@ -2633,6 +3301,10 @@
     SHOP_CATALOG,
     getRarityMeta,
     getClassWeaponTypes,
+    getWeaponFamily,
+    getWeaponDiscipline,
+    getWeaponProficiency,
+    getWeaponProficiencyHiddenBonus,
     getEquipSlotLayout,
     getEquipSlotMeta,
     getSlotLabel,
