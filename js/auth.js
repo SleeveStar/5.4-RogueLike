@@ -57,7 +57,8 @@
     pendingEquipAction: null,
     quickSwapSlotIndex: null,
     sortieManagerView: {
-      page: 1
+      page: 1,
+      dragUnitId: null
     },
     activeStageTab: "all",
     cachedUnitDetailUnitId: null,
@@ -916,7 +917,7 @@
         }
 
         return [
-          `<article class="${classes.join(" ")}">`,
+          `<article class="${classes.join(" ")}" data-sortie-slot="${index}">`,
           '  <div class="sortie-slot-heading">',
           `    <strong class="card-title">${unit ? unit.name : `${index + 1}번 슬롯`}</strong>`,
           `    <span class="card-subtitle">${unit ? `${index + 1}번 슬롯 · ${unit.className}` : "EMPTY"}</span>`,
@@ -962,7 +963,7 @@
         const isTarget = appState.quickSwapSlotIndex !== null;
         const rankClass = `rank-${String(unit.guildRank || "D").toLowerCase().replace("+", "plus")}`;
         return [
-          `<article class="inventory-card sortie-candidate-card ${currentSlot ? "is-in-party" : ""}">`,
+          `<article class="inventory-card sortie-candidate-card ${currentSlot ? "is-in-party" : ""}" draggable="true" data-sortie-drag-unit="${unit.id}">`,
           '  <div>',
           `    <div class="item-title-row"><strong class="card-title">${unit.name}</strong><div class="sortie-candidate-title-meta"><span class="card-subtitle">${unit.className}</span>${currentSlot ? `<span class="sortie-state-badge">편성 중</span>` : ""}</div></div>`,
           `    <div class="inventory-meta"><span class="meta-pill ${rankClass}">${formatRankBadge(unit.guildRank || "D")}</span><span class="meta-pill">Lv.${unit.level}</span><span class="meta-pill ${currentSlot ? "is-gold" : "is-muted"}">${currentSlot ? "배치 중" : "후방 대기"}</span><span class="meta-pill ${currentSlot ? "is-cyan" : "is-muted"}">${currentSlot ? `${currentSlot}번 슬롯` : "미배치"}</span></div>`,
@@ -2447,6 +2448,10 @@
 
           handleSortieManagementModalInteraction(event);
         });
+
+        if (appState.detailModal.type === "sortie") {
+          bindSortieManagementDragAndDrop(detailCard);
+        }
       }
     }
   }
@@ -2771,6 +2776,87 @@
         : Math.max(1, Number(appState.sortieManagerView.page || 1) - 1);
       renderDetailModal();
     }
+  }
+
+  function bindSortieManagementDragAndDrop(root) {
+    if (!root || !appState.saveData) {
+      return;
+    }
+
+    root.querySelectorAll("[data-sortie-drag-unit]").forEach((card) => {
+      card.addEventListener("dragstart", (event) => {
+        const unitId = String(card.dataset.sortieDragUnit || "");
+
+        if (!unitId) {
+          return;
+        }
+
+        appState.sortieManagerView.dragUnitId = unitId;
+        card.classList.add("is-dragging");
+
+        if (event.dataTransfer) {
+          event.dataTransfer.effectAllowed = "move";
+          event.dataTransfer.setData("text/plain", unitId);
+        }
+      });
+
+      card.addEventListener("dragend", () => {
+        appState.sortieManagerView.dragUnitId = null;
+        card.classList.remove("is-dragging");
+        root.querySelectorAll("[data-sortie-slot]").forEach((slotCard) => {
+          slotCard.classList.remove("is-drop-target");
+        });
+      });
+    });
+
+    root.querySelectorAll("[data-sortie-slot]").forEach((slotCard) => {
+      slotCard.addEventListener("dragover", (event) => {
+        const draggedUnitId = appState.sortieManagerView.dragUnitId
+          || (event.dataTransfer ? event.dataTransfer.getData("text/plain") : "");
+
+        if (!draggedUnitId) {
+          return;
+        }
+
+        event.preventDefault();
+        slotCard.classList.add("is-drop-target");
+
+        if (event.dataTransfer) {
+          event.dataTransfer.dropEffect = "move";
+        }
+      });
+
+      slotCard.addEventListener("dragleave", () => {
+        slotCard.classList.remove("is-drop-target");
+      });
+
+      slotCard.addEventListener("drop", (event) => {
+        const draggedUnitId = appState.sortieManagerView.dragUnitId
+          || (event.dataTransfer ? event.dataTransfer.getData("text/plain") : "");
+        const slotIndex = Number(slotCard.dataset.sortieSlot || -1);
+
+        slotCard.classList.remove("is-drop-target");
+
+        if (!draggedUnitId || slotIndex < 0) {
+          return;
+        }
+
+        event.preventDefault();
+
+        try {
+          const unit = assignUnitToSortieSlot(draggedUnitId, slotIndex);
+          appState.selectedMenuUnitId = unit.id;
+          appState.quickSwapSlotIndex = null;
+          appState.sortieManagerView.dragUnitId = null;
+          persistSession(appState.saveData, appState.settings);
+          renderMainMenu();
+          openDetailModal("sortie", "party");
+          showToast(`${unit.name}을(를) ${slotIndex + 1}번 슬롯에 배치했습니다.`);
+        } catch (error) {
+          showToast(error.message, true);
+        }
+      });
+    });
   }
 
   function buildEquipmentDetailMarkup(unit, item, slotKey) {

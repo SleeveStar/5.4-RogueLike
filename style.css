@@ -1010,6 +1010,13 @@ body.use-floating-stat-tooltip .stat-tooltip-pill::after {
   box-shadow: var(--shadow-glow-cyan);
 }
 
+.sortie-slot-card.is-drop-target {
+  border-color: rgba(103, 215, 232, 0.48);
+  box-shadow:
+    0 0 0 1px rgba(103, 215, 232, 0.18),
+    0 0 20px rgba(103, 215, 232, 0.16);
+}
+
 .sortie-slot-card .card-title {
   font-size: 0.82rem;
   line-height: 1.06;
@@ -1061,6 +1068,16 @@ body.use-floating-stat-tooltip .stat-tooltip-pill::after {
   padding: 10px 12px;
   position: relative;
   overflow: hidden;
+  cursor: grab;
+}
+
+.sortie-candidate-card[draggable="true"]:active {
+  cursor: grabbing;
+}
+
+.sortie-candidate-card.is-dragging {
+  opacity: 0.6;
+  transform: scale(0.99);
 }
 
 .sortie-candidate-title-meta {
