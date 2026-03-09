@@ -906,7 +906,7 @@ body.use-floating-stat-tooltip .stat-tooltip-pill::after {
 
 .sortie-manager-layout {
   display: grid;
-  grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
+  grid-template-columns: minmax(0, 1.08fr) minmax(300px, 0.92fr);
   gap: var(--space-14);
 }
 
@@ -948,7 +948,7 @@ body.use-floating-stat-tooltip .stat-tooltip-pill::after {
 .sortie-slot-grid {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: var(--space-10);
+  gap: 12px;
   margin-top: 0;
 }
 
@@ -956,7 +956,7 @@ body.use-floating-stat-tooltip .stat-tooltip-pill::after {
   display: grid;
   gap: 4px;
   min-height: 0;
-  padding: 10px;
+  padding: 12px;
   border-radius: var(--radius-md);
   border: 1px solid rgba(103, 215, 232, 0.14);
   background: linear-gradient(180deg, rgba(17, 27, 41, 0.94), rgba(10, 16, 26, 0.98));
@@ -1019,14 +1019,48 @@ body.use-floating-stat-tooltip .stat-tooltip-pill::after {
 
 .sortie-candidate-card {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: 1fr;
+  align-items: start;
+  gap: 8px;
+  padding: 10px 12px;
+  position: relative;
+  overflow: hidden;
+}
+
+.sortie-candidate-title-meta {
+  display: inline-flex;
   align-items: center;
-  gap: var(--space-12);
-  padding: 12px 14px;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.sortie-state-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 20px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(255, 214, 120, 0.22), rgba(255, 176, 66, 0.18));
+  border: 1px solid rgba(255, 214, 120, 0.34);
+  color: #ffd77e;
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
 .sortie-candidate-card .button-row {
   margin-top: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.sortie-candidate-card .small-button {
+  min-height: 28px;
+  padding-inline: 8px;
+  font-size: 0.72rem;
 }
 
 .sortie-candidate-card.is-in-party {
@@ -1039,8 +1073,35 @@ body.use-floating-stat-tooltip .stat-tooltip-pill::after {
     0 14px 28px rgba(7, 24, 38, 0.32);
 }
 
+.sortie-candidate-card.is-in-party::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 6px;
+  background: linear-gradient(180deg, rgba(255, 214, 120, 0.96), rgba(103, 215, 232, 0.92));
+  box-shadow: 0 0 18px rgba(103, 215, 232, 0.3);
+}
+
 .sortie-candidate-card.is-in-party .card-title {
   color: #8fe6ff;
+}
+
+.sortie-manager-briefing-card {
+  display: grid;
+  gap: 8px;
+  min-height: 96px;
+  margin-top: 10px;
+  padding: 12px 14px;
+}
+
+.sortie-manager-briefing-card .inventory-meta {
+  gap: 6px;
+}
+
+.sortie-manager-briefing-card p {
+  margin: 0;
+  color: var(--text-muted);
+  line-height: 1.34;
 }
 
 .stage-focus-card,

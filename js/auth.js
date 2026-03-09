@@ -773,6 +773,14 @@
     const roster = (appState.saveData && appState.saveData.roster) || [];
     const selectedPartyIds = getSelectedPartyIds().slice(0, MAX_SORTIE_SIZE);
     const selectedPartyMap = new Map(selectedPartyIds.map((unitId, index) => [unitId, index]));
+    const selectedUnits = selectedPartyIds
+      .map((unitId) => roster.find((entry) => entry.id === unitId))
+      .filter(Boolean);
+    const leaderUnit = roster.find((entry) => entry.id === appState.saveData.leaderUnitId) || null;
+    const emptySlotCount = Math.max(0, MAX_SORTIE_SIZE - selectedUnits.length);
+    const averageLevel = selectedUnits.length
+      ? (selectedUnits.reduce((sum, unit) => sum + Number(unit.level || 0), 0) / selectedUnits.length).toFixed(1)
+      : "0.0";
     const totalPages = Math.max(1, Math.ceil(roster.length / SORTIE_MANAGER_PAGE_SIZE));
     const currentPage = Math.max(1, Math.min(totalPages, Number(appState.sortieManagerView.page || 1)));
     const pageStart = (currentPage - 1) * SORTIE_MANAGER_PAGE_SIZE;
@@ -825,6 +833,23 @@
         ].filter(Boolean).join("");
       }).join(""),
       "      </div>",
+      '      <div class="summary-card sortie-manager-briefing-card">',
+      '        <div class="item-title-row">',
+      '          <strong class="card-title">편성 브리핑</strong>',
+      `          <span class="card-subtitle">${selectedUnits.length ? "출전 준비 완료" : "편성 필요"}</span>`,
+      "        </div>",
+      '        <div class="inventory-meta">',
+      `          <span class="meta-pill ${leaderUnit ? `rank-${String(leaderUnit.guildRank || "D").toLowerCase().replace("+", "plus")}` : "is-muted"}">${leaderUnit ? `리더 ${formatRankBadge(leaderUnit.guildRank || "D")}` : "리더 없음"}</span>`,
+      `          <span class="meta-pill is-cyan">평균 Lv.${averageLevel}</span>`,
+      `          <span class="meta-pill ${emptySlotCount ? "is-gold" : "is-muted"}">빈 슬롯 ${emptySlotCount}</span>`,
+      "        </div>",
+      `        <p>${leaderUnit ? `${leaderUnit.name}이(가) 현재 작전 리더입니다.` : "리더가 아직 지정되지 않았습니다."}</p>`,
+      `        <p>${appState.quickSwapSlotIndex !== null
+        ? `${appState.quickSwapSlotIndex + 1}번 슬롯이 교체 대기 중입니다. 우측 후보 중 원하는 모험가를 눌러 바로 배치하세요.`
+        : emptySlotCount
+          ? `아직 ${emptySlotCount}개의 빈 슬롯이 남아 있습니다. 슬롯을 선택하면 우측 후보를 즉시 배치할 수 있습니다.`
+          : "출전 슬롯이 가득 찼습니다. 교체할 슬롯을 먼저 선택한 뒤 우측 후보를 배치하세요."}</p>`,
+      "      </div>",
       "    </section>",
       '    <section class="sortie-manager-section">',
       `      <div class="item-title-row"><strong class="card-title">보유 모험가</strong><span class="card-subtitle">${currentPage} / ${totalPages} 페이지</span></div>`,
@@ -836,11 +861,12 @@
         return [
           `<article class="inventory-card sortie-candidate-card ${currentSlot ? "is-in-party" : ""}">`,
           '  <div>',
-          `    <div class="item-title-row"><strong class="card-title">${unit.name}</strong><span class="card-subtitle">${unit.className}</span></div>`,
+          `    <div class="item-title-row"><strong class="card-title">${unit.name}</strong><div class="sortie-candidate-title-meta"><span class="card-subtitle">${unit.className}</span>${currentSlot ? `<span class="sortie-state-badge">편성 중</span>` : ""}</div></div>`,
           `    <div class="inventory-meta"><span class="meta-pill ${rankClass}">${formatRankBadge(unit.guildRank || "D")}</span><span class="meta-pill">Lv.${unit.level}</span><span class="meta-pill ${currentSlot ? "is-gold" : "is-muted"}">${currentSlot ? "배치 중" : "후방 대기"}</span><span class="meta-pill ${currentSlot ? "is-cyan" : "is-muted"}">${currentSlot ? `${currentSlot}번 슬롯` : "미배치"}</span></div>`,
           "  </div>",
           '  <div class="button-row">',
           `    <button class="ghost-button small-button" type="button" data-sortie-focus="${unit.id}">상세</button>`,
+          `    <button class="ghost-button small-button" type="button" data-sortie-leader="${unit.id}" ${appState.saveData.leaderUnitId === unit.id ? "disabled" : ""}>${appState.saveData.leaderUnitId === unit.id ? "리더" : "리더 지정"}</button>`,
           `    <button class="${isTarget ? "primary-button" : "secondary-button"} small-button" type="button" data-sortie-assign="${unit.id}" ${isTarget ? "" : "disabled"}>${isTarget ? "여기에 배치" : "슬롯 선택 필요"}</button>`,
           "  </div>",
           "</article>"
@@ -2501,6 +2527,27 @@
       appState.selectedMenuUnitId = unitId;
       renderMainMenu();
       openDetailModal("unit", unitId);
+      return;
+    }
+
+    if (button.dataset.sortieLeader) {
+      try {
+        const unitId = String(button.dataset.sortieLeader);
+        const unit = (appState.saveData.roster || []).find((entry) => entry.id === unitId);
+
+        if (!unit) {
+          showToast("리더로 지정할 모험가를 찾을 수 없습니다.", true);
+          return;
+        }
+
+        TavernService.setLeader(appState.saveData, unitId);
+        persistSession(appState.saveData, appState.settings);
+        renderMainMenu();
+        openDetailModal("sortie", "party");
+        showToast(`${unit.name}을(를) 파티 리더로 지정했습니다.`);
+      } catch (error) {
+        showToast(error.message, true);
+      }
       return;
     }
 
