@@ -32,6 +32,8 @@
     plain: 0,
     forest: 1,
     hill: 2,
+    marsh: 0,
+    ruin: 1,
     wall: 3
   };
 
@@ -1427,6 +1429,31 @@
     return result;
   }
 
+  function collectWallBreachCandidates(mapTiles, excludedKeys) {
+    const result = [];
+
+    for (let y = 1; y < mapTiles.length - 1; y += 1) {
+      for (let x = 1; x < mapTiles[y].length - 1; x += 1) {
+        if (mapTiles[y][x] !== "wall" || excludedKeys.has(`${x},${y}`)) {
+          continue;
+        }
+
+        const openNeighbors = [
+          { x: x + 1, y },
+          { x: x - 1, y },
+          { x, y: y + 1 },
+          { x, y: y - 1 }
+        ].filter((position) => mapTiles[position.y] && mapTiles[position.y][position.x] !== "wall").length;
+
+        if (openNeighbors >= 2) {
+          result.push({ x, y });
+        }
+      }
+    }
+
+    return result;
+  }
+
   function buildEndlessDungeonLayout(floorType, floor, random) {
     const width = MAP_WIDTH;
     const height = MAP_HEIGHT;
@@ -1470,13 +1497,30 @@
     const protectedTiles = new Set(
       ALLY_SPAWNS.concat(ENEMY_SPAWN_CANDIDATES).map((position) => `${position.x},${position.y}`)
     );
+    const wallBreakCandidates = shuffleWithRandom(collectWallBreachCandidates(mapTiles, protectedTiles), random);
+    const breachCount = floorType === "combat" || floorType === "boss"
+      ? Math.min(8, 3 + Math.floor(floor / 3))
+      : Math.min(4, 2 + Math.floor(floor / 6));
+
+    wallBreakCandidates.slice(0, breachCount).forEach((tile, index) => {
+      setMapTile(mapTiles, tile.x, tile.y, index % 3 === 0 ? "ruin" : "plain");
+    });
+
     const terrainCandidates = shuffleWithRandom(collectPassableTiles(mapTiles, protectedTiles), random);
     const forestCount = floorType === "combat" || floorType === "boss"
-      ? Math.min(8, 2 + Math.floor(floor / 3))
+      ? Math.min(6, 2 + Math.floor(floor / 4))
       : Math.min(4, 1 + Math.floor(floor / 6));
     const hillCount = floorType === "combat" || floorType === "boss"
-      ? Math.min(5, 1 + Math.floor(floor / 4))
+      ? Math.min(4, 1 + Math.floor(floor / 5))
       : 1;
+    const marshCount = floorType === "combat"
+      ? Math.min(5, 1 + Math.floor(floor / 3))
+      : floorType === "boss"
+        ? Math.min(3, 1 + Math.floor(floor / 5))
+        : Math.min(2, 1 + Math.floor(floor / 8));
+    const ruinCount = floorType === "combat" || floorType === "boss"
+      ? Math.min(6, 2 + Math.floor(floor / 4))
+      : Math.min(3, 1 + Math.floor(floor / 7));
 
     terrainCandidates.slice(0, forestCount).forEach((tile) => {
       setMapTile(mapTiles, tile.x, tile.y, "forest");
@@ -1484,6 +1528,17 @@
 
     terrainCandidates.slice(forestCount, forestCount + hillCount).forEach((tile) => {
       setMapTile(mapTiles, tile.x, tile.y, "hill");
+    });
+
+    terrainCandidates.slice(forestCount + hillCount, forestCount + hillCount + marshCount).forEach((tile) => {
+      setMapTile(mapTiles, tile.x, tile.y, "marsh");
+    });
+
+    terrainCandidates.slice(
+      forestCount + hillCount + marshCount,
+      forestCount + hillCount + marshCount + ruinCount
+    ).forEach((tile) => {
+      setMapTile(mapTiles, tile.x, tile.y, "ruin");
     });
 
     ALLY_SPAWNS.concat(ENEMY_SPAWN_CANDIDATES).forEach((position) => {
@@ -1496,6 +1551,10 @@
       }
 
       if (tileType === "hill") {
+        return 1;
+      }
+
+      if (tileType === "ruin") {
         return 1;
       }
 
@@ -1903,27 +1962,56 @@
     return ENEMY_ARCHETYPES.find((entry) => entry.id === archetypeId) || ENEMY_ARCHETYPES[0];
   }
 
-  function pickEnemyArchetype(stageDefinition) {
+  function getEnemyArchetypePool(stageDefinition) {
     const poolIds = stageDefinition.id === ENDLESS_STAGE_ID
       ? ENEMY_ARCHETYPE_POOLS[ENDLESS_STAGE_ID]
       : ENEMY_ARCHETYPE_POOLS.default.concat(ENEMY_ARCHETYPE_POOLS[stageDefinition.id] || []);
-    const pool = poolIds
+    return poolIds
       .map((archetypeId) => getEnemyArchetypeById(archetypeId))
       .filter(Boolean);
+  }
+
+  function pickEnemyArchetype(stageDefinition) {
+    const pool = getEnemyArchetypePool(stageDefinition);
 
     return pool[Math.floor(Math.random() * pool.length)] || ENEMY_ARCHETYPES[0];
+  }
+
+  function buildEnemyArchetypeSequence(stageDefinition, count) {
+    const uniquePool = Array.from(new Map(
+      getEnemyArchetypePool(stageDefinition).map((archetype) => [archetype.id, archetype])
+    ).values());
+
+    if (!uniquePool.length || count <= 0) {
+      return [];
+    }
+
+    const sequence = [];
+    let workingPool = uniquePool.slice();
+
+    while (sequence.length < count) {
+      if (!workingPool.length) {
+        workingPool = uniquePool.slice();
+      }
+
+      const pickIndex = Math.floor(Math.random() * workingPool.length);
+      sequence.push(workingPool[pickIndex]);
+      workingPool.splice(pickIndex, 1);
+    }
+
+    return sequence;
   }
 
   function rollEnemyLevel(stageDefinition, averageLevel) {
     const floorBonus = Math.max(0, Number(stageDefinition.enemyBonus || 0));
 
     if (stageDefinition.id !== ENDLESS_STAGE_ID) {
-      const stageAnchor = Math.max(1, averageLevel, 1 + floorBonus);
+      const stageAnchor = Math.max(1, averageLevel, 2 + floorBonus);
       return Math.max(1, stageAnchor + Math.floor(Math.random() * 2));
     }
 
     const floorPressure = Math.floor(floorBonus / 3);
-    const averageAnchor = Math.max(1, averageLevel + floorPressure);
+    const averageAnchor = Math.max(1, averageLevel + floorPressure + 1);
     const floorMinimum = Math.max(1, 1 + floorBonus);
     const variance = Math.floor(Math.random() * 3) - 1;
     return Math.max(floorMinimum, averageAnchor + variance);
@@ -2057,6 +2145,7 @@
       const spawn = stageDefinition.allySpawns[index] || stageDefinition.allySpawns[stageDefinition.allySpawns.length - 1];
       const nextUnit = InventoryService.getEffectiveUnitStats(state.saveData, clone(unit));
       nextUnit.team = "ally";
+      nextUnit.isLeader = state.saveData.leaderUnitId === unit.id;
       nextUnit.alive = true;
       nextUnit.acted = false;
       nextUnit.x = spawn.x;
@@ -2121,13 +2210,14 @@
     );
     const isEndlessStage = stageDefinition.id === ENDLESS_STAGE_ID;
     const earlyEndless = isEndlessStage && (stageDefinition.endlessFloor || 1) <= 4;
-    const bonusEnemy = !earlyEndless && averageLevel >= 3 && Math.random() < 0.35 ? 1 : 0;
+    const bonusEnemy = !earlyEndless && averageLevel >= 3 && Math.random() < 0.55 ? 1 : 0;
     const enemyCount = Math.min(
       stageDefinition.enemySpawns.length,
       Math.max(2, allyCount + (earlyEndless ? 0 : 1) + bonusEnemy - (stageDefinition.boss ? 1 : 0))
     );
+    const archetypeSequence = buildEnemyArchetypeSequence(stageDefinition, enemyCount);
     const enemies = stageDefinition.enemySpawns.slice(0, enemyCount).map((spawn, index) => {
-      const archetype = pickEnemyArchetype(stageDefinition);
+      const archetype = archetypeSequence[index] || pickEnemyArchetype(stageDefinition);
       const statBonuses = archetype.statBonuses || {};
       const level = rollEnemyLevel(stageDefinition, averageLevel);
       const maxHp = Math.max(8, 11 + level * 2 + (archetype.weaponType === "axe" ? 1 : 0) + (statBonuses.maxHp || 0));
@@ -2157,6 +2247,8 @@
       };
 
       if (isEndlessStage) {
+        applyEnemyVariant(unit, rollEnemyVariant(level, 2));
+      } else if (Number(stageDefinition.enemyBonus || 0) >= 2) {
         applyEnemyVariant(unit, rollEnemyVariant(level, 1));
       }
 
@@ -2175,7 +2267,7 @@
       const eliteCandidates = enemies.filter((unit) => !unit.isBoss);
       const eliteCount = Math.min(
         eliteCandidates.length,
-        floor >= 18 ? 2 : floor >= 5 ? 1 : 0
+        floor >= 18 ? 3 : floor >= 9 ? 2 : floor >= 4 ? 1 : (Math.random() < 0.5 ? 1 : 0)
       );
 
       for (let index = 0; index < eliteCount; index += 1) {
@@ -2578,8 +2670,9 @@
 
         const occupant = getUnitAt(next.x, next.y);
         const isOrigin = next.x === unit.x && next.y === unit.y;
+        const isFriendlyOccupant = occupant && unit.team === "ally" && occupant.team === unit.team;
 
-        if (occupant && !isOrigin) {
+        if (occupant && !isOrigin && !isFriendlyOccupant) {
           return;
         }
 
@@ -2597,7 +2690,7 @@
           elevation: getTileElevation(next.x, next.y)
         });
 
-        if (!isOrigin || allowOccupiedOrigin) {
+        if ((!(occupant && !isOrigin) || !isFriendlyOccupant) && (!isOrigin || allowOccupiedOrigin)) {
           reachable.push({
             x: next.x,
             y: next.y,
@@ -4200,6 +4293,12 @@
 
   function collectEnemyAttackOptions(enemy, reachableTiles, allies) {
     const options = [];
+    const getTargetPriority = (ally) => (
+      (ally && ally.isLeader ? 16 : 0)
+      + (ally && ally.weapon && ally.weapon.rangeMax >= 2 ? 8 : 0)
+      + Math.max(0, 8 - Number(ally && ally.def || 0))
+      + ((ally && ally.maxHp > 0 && (ally.hp / ally.maxHp) <= 0.55) ? 10 : 0)
+    );
 
     reachableTiles.forEach((origin) => {
       allies.forEach((ally) => {
@@ -4218,7 +4317,8 @@
             wouldDefeat: (preview.damage || 0) >= ally.hp,
             hitRate: preview.hitRate || 0,
             terrainAdvantage: preview.elevationDelta || 0,
-            rangeBonus: preview.rangeBonus || 0
+            rangeBonus: preview.rangeBonus || 0,
+            targetPriority: getTargetPriority(ally)
           });
         }
       });
@@ -4231,6 +4331,12 @@
     const options = [];
     const activeSkills = getActiveSkills(enemy).filter((skill) => skill.cooldownRemaining <= 0);
     const eliteSkillPriorityBonus = enemy.isElite ? 6 : 0;
+    const getTargetPriority = (target) => (
+      (target && target.isLeader ? 16 : 0)
+      + (target && target.weapon && target.weapon.rangeMax >= 2 ? 8 : 0)
+      + Math.max(0, 8 - Number(target && target.def || 0))
+      + ((target && target.maxHp > 0 && (target.hp / target.maxHp) <= 0.55) ? 10 : 0)
+    );
 
     activeSkills.forEach((skill) => {
       const candidateOrigins = skill.targetType === "self" ? [{ x: enemy.x, y: enemy.y }] : reachableTiles;
@@ -4261,7 +4367,8 @@
               wouldDefeat: false,
               priority: 18 + eliteSkillPriorityBonus,
               distanceToTarget: Math.abs(origin.x - target.x) + Math.abs(origin.y - target.y),
-              terrainAdvantage: (origin.elevation || 0) - getTileElevation(target.x, target.y)
+              terrainAdvantage: (origin.elevation || 0) - getTileElevation(target.x, target.y),
+              targetPriority: getTargetPriority(target)
             });
           }
 
@@ -4282,7 +4389,8 @@
               wouldDefeat: false,
               priority: (target.id === enemy.id ? 12 : 10) + eliteSkillPriorityBonus + (enemy.hp <= Math.ceil(enemy.maxHp / 2) ? 4 : 0),
               distanceToTarget: Math.abs(origin.x - target.x) + Math.abs(origin.y - target.y),
-              terrainAdvantage: 0
+              terrainAdvantage: 0,
+              targetPriority: getTargetPriority(target)
             });
           }
 
@@ -4305,7 +4413,8 @@
               distanceToTarget: Math.abs(origin.x - target.x) + Math.abs(origin.y - target.y),
               terrainAdvantage: preview.elevationDelta || 0,
               hitRate: preview.hitRate || 0,
-              rangeBonus: preview.rangeBonus || 0
+              rangeBonus: preview.rangeBonus || 0,
+              targetPriority: getTargetPriority(target)
             });
           }
         });

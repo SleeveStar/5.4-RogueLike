@@ -201,6 +201,8 @@
     const terrainTuning = {
       forest: { frequencyScale: 0.92, endScale: 0.9, volumeScale: 0.95 },
       hill: { frequencyScale: 1.12, endScale: 1.08, volumeScale: 1.04 },
+      marsh: { frequencyScale: 0.84, endScale: 0.82, volumeScale: 0.9 },
+      ruin: { frequencyScale: 1.04, endScale: 1.02, volumeScale: 1.06 },
       wall: { frequencyScale: 0.78, endScale: 0.76, volumeScale: 1.08 }
     };
     const tuning = terrainTuning[terrainType] || { frequencyScale: 1, endScale: 1, volumeScale: 1 };
@@ -218,7 +220,17 @@
   }
 
   function getTerrainLabel(tileType) {
-    return tileType === "forest" ? "숲" : tileType === "hill" ? "고지" : tileType === "wall" ? "벽" : "평지";
+    return tileType === "forest"
+      ? "숲"
+      : tileType === "hill"
+        ? "고지"
+        : tileType === "marsh"
+          ? "습지"
+          : tileType === "ruin"
+            ? "폐허"
+            : tileType === "wall"
+              ? "벽"
+              : "평지";
   }
 
   function formatMoveCost(moveCost) {
@@ -1326,6 +1338,8 @@
           marker ? `  <span class="tile-marker tile-marker-${marker.type}">${marker.label}</span>` : "",
           !unit && !isMovePreviewTarget && !marker && tileType === "forest" ? '  <span class="tile-deco">숲</span>' : "",
           !unit && !isMovePreviewTarget && !marker && tileType === "hill" ? '  <span class="tile-deco">고지</span>' : "",
+          !unit && !isMovePreviewTarget && !marker && tileType === "marsh" ? '  <span class="tile-deco">습지</span>' : "",
+          !unit && !isMovePreviewTarget && !marker && tileType === "ruin" ? '  <span class="tile-deco">폐허</span>' : "",
           !unit && !isMovePreviewTarget && !marker && tileType === "wall" ? '  <span class="tile-deco">벽</span>' : "",
           "</button>"
         ].join(""));
@@ -1546,8 +1560,20 @@
     target.innerHTML = lines.join("");
 
     if (anchorElement) {
-      target.style.left = `${anchorElement.offsetLeft + anchorElement.offsetWidth + 12}px`;
-      target.style.top = `${anchorElement.offsetTop + 6}px`;
+      const anchorRect = anchorElement.getBoundingClientRect();
+      const previewRect = target.getBoundingClientRect();
+      const gap = 12;
+      const viewportPadding = 12;
+      const preferRightLeft = anchorRect.right + gap;
+      const fallbackLeft = anchorRect.left - previewRect.width - gap;
+      const nextLeft = preferRightLeft + previewRect.width <= window.innerWidth - viewportPadding
+        ? preferRightLeft
+        : Math.max(viewportPadding, fallbackLeft);
+      const maxTop = Math.max(viewportPadding, window.innerHeight - previewRect.height - viewportPadding);
+      const nextTop = clamp(anchorRect.top + 6, viewportPadding, maxTop);
+
+      target.style.left = `${nextLeft}px`;
+      target.style.top = `${nextTop}px`;
     }
   }
 

@@ -7,6 +7,8 @@
     plain: { avoid: 0, defense: 0, moveCost: 1 },
     forest: { avoid: 12, defense: 1, moveCost: 2 },
     hill: { avoid: 8, defense: 1, moveCost: 2 },
+    marsh: { avoid: 6, defense: 0, moveCost: 3 },
+    ruin: { avoid: 4, defense: 2, moveCost: 1 },
     wall: { avoid: 0, defense: 0, moveCost: Infinity }
   };
 

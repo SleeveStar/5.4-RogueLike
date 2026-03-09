@@ -1,15 +1,31 @@
 /* 역할: 적 유닛이 가장 가까운 아군에게 접근하고 가능하면 공격하는 간단한 AI 결정을 담당한다. */
 
 (function attachAIService(global) {
+  function getTargetPriority(unit) {
+    if (!unit) {
+      return 0;
+    }
+
+    const hpRatio = unit.maxHp > 0 ? unit.hp / unit.maxHp : 1;
+    const lowHpPressure = hpRatio <= 0.35 ? 18 : hpRatio <= 0.55 ? 10 : 0;
+    const leaderPressure = unit.isLeader ? 16 : 0;
+    const rangedPressure = unit.weapon && unit.weapon.rangeMax >= 2 ? 8 : 0;
+    const lowDefensePressure = Math.max(0, 8 - Number(unit.def || 0));
+    const actedPressure = unit.acted ? 4 : 0;
+    return leaderPressure + lowHpPressure + rangedPressure + lowDefensePressure + actedPressure;
+  }
+
   function chooseClosestTarget(enemy, allies) {
     let bestTarget = null;
-    let bestDistance = Number.POSITIVE_INFINITY;
+    let bestScore = Number.NEGATIVE_INFINITY;
 
     allies.forEach((ally) => {
       const distance = Math.abs(enemy.x - ally.x) + Math.abs(enemy.y - ally.y);
+      const priority = getTargetPriority(ally);
+      const score = priority - (distance * 2);
 
-      if (distance < bestDistance) {
-        bestDistance = distance;
+      if (score > bestScore) {
+        bestScore = score;
         bestTarget = ally;
       }
     });
@@ -25,6 +41,10 @@
     const sorted = attackOptions.slice().sort((left, right) => {
       if (!!left.wouldDefeat !== !!right.wouldDefeat) {
         return left.wouldDefeat ? -1 : 1;
+      }
+
+      if ((left.targetPriority || 0) !== (right.targetPriority || 0)) {
+        return (right.targetPriority || 0) - (left.targetPriority || 0);
       }
 
       if ((left.estimatedDamage || 0) !== (right.estimatedDamage || 0)) {
@@ -61,6 +81,10 @@
     const sorted = skillOptions.slice().sort((left, right) => {
       if ((left.priority || 0) !== (right.priority || 0)) {
         return (right.priority || 0) - (left.priority || 0);
+      }
+
+      if ((left.targetPriority || 0) !== (right.targetPriority || 0)) {
+        return (right.targetPriority || 0) - (left.targetPriority || 0);
       }
 
       if (!!left.wouldDefeat !== !!right.wouldDefeat) {

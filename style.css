@@ -41,10 +41,14 @@
   --tile-plain-top: linear-gradient(180deg, #506e57 0%, #32443b 100%);
   --tile-forest-top: linear-gradient(180deg, #2f775e 0%, #1e4739 100%);
   --tile-hill-top: linear-gradient(180deg, #8f7952 0%, #5d4b34 100%);
+  --tile-marsh-top: linear-gradient(180deg, #4f6f78 0%, #30474d 100%);
+  --tile-ruin-top: linear-gradient(180deg, #786d63 0%, #514840 100%);
   --tile-wall-top: linear-gradient(180deg, #67778b 0%, #455262 100%);
   --tile-plain-side: linear-gradient(180deg, #31473e 0%, #202a25 100%);
   --tile-forest-side: linear-gradient(180deg, #214939 0%, #152923 100%);
   --tile-hill-side: linear-gradient(180deg, #5a482f 0%, #352819 100%);
+  --tile-marsh-side: linear-gradient(180deg, #355058 0%, #21353a 100%);
+  --tile-ruin-side: linear-gradient(180deg, #4a433d 0%, #2c2723 100%);
   --tile-wall-side: linear-gradient(180deg, #465466 0%, #2a3340 100%);
   --tile-move: rgba(53, 191, 214, 0.46);
   --tile-attack: rgba(216, 76, 102, 0.44);
@@ -2949,6 +2953,38 @@ body.use-floating-stat-tooltip .stat-tooltip-pill::after {
   background: color-mix(in srgb, var(--tile-hill-side) 82%, #fff 18%);
 }
 
+.tile-marsh .tile-top {
+  background: var(--tile-marsh-top);
+}
+
+.tile-marsh .tile-elevation {
+  background: var(--tile-marsh-side);
+}
+
+.tile-marsh .tile-elevation::before {
+  background: color-mix(in srgb, var(--tile-marsh-side) 72%, #000 28%);
+}
+
+.tile-marsh .tile-elevation::after {
+  background: color-mix(in srgb, var(--tile-marsh-side) 82%, #fff 18%);
+}
+
+.tile-ruin .tile-top {
+  background: var(--tile-ruin-top);
+}
+
+.tile-ruin .tile-elevation {
+  background: var(--tile-ruin-side);
+}
+
+.tile-ruin .tile-elevation::before {
+  background: color-mix(in srgb, var(--tile-ruin-side) 72%, #000 28%);
+}
+
+.tile-ruin .tile-elevation::after {
+  background: color-mix(in srgb, var(--tile-ruin-side) 82%, #fff 18%);
+}
+
 .tile-wall .tile-top {
   background: var(--tile-wall-top);
 }
@@ -3613,8 +3649,8 @@ body.use-floating-stat-tooltip .stat-tooltip-pill::after {
 }
 
 .battle-hover-preview {
-  position: absolute;
-  z-index: 8;
+  position: fixed;
+  z-index: 28;
   min-width: 220px;
   max-width: 280px;
   display: grid;
