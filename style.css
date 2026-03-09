@@ -4604,8 +4604,27 @@ body.use-floating-stat-tooltip .stat-tooltip-pill::after {
 .menu-detail-card > .item-title-row,
 .menu-detail-card > .inventory-meta,
 .menu-detail-card > .detail-stats,
-.menu-detail-card > .sortie-manager-layout {
+.menu-detail-card > .sortie-manager-layout,
+.menu-detail-card > .detail-footer-split {
   grid-column: 1 / -1;
+}
+
+.detail-footer-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 12px;
+  align-items: end;
+}
+
+.detail-footer-split > .progression-stat-buttons {
+  margin-top: 0;
+  align-self: end;
+  justify-content: flex-start;
+}
+
+.detail-footer-split > .detail-actions {
+  align-self: end;
+  justify-content: flex-end;
 }
 
 .menu-detail-actions {
@@ -4700,6 +4719,16 @@ body.use-floating-stat-tooltip .stat-tooltip-pill::after {
 
 .progression-stat-buttons {
   margin-top: var(--space-6);
+}
+
+@media (max-width: 980px) {
+  .detail-footer-split {
+    grid-template-columns: 1fr;
+  }
+
+  .detail-footer-split > .detail-actions {
+    justify-content: flex-start;
+  }
 }
 
 .progression-skill-list {

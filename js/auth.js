@@ -1700,25 +1700,27 @@
         )).join("")}</div>`
       ].filter(Boolean).join(""), "is-affix"),
       buildItemFeatureSection("장비", equipmentSectionMarkup, "is-set"),
-      !isReadOnly ? '  <div class="detail-stats progression-stat-buttons">' : "",
+      !isReadOnly ? '  <div class="detail-footer-split">' : "",
+      !isReadOnly ? '    <div class="detail-stats progression-stat-buttons">' : "",
       !isReadOnly ? StatsService.PRIMARY_STATS.map((statName) => (
         `<button class="ghost-button small-button" type="button" data-menu-stat-draft="${statName}" ${remainingStatPoints <= 0 || previewPrimaryStats[statName] >= StatsService.STAT_LIMITS[statName] ? "disabled" : ""}>+ ${StatsService.PRIMARY_STAT_LABELS[statName]}</button>`
       )).join("") : "",
-      !isReadOnly ? "  </div>" : "",
-      !isReadOnly ? '  <div class="detail-actions">' : "",
-      !isReadOnly ? `    <button class="primary-button small-button" type="button" data-train-unit="true" ${canTrain ? "" : "disabled"}>${canTrain ? `훈련 ${trainingCost}G` : "훈련 한계"}</button>` : "",
-      !isReadOnly ? `    <button class="secondary-button small-button" type="button" data-promote-rank="true" ${guildPromotion && guildPromotion.eligible ? "" : "disabled"}>${guildPromotion ? `${guildPromotion.nextRank} 승급` : "최고 등급"}</button>` : "",
-      !isReadOnly ? '    <button class="primary-button small-button" type="button" data-open-equipment="true">장착 관리</button>' : "",
-      !isReadOnly ? '    <button class="primary-button small-button" type="button" data-open-skill-modal="true">스킬 관리</button>' : "",
-      !isReadOnly ? `    <button class="secondary-button small-button" type="button" data-set-leader="true" ${appState.saveData.leaderUnitId === unit.id ? "disabled" : ""}>리더 지정</button>` : "",
-      !isReadOnly ? '    <button class="secondary-button small-button" type="button" data-unequip-all="true">전체 해제</button>' : "",
-      !isReadOnly ? `    <button class="secondary-button small-button" type="button" data-toggle-sortie="true">${isUnitSelectedForSortie(unit.id) ? "후방 대기" : "출전 등록"}</button>` : "",
-      !isReadOnly ? `    ${dismissButtonMarkup}` : "",
+      !isReadOnly ? "    </div>" : "",
+      !isReadOnly ? '    <div class="detail-actions">' : "",
+      !isReadOnly ? `      <button class="primary-button small-button" type="button" data-train-unit="true" ${canTrain ? "" : "disabled"}>${canTrain ? `훈련 ${trainingCost}G` : "훈련 한계"}</button>` : "",
+      !isReadOnly ? `      <button class="secondary-button small-button" type="button" data-promote-rank="true" ${guildPromotion && guildPromotion.eligible ? "" : "disabled"}>${guildPromotion ? `${guildPromotion.nextRank} 승급` : "최고 등급"}</button>` : "",
+      !isReadOnly ? '      <button class="primary-button small-button" type="button" data-open-equipment="true">장착 관리</button>' : "",
+      !isReadOnly ? '      <button class="primary-button small-button" type="button" data-open-skill-modal="true">스킬 관리</button>' : "",
+      !isReadOnly ? `      <button class="secondary-button small-button" type="button" data-set-leader="true" ${appState.saveData.leaderUnitId === unit.id ? "disabled" : ""}>리더 지정</button>` : "",
+      !isReadOnly ? '      <button class="secondary-button small-button" type="button" data-unequip-all="true">전체 해제</button>' : "",
+      !isReadOnly ? `      <button class="secondary-button small-button" type="button" data-toggle-sortie="true">${isUnitSelectedForSortie(unit.id) ? "후방 대기" : "출전 등록"}</button>` : "",
+      !isReadOnly ? `      ${dismissButtonMarkup}` : "",
       !isReadOnly ? promotionOptions.map((promotion) => (
         `<button class="secondary-button small-button" type="button" data-promote-class="${promotion.className}">${promotion.className} 전직</button>`
       )).join("") : "",
-      !isReadOnly && (spentStats || spentSkills) ? '<button class="primary-button small-button" type="button" data-progression-confirm="true">성장 확정</button>' : "",
-      !isReadOnly && (spentStats || spentSkills) ? '<button class="ghost-button small-button" type="button" data-progression-cancel="true">예약 취소</button>' : "",
+      !isReadOnly && (spentStats || spentSkills) ? '      <button class="primary-button small-button" type="button" data-progression-confirm="true">성장 확정</button>' : "",
+      !isReadOnly && (spentStats || spentSkills) ? '      <button class="ghost-button small-button" type="button" data-progression-cancel="true">예약 취소</button>' : "",
+      !isReadOnly ? "    </div>" : "",
       !isReadOnly ? "  </div>" : ""
     ].filter(Boolean).join("");
   }
