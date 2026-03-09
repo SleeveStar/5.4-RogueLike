@@ -1705,15 +1705,6 @@
         `<button class="ghost-button small-button" type="button" data-menu-stat-draft="${statName}" ${remainingStatPoints <= 0 || previewPrimaryStats[statName] >= StatsService.STAT_LIMITS[statName] ? "disabled" : ""}>+ ${StatsService.PRIMARY_STAT_LABELS[statName]}</button>`
       )).join("") : "",
       !isReadOnly ? "  </div>" : "",
-      !isReadOnly && (learnableSkills.length || learnableActiveSkills.length) ? '  <div class="progression-skill-list">' : "",
-      !isReadOnly ? learnableSkills.map((skill) => (
-        buildDraftableSkillCard(skill, unit, false, draft.skillIds.includes(skill.id), remainingSkillPoints)
-      )).join("") : "",
-      !isReadOnly ? learnableActiveSkills.map((skill) => (
-        buildDraftableSkillCard(skill, unit, true, draft.skillIds.includes(skill.id), remainingSkillPoints)
-      )).join("") : "",
-      !isReadOnly && (learnableSkills.length || learnableActiveSkills.length) ? "  </div>" : "",
-      !isReadOnly && !learnableSkills.length && !learnableActiveSkills.length ? "  <p>현재 레벨에서 새로 배울 수 있는 스킬이 없습니다.</p>" : "",
       !isReadOnly ? '  <div class="detail-actions">' : "",
       !isReadOnly ? `    <button class="primary-button small-button" type="button" data-train-unit="true" ${canTrain ? "" : "disabled"}>${canTrain ? `훈련 ${trainingCost}G` : "훈련 한계"}</button>` : "",
       !isReadOnly ? `    <button class="secondary-button small-button" type="button" data-promote-rank="true" ${guildPromotion && guildPromotion.eligible ? "" : "disabled"}>${guildPromotion ? `${guildPromotion.nextRank} 승급` : "최고 등급"}</button>` : "",
@@ -3600,7 +3591,7 @@
       ? stages.filter((stage) => (
           appState.activeStageTab === "prologue"
             ? stage.category === "tutorial"
-            : stage.category === "main"
+            : (stage.category === "main" || stage.id === "endless-rift")
         ))
       : stages.slice().sort((left, right) => {
           if (left.category !== right.category) {

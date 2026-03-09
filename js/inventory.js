@@ -1793,10 +1793,12 @@
     return `${definition.name} ${pieceCount}세트`;
   }
 
-  function finalizeGeneratedEquipment(item, rarity, level) {
+  function finalizeGeneratedEquipment(item, rarity, level, options) {
     if (!item || !isEquipment(item) || item.generatedAffixVersion) {
       return item;
     }
+
+    const nextOptions = options || {};
 
     if (item.setId) {
       normalizeLegacyItem(item);
@@ -1808,6 +1810,20 @@
     }
 
     const affixes = chooseItemAffixes(item, rarity, level);
+
+    while (affixes.length < Math.max(0, Number(nextOptions.minAffixCount || 0))) {
+      const fillerAffix = chooseItemAffixes(item, rarity, level).find((candidate) => (
+        !affixes.some((selected) => selected.id === candidate.id)
+        && !hasAffixConflict(candidate, affixes)
+      ));
+
+      if (!fillerAffix) {
+        break;
+      }
+
+      affixes.push(fillerAffix);
+    }
+
     const uniqueAffix = chooseUniqueAffix(item, rarity, level, affixes);
 
     if (uniqueAffix) {
@@ -2652,6 +2668,7 @@
     getSetBonusEntries,
     syncEquippedItems,
     normalizeInventoryState,
-    applyEquipmentBonusesToUnitState
+    applyEquipmentBonusesToUnitState,
+    finalizeGeneratedEquipment
   };
 })(window);

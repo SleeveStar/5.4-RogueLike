@@ -2890,9 +2890,10 @@
   function refreshSelectionState(unit) {
     const committedMove = getCommittedMove(unit.id);
     const attackMode = !!state.ui.pendingAttack;
+    const skillMode = !!state.ui.pendingSkillId;
     const remainingMovement = getRemainingMovement(unit);
 
-    if (attackMode) {
+    if (attackMode || skillMode) {
       state.ui.reachableTiles = [];
     } else if (unit.team === "ally" && state.battle.phase === "player" && !unit.acted && remainingMovement > 0) {
       const reachableTiles = buildReachableTiles(unit, true, remainingMovement).map((tile) => {
@@ -3549,12 +3550,33 @@
 
     state.ui.pendingAttack = false;
     state.ui.pendingSkillId = skill.id;
+    state.ui.reachableTiles = [];
+    state.ui.attackTiles = [];
+    state.ui.attackableTargetIds = [];
+    clearMovePreview();
     state.ui.skillTiles = collectSkillTiles(unit, skill);
     state.ui.skillTargetIds = collectSkillTargets(unit, skill);
 
     if (skill.targetType === "self") {
       useSkill(skill.id, unit.id);
       return;
+    }
+
+    notify();
+  }
+
+  function cancelPendingSkill() {
+    if (!state.ui.pendingSkillId) {
+      return;
+    }
+
+    const unit = getUnitById(state.ui.selectedUnitId);
+    state.ui.pendingSkillId = null;
+    state.ui.skillTiles = [];
+    state.ui.skillTargetIds = [];
+
+    if (unit) {
+      refreshSelectionState(unit);
     }
 
     notify();
@@ -4766,6 +4788,7 @@
     selectUnit,
     setPendingAttack,
     setPendingSkill,
+    cancelPendingSkill,
     getActiveSkills,
     waitSelectedUnit,
     useConsumable,

@@ -3035,17 +3035,17 @@ body.use-floating-stat-tooltip .stat-tooltip-pill::after {
 
 .battle-tile.is-skill-range .tile-top {
   box-shadow:
-    inset 0 10px 16px rgba(255, 255, 255, 0.04),
-    0 0 0 2px rgba(153, 240, 207, 0.28),
-    0 0 18px rgba(153, 240, 207, 0.16);
+    inset 0 10px 16px rgba(255, 255, 255, 0.06),
+    0 0 0 2px rgba(156, 128, 255, 0.58),
+    0 0 24px rgba(109, 82, 214, 0.34);
 }
 
 .battle-tile.is-skill-range .tile-overlay {
   opacity: 1;
-  background: linear-gradient(180deg, rgba(162, 248, 217, 0.5), rgba(32, 112, 86, 0.58));
+  background: linear-gradient(180deg, rgba(186, 164, 255, 0.84), rgba(88, 48, 168, 0.92));
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.12),
-    inset 0 -14px 24px rgba(6, 39, 30, 0.18);
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    inset 0 -14px 24px rgba(27, 12, 60, 0.3);
 }
 
 .battle-tile.has-acted-unit .tile-top {
@@ -3404,20 +3404,91 @@ body.use-floating-stat-tooltip .stat-tooltip-pill::after {
 
 .preview-row {
   display: grid;
-  grid-template-columns: minmax(0, 1.1fr) repeat(4, auto);
-  gap: var(--space-10);
-  align-items: center;
+  gap: 8px;
   padding: var(--space-8) var(--space-10);
-  border: 1px solid rgba(103, 215, 232, 0.14);
-  border-radius: var(--radius-sm);
-  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(103, 215, 232, 0.18);
+  border-radius: 14px;
+  background:
+    radial-gradient(circle at top right, rgba(103, 215, 232, 0.08), transparent 38%),
+    linear-gradient(180deg, rgba(13, 22, 35, 0.92), rgba(8, 14, 24, 0.96));
   font-size: 0.78rem;
   color: var(--text-base);
 }
 
+.preview-row-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-8);
+}
+
 .preview-row strong {
   color: var(--text-strong);
-  font-size: 0.82rem;
+  font-size: 0.84rem;
+}
+
+.preview-tag {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 0 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(245, 208, 113, 0.22);
+  background: rgba(245, 208, 113, 0.1);
+  color: var(--gold-300);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+.preview-row-metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.preview-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 0 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-base);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.preview-chip.is-hit {
+  border-color: rgba(103, 215, 232, 0.24);
+  background: rgba(53, 191, 214, 0.1);
+  color: var(--cyan-300);
+}
+
+.preview-chip.is-damage {
+  border-color: rgba(255, 107, 124, 0.24);
+  background: rgba(216, 76, 102, 0.1);
+  color: var(--crimson-300);
+}
+
+.preview-chip.is-counter {
+  border-color: rgba(245, 208, 113, 0.24);
+  background: rgba(245, 208, 113, 0.1);
+  color: var(--gold-300);
+}
+
+.preview-chip.is-open {
+  border-color: rgba(153, 240, 207, 0.2);
+  background: rgba(43, 138, 107, 0.1);
+  color: #9ff0d6;
+}
+
+.preview-row-note {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.74rem;
+  line-height: 1.35;
 }
 
 .preview-counter {
@@ -3744,7 +3815,7 @@ body.use-floating-stat-tooltip .stat-tooltip-pill::after {
 .equipment-detail-panel {
   display: grid;
   gap: 6px;
-  min-height: 164px;
+  min-height: 140px;
   max-height: 164px;
   align-content: start;
   position: relative;
@@ -4540,6 +4611,22 @@ body.use-floating-stat-tooltip .stat-tooltip-pill::after {
 .menu-detail-actions {
   justify-content: flex-end;
   gap: var(--space-8);
+}
+
+.detail-actions > .small-button,
+.detail-actions > .tooltip-anchor,
+.detail-actions > .button-tooltip-anchor {
+  flex: 0 0 132px;
+  width: 132px;
+}
+
+.detail-actions > .small-button,
+.detail-actions > .tooltip-anchor > .small-button,
+.detail-actions > .button-tooltip-anchor > .small-button,
+.detail-actions > .tooltip-anchor > button,
+.detail-actions > .button-tooltip-anchor > button {
+  width: 100%;
+  justify-content: center;
 }
 
 .menu-detail-modal-panel .modal-close-button {

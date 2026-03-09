@@ -366,13 +366,12 @@
     });
   }
 
-  function buildWeapon(type, unitId, rank) {
+  function buildWeapon(type, unitId, rank, level) {
     const rankMeta = GUILD_RANK_META[rank] || GUILD_RANK_META.D;
     const base = Object.assign({}, WEAPON_PROFILE_BY_TYPE[type] || WEAPON_PROFILE_BY_TYPE.sword);
     const weaponPowerBonus = rank === "SSS" ? 5 : rank === "SS" ? 4 : rank === "S" ? 2 : rank === "A" ? 1 : 0;
     const weaponHitBonus = rank === "SSS" ? 10 : rank === "SS" ? 8 : rank === "S" ? 4 : rank === "A" ? 2 : 0;
-
-    return {
+    const weapon = {
       id: `guild-weapon-${unitId}`,
       name: base.name,
       type,
@@ -385,6 +384,12 @@
       rarity: rankMeta.cardRarity,
       equippedBy: unitId
     };
+
+    InventoryService.finalizeGeneratedEquipment(weapon, rankMeta.cardRarity, Math.max(1, Number(level || 1)), {
+      minAffixCount: 1
+    });
+
+    return weapon;
   }
 
   function pickUniqueSkillIds(pool, count) {
@@ -575,7 +580,7 @@
       signaturePassiveIds: unit.signaturePassiveIds.slice(),
       refreshBlock: block,
       recruitedAt: null,
-      startingWeapon: buildWeapon(archetype.weaponType, unitId, rank)
+      startingWeapon: buildWeapon(archetype.weaponType, unitId, rank, level)
     };
   }
 

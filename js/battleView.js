@@ -882,9 +882,6 @@
       return;
     }
 
-    const weaponText = selectedUnit.weapon
-      ? `${selectedUnit.weapon.name} / ${selectedUnit.weapon.rangeMin}-${selectedUnit.weapon.rangeMax}칸 / 내구 ${selectedUnit.weapon.uses}`
-      : "무기 없음";
     const tileType = snapshot.battle.map.tiles[selectedUnit.y] && snapshot.battle.map.tiles[selectedUnit.y][selectedUnit.x]
       ? snapshot.battle.map.tiles[selectedUnit.y][selectedUnit.x]
       : "plain";
@@ -950,15 +947,7 @@
             preview.forestAvoidBonus ? "숲 회피" : null
           ].filter(Boolean).join(" / ") : "보정 없음";
 
-          return [
-            '<div class="preview-row">',
-            `  <strong>${targetUnit.name}</strong>`,
-            `  <span>명중 ${preview.hitRate}%</span>`,
-            `  <span>피해 ${preview.damage}</span>`,
-            `  <span>${terrainText}</span>`,
-            `  <span class="preview-counter">${counterPreview.canCounter ? `반격 ${counterPreview.hitRate}% / ${counterPreview.damage}` : "반격 없음"}</span>`,
-            '</div>'
-          ].join("");
+          return buildAttackPreviewRowMarkup(targetUnit, preview, counterPreview, terrainText);
         }).filter(Boolean).join("")
       : "";
     const postMoveHint = snapshot.ui.pendingAttack
@@ -998,6 +987,7 @@
             `  <button class="primary-button attention-button small-button" type="button" data-action="wait" ${locked}>행동 확정</button>`,
             `  <button class="ghost-button attention-button small-button" type="button" data-action="undo" ${undoDisabled}>원위치 복귀</button>`,
             `  <button class="ghost-button small-button" type="button" data-action="skill" ${locked}>스킬</button>`,
+            snapshot.ui.pendingSkillId ? '  <button class="ghost-button attention-button small-button" type="button" data-action="cancel-skill">스킬 취소</button>' : "",
             `  <button class="ghost-button small-button" type="button" data-action="item" ${locked}>소모품</button>`,
             '  <button class="ghost-button small-button" type="button" data-action="inventory">장착/인벤토리</button>',
             '  <button class="ghost-button small-button" type="button" data-action="stats">성장 배분</button>',
@@ -1017,7 +1007,6 @@
       `  <div class="detail-stats">${StatsService.PRIMARY_STATS.map((statName) => buildPrimaryStatMetaPill(statName, previewPrimaryStats[statName], draft.stats && draft.stats[statName])).join("")}</div>`,
       `  <p>위치: ${terrainLabel}${elevation > 0 ? ` / 고도 ${elevation}` : ""}${effectiveRange && effectiveRange.bonus > 0 ? ` / 사거리 +${effectiveRange.bonus}` : ""}</p>`,
       selectedUnit.eliteTraitName ? `  <p>정예 특성: ${selectedUnit.eliteTraitName}</p>` : "",
-      `  <p>무기: ${weaponText}</p>`,
       activeSkillText !== "없음" ? `  <p>액티브: ${activeSkillText}</p>` : "",
       statusText !== "없음" ? `  <p>상태: ${statusText}</p>` : "",
       postMoveHint ? `  <p class="action-hint">${postMoveHint}</p>` : "",
@@ -1093,6 +1082,11 @@
 
     if (action === "skill") {
       openSkillModal(selectedUnit.id);
+      return;
+    }
+
+    if (action === "cancel-skill") {
+      BattleService.cancelPendingSkill();
       return;
     }
 
@@ -1189,6 +1183,29 @@
         return effect.name;
       })
       .join(", ");
+  }
+
+  function buildAttackPreviewRowMarkup(targetUnit, preview, counterPreview, terrainText) {
+    const threatText = preview.damage >= targetUnit.hp
+      ? "격파 가능"
+      : preview.hitRate >= 80
+        ? "우세"
+        : "교전";
+
+    return [
+      '<article class="preview-row">',
+      '  <div class="preview-row-header">',
+      `    <strong>${targetUnit.name}</strong>`,
+      `    <span class="preview-tag">${threatText}</span>`,
+      "  </div>",
+      '  <div class="preview-row-metrics">',
+      `    <span class="preview-chip is-hit">명중 ${preview.hitRate}%</span>`,
+      `    <span class="preview-chip is-damage">피해 ${preview.damage}</span>`,
+      `    <span class="preview-chip ${counterPreview.canCounter ? "is-counter" : "is-open"}">${counterPreview.canCounter ? `반격 ${counterPreview.hitRate}% / ${counterPreview.damage}` : "반격 없음"}</span>`,
+      "  </div>",
+      `  <p class="preview-row-note">전장 보정: ${terrainText}</p>`,
+      "</article>"
+    ].join("");
   }
 
   function renderMap(snapshot) {
