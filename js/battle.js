@@ -2731,6 +2731,7 @@
     if (result.didHit) {
       addLog(`반격: ${defender.name} -> ${attacker.name}: ${result.damageDealt} 피해${result.didCrit ? " / 치명타!" : ""}`);
       applyOnHitAilments(defender, attacker, `${defender.name}의 반격`);
+      applyLifeSteal(defender, result.damageDealt, "반격 흡혈");
       updateEndlessRunStat((currentRun) => {
         if (defender.team === "ally") {
           currentRun.damageDealt += result.damageDealt;
@@ -2752,6 +2753,7 @@
 
     if (result.targetDefeated) {
       handleUnitDefeat(attacker);
+      applyOnKillRewards(attacker, defender, "반격 마무리");
       maybeGrantLoot(attacker, defender);
     }
 
@@ -3119,6 +3121,76 @@
     return item;
   }
 
+  function applyLifeSteal(attacker, damageDealt, sourceLabel) {
+    if (!attacker || !attacker.alive || damageDealt <= 0) {
+      return 0;
+    }
+
+    const hidden = attacker.hiddenStats || {};
+    const drainRate = Math.max(0, Math.min(0.5, Number(hidden.lifeStealPercent || 0)));
+
+    if (!drainRate || attacker.hp >= attacker.maxHp) {
+      return 0;
+    }
+
+    const healed = Math.min(
+      Math.max(0, attacker.maxHp - attacker.hp),
+      Math.max(1, Math.floor(damageDealt * drainRate))
+    );
+
+    if (healed <= 0) {
+      return 0;
+    }
+
+    attacker.hp += healed;
+    addLog(`${sourceLabel}: ${attacker.name} HP ${healed} 흡수`);
+    return healed;
+  }
+
+  function getKillGoldReward(defeatedUnit, attacker) {
+    if (!defeatedUnit || defeatedUnit.team !== "enemy" || !attacker || attacker.team !== "ally") {
+      return 0;
+    }
+
+    const hidden = attacker.hiddenStats || {};
+    const unitLevel = Math.max(1, Number(defeatedUnit.level || 1));
+    const baseGold = defeatedUnit.isBoss
+      ? 24 + unitLevel * 6
+      : defeatedUnit.isElite
+        ? 10 + unitLevel * 3
+        : 2 + unitLevel * 2;
+    const bonusRate = Math.max(0, Number(hidden.goldGainBonus || 0) + Number(hidden.monsterGoldBonus || 0));
+    return Math.max(0, Math.round(baseGold * (1 + bonusRate)));
+  }
+
+  function applyOnKillRewards(defeatedUnit, attacker, sourceLabel) {
+    if (!attacker || !attacker.alive) {
+      return;
+    }
+
+    const hidden = attacker.hiddenStats || {};
+    const killHeal = Math.max(0, Number(hidden.killHealFlat || 0));
+
+    if (killHeal && attacker.hp < attacker.maxHp) {
+      const healed = Math.min(killHeal, Math.max(0, attacker.maxHp - attacker.hp));
+
+      if (healed > 0) {
+        attacker.hp += healed;
+        addLog(`${sourceLabel}: ${attacker.name} HP ${healed} 회복`);
+      }
+    }
+
+    const goldReward = getKillGoldReward(defeatedUnit, attacker);
+
+    if (goldReward > 0) {
+      state.saveData.partyGold += goldReward;
+      updateEndlessRunStat((currentRun) => {
+        currentRun.goldEarned += goldReward;
+      });
+      addLog(`${sourceLabel}: ${goldReward}G 확보`);
+    }
+  }
+
   function resetTurnCombatFlags(unit) {
     if (!unit) {
       return;
@@ -3231,6 +3303,7 @@
             if (unit.hp <= 0) {
               const sourceUnit = effect.sourceUnitId ? getUnitById(effect.sourceUnitId) : null;
               handleUnitDefeat(unit);
+              applyOnKillRewards(unit, sourceUnit, "지속 피해 마무리");
               maybeGrantLoot(unit, sourceUnit);
               return false;
             }
@@ -3415,6 +3488,7 @@
         target.hp = Math.max(0, target.hp - finalDamage);
         addLog(`${unit.name}의 ${skill.name}: ${target.name}에게 ${finalDamage} 피해${didCrit ? " / 치명타!" : ""}`);
         applyOnHitAilments(unit, target, `${unit.name}의 ${skill.name}`);
+        applyLifeSteal(unit, finalDamage, `${skill.name} 흡혈`);
         if (preview.elevationNote) {
           addLog(`지형 보정: ${preview.elevationNote}`);
         }
@@ -3431,6 +3505,7 @@
 
       if (didHit && target.hp <= 0) {
         handleUnitDefeat(target);
+        applyOnKillRewards(target, unit, `${skill.name} 처치 보상`);
         maybeGrantLoot(target, unit);
       }
 
@@ -3964,6 +4039,7 @@
     if (result.didHit) {
       addLog(`${attacker.name} -> ${defender.name}: ${result.damageDealt} 피해${result.didCrit ? " / 치명타!" : ""}`);
       applyOnHitAilments(attacker, defender, `${attacker.name}의 공격`);
+      applyLifeSteal(attacker, result.damageDealt, "공격 흡혈");
       updateEndlessRunStat((currentRun) => {
         currentRun.damageDealt += result.damageDealt;
       });
@@ -3981,6 +4057,7 @@
 
     if (result.targetDefeated) {
       handleUnitDefeat(defender);
+      applyOnKillRewards(defender, attacker, "처치 보상");
       maybeGrantLoot(defender, attacker);
     } else {
       tryCounterAttack(attacker, defender);
@@ -4276,6 +4353,7 @@
         if (result.didHit) {
           addLog(`${enemy.name} -> ${target.name}: ${result.damageDealt} 피해${result.didCrit ? " / 치명타!" : ""}`);
           applyOnHitAilments(enemy, target, `${enemy.name}의 공격`);
+          applyLifeSteal(enemy, result.damageDealt, "적 흡혈");
           updateEndlessRunStat((currentRun) => {
             currentRun.damageTaken += result.damageDealt;
           });
@@ -4293,6 +4371,7 @@
 
         if (result.targetDefeated) {
           handleUnitDefeat(target);
+          applyOnKillRewards(target, enemy, "적 처치 보상");
         } else {
           tryCounterAttack(enemy, target);
         }

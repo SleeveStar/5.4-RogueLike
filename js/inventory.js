@@ -99,6 +99,7 @@
     accuracy: "명중",
     evasion: "회피",
     physicalDefense: "물방",
+    rangedDefense: "원거리 방어",
     critChance: "치명",
     critDamageBonus: "치명 피해",
     physicalDamagePercent: "물리 피해",
@@ -108,10 +109,14 @@
     comboStrikeDamagePercent: "연속 공격 피해",
     counterDamagePercent: "반격 피해",
     damageReductionPercent: "피해 감소",
+    rangedDamageReductionPercent: "원거리 피해 감소",
     blockChance: "막기",
     statusResistChance: "상태 저항",
     cooldownReduction: "재사용 감소",
     goldGainBonus: "골드 획득",
+    monsterGoldBonus: "처치 골드",
+    lifeStealPercent: "흡혈",
+    killHealFlat: "처치 회복",
     rangeBonus: "사거리",
     bleedChance: "출혈 확률",
     burnChance: "화상 확률",
@@ -136,9 +141,12 @@
     "comboStrikeDamagePercent",
     "counterDamagePercent",
     "damageReductionPercent",
+    "rangedDamageReductionPercent",
     "blockChance",
     "statusResistChance",
     "goldGainBonus",
+    "monsterGoldBonus",
+    "lifeStealPercent",
     "bleedChance",
     "burnChance",
     "poisonChance",
@@ -635,10 +643,10 @@
     uncommon: [1, 2],
     rare: [2, 3],
     unique: [3, 4],
-    legendary: [4, 4],
-    epic: [4, 4],
-    mystic: [4, 4],
-    primordial: [4, 4]
+    legendary: [4, 5],
+    epic: [5, 5],
+    mystic: [5, 6],
+    primordial: [6, 6]
   };
 
   const ITEM_AFFIXES = [
@@ -917,6 +925,115 @@
       allowedRarities: ["unique", "legendary", "epic", "mystic", "primordial"],
       slotWeights: { weapon: 5, ring: 3, bracelet: 2 },
       hiddenBonus: { executeDamagePercent: 0.1 }
+    },
+    {
+      id: "ironwall",
+      prefix: "철벽의",
+      family: "ironwall",
+      allowedRarities: ["rare", "unique", "legendary", "epic", "mystic", "primordial"],
+      slotWeights: { chest: 6, shoulder: 5, subweapon: 4, head: 3, legs: 2 },
+      hiddenBonus: { physicalDefense: 4, magicDefense: 2, damageReductionPercent: 0.03 }
+    },
+    {
+      id: "watchguard",
+      prefix: "경계의",
+      family: "watchguard",
+      allowedRarities: ["rare", "unique", "legendary", "epic", "mystic", "primordial"],
+      slotWeights: { head: 5, shoulder: 5, chest: 4, subweapon: 4, ring: 2 },
+      hiddenBonus: { rangedDefense: 4, rangedDamageReductionPercent: 0.08, accuracy: 3 }
+    },
+    {
+      id: "siphon",
+      suffix: "흡혈",
+      family: "siphon",
+      allowedRarities: ["unique", "legendary", "epic", "mystic", "primordial"],
+      tags: ["physical"],
+      forbiddenTags: ["magic"],
+      slotWeights: { weapon: 6, bracelet: 4, ring: 2 },
+      hiddenBonus: { lifeStealPercent: 0.06, physicalAttack: 2 }
+    },
+    {
+      id: "soulreap",
+      suffix: "영혼수확",
+      family: "soulreap",
+      allowedRarities: ["unique", "legendary", "epic", "mystic", "primordial"],
+      slotWeights: { weapon: 5, charm: 4, ring: 3 },
+      hiddenBonus: { killHealFlat: 5, executeDamagePercent: 0.08 }
+    },
+    {
+      id: "bounty",
+      prefix: "현상금의",
+      family: "bounty",
+      allowedRarities: ["rare", "unique", "legendary", "epic", "mystic", "primordial"],
+      slotWeights: { ring: 6, charm: 5, bracelet: 4, weapon: 2 },
+      hiddenBonus: { monsterGoldBonus: 0.18, dropRateBonus: 0.01, lootQualityBonus: 0.006 }
+    },
+    {
+      id: "marauder",
+      suffix: "약탈",
+      family: "marauder",
+      allowedRarities: ["unique", "legendary", "epic", "mystic", "primordial"],
+      slotWeights: { weapon: 4, boots: 4, bracelet: 3 },
+      hiddenBonus: { monsterGoldBonus: 0.12, moveThenAttackDamagePercent: 0.08 }
+    },
+    {
+      id: "ambush",
+      suffix: "기습",
+      family: "ambush",
+      allowedRarities: ["rare", "unique", "legendary", "epic", "mystic", "primordial"],
+      slotWeights: { weapon: 5, boots: 3, ring: 2, bracelet: 2 },
+      hiddenBonus: { firstStrikeDamagePercent: 0.1, critChance: 0.03 }
+    },
+    {
+      id: "duelist",
+      prefix: "결투의",
+      family: "duelist",
+      allowedRarities: ["rare", "unique", "legendary", "epic", "mystic", "primordial"],
+      slotWeights: { weapon: 4, bracelet: 4, ring: 4, boots: 2 },
+      hiddenBonus: { accuracy: 4, evasion: 3, critChance: 0.02 }
+    },
+    {
+      id: "soulcurrent",
+      suffix: "마력순환",
+      family: "soulcurrent",
+      tags: ["magic"],
+      forbiddenTags: ["physical"],
+      allowedRarities: ["rare", "unique", "legendary", "epic", "mystic", "primordial"],
+      slotWeights: { charm: 6, ring: 4, bracelet: 3, head: 2 },
+      hiddenBonus: { maxMana: 8, manaRegen: 2, cooldownReduction: 1 }
+    },
+    {
+      id: "citadel",
+      prefix: "성채의",
+      family: "citadel",
+      allowedRarities: ["rare", "unique", "legendary", "epic", "mystic", "primordial"],
+      slotWeights: { chest: 5, shoulder: 5, subweapon: 4, head: 3 },
+      hiddenBonus: { physicalDefense: 3, rangedDefense: 3, blockChance: 0.04 }
+    },
+    {
+      id: "plaguecall",
+      suffix: "역병",
+      family: "plaguecall",
+      allowedRarities: ["unique", "legendary", "epic", "mystic", "primordial"],
+      tags: ["status"],
+      slotWeights: { weapon: 4, charm: 4, ring: 3, bracelet: 3 },
+      hiddenBonus: { poisonChance: 0.08, burnChance: 0.08, statusDurationBonus: 0.08 }
+    },
+    {
+      id: "overdrive",
+      suffix: "가속",
+      family: "overdrive",
+      allowedRarities: ["unique", "legendary", "epic", "mystic", "primordial"],
+      slotWeights: { boots: 4, bracelet: 3, ring: 3, weapon: 2 },
+      hiddenBonus: { comboStrikeDamagePercent: 0.08, moveThenAttackDamagePercent: 0.08, evasion: 2 }
+    },
+    {
+      id: "revenant",
+      prefix: "불사자의",
+      family: "revenant",
+      allowedRarities: ["unique", "legendary", "epic", "mystic", "primordial"],
+      slotWeights: { chest: 4, ring: 4, bracelet: 2, charm: 2 },
+      hiddenBonus: { lowHpAttackPercent: 0.1, killHealFlat: 4, damageReductionPercent: 0.03 }
     }
   ];
 
@@ -959,6 +1076,28 @@
       allowedSlots: ["weapon", "ring", "bracelet", "charm"],
       tags: ["status"],
       hiddenBonus: { bleedChance: 0.12, burnChance: 0.12, poisonChance: 0.12, statusTargetDamagePercent: 0.14 }
+    },
+    {
+      id: "scarlet_feast",
+      suffix: "적혈갈망",
+      family: "legendary_unique",
+      allowedSlots: ["weapon", "bracelet", "ring"],
+      tags: ["physical"],
+      hiddenBonus: { lifeStealPercent: 0.12, killHealFlat: 8, executeDamagePercent: 0.12 }
+    },
+    {
+      id: "horizon_bulwark",
+      suffix: "천궁방벽",
+      family: "legendary_unique",
+      allowedSlots: ["chest", "shoulder", "subweapon", "head"],
+      hiddenBonus: { rangedDefense: 6, rangedDamageReductionPercent: 0.16, damageReductionPercent: 0.08 }
+    },
+    {
+      id: "gilded_fang",
+      suffix: "황금송곳니",
+      family: "legendary_unique",
+      allowedSlots: ["weapon", "ring", "charm"],
+      hiddenBonus: { monsterGoldBonus: 0.35, dropRateBonus: 0.04, lootQualityBonus: 0.02, critChance: 0.04 }
     }
   ];
 
@@ -1251,6 +1390,7 @@
       accuracy: 0,
       evasion: 0,
       physicalDefense: 0,
+      rangedDefense: 0,
       critChance: 0,
       critDamageBonus: 0,
       physicalDamagePercent: 0,
@@ -1260,10 +1400,14 @@
       comboStrikeDamagePercent: 0,
       counterDamagePercent: 0,
       damageReductionPercent: 0,
+      rangedDamageReductionPercent: 0,
       blockChance: 0,
       statusResistChance: 0,
       cooldownReduction: 0,
       goldGainBonus: 0,
+      monsterGoldBonus: 0,
+      lifeStealPercent: 0,
+      killHealFlat: 0,
       rangeBonus: 0,
       bleedChance: 0,
       burnChance: 0,

@@ -127,6 +127,7 @@
     const elevationModifier = getElevationModifier(context.attackerElevation, context.defenderElevation);
     const distance = getWeaponRangeDistance(attacker, { x: attacker.x, y: attacker.y }, { x: defender.x, y: defender.y });
     const effectiveRange = getEffectiveWeaponRange(attacker, context);
+    const isRangedHit = distance >= 2;
     const forestRangedAvoidBonus = context.defenderTileType === "forest" && distance >= 2 ? 6 : 0;
     const attackerHidden = attacker.hiddenStats || {};
     const defenderHidden = defender.hiddenStats || {};
@@ -160,6 +161,7 @@
     );
     const defensePower = (
       (usesMagic ? (defenderHidden.magicDefense || defender.def) : (defenderHidden.physicalDefense || defender.def))
+      + (isRangedHit ? Number(defenderHidden.rangedDefense || 0) : 0)
       + manaWardBonus
       + defenderTerrain.defense
       + skillModifiers.defenseBonus
@@ -184,6 +186,7 @@
       + (hasAilment(defender) ? Number(attackerHidden.statusTargetDamagePercent || 0) : 0);
     const mitigationPercent =
       Number(defenderHidden.damageReductionPercent || 0)
+      + (isRangedHit ? Number(defenderHidden.rangedDamageReductionPercent || 0) : 0)
       + (Number(defenderHidden.blockChance || 0) * 0.35);
     const baseDamage = Math.max(0, attackPower - defensePower);
     const damageAfterBonus = Math.round(baseDamage * (1 + Math.max(0, damagePercentBonus)));
