@@ -3576,15 +3576,31 @@
       return;
     }
 
-    const stages = BattleService.getStageCatalog(appState.saveData).filter((stage) => !stage.hidden);
-    const selectedStage = stages.find((stage) => stage.selected) || stages[0] || null;
+    let stages = BattleService.getStageCatalog(appState.saveData).filter((stage) => !stage.hidden);
+    let selectedStage = stages.find((stage) => stage.selected) || stages[0] || null;
     const tutorialStages = stages.filter((stage) => stage.category === "tutorial");
     const tutorialsCleared = tutorialStages.length > 0 && tutorialStages.every((stage) => stage.cleared);
+    const endlessStage = stages.find((stage) => stage.id === "endless-rift" && stage.available) || null;
 
     if (!tutorialsCleared) {
       appState.activeStageTab = "all";
     } else if (appState.activeStageTab === "all") {
-      appState.activeStageTab = selectedStage && selectedStage.category === "tutorial" ? "prologue" : "main";
+      appState.activeStageTab = "main";
+
+      const hasActiveBattle =
+        appState.saveData.stageStatus === "in_progress" &&
+        appState.saveData.battleState;
+      const shouldDefaultToEndless =
+        endlessStage &&
+        !hasActiveBattle &&
+        (!selectedStage || selectedStage.category === "tutorial");
+
+      if (shouldDefaultToEndless) {
+        BattleService.selectCampaignStage(appState.saveData, endlessStage.id);
+        persistSession(appState.saveData, appState.settings);
+        stages = BattleService.getStageCatalog(appState.saveData).filter((stage) => !stage.hidden);
+        selectedStage = stages.find((stage) => stage.selected) || stages[0] || null;
+      }
     }
 
     const visibleStages = tutorialsCleared
@@ -3621,6 +3637,8 @@
       return left.order - right.order;
     });
 
+    const focusStage = orderedVisibleStages.find((stage) => stage.selected) || orderedVisibleStages[0] || selectedStage;
+
     if (focusTarget) {
       focusTarget.innerHTML = [
         tutorialsCleared
@@ -3629,7 +3647,7 @@
             + `<button class="stage-panel-tab ${appState.activeStageTab === "prologue" ? "active" : ""}" type="button" data-stage-tab="prologue">프롤로그</button>`
             + "</div>"
           : "",
-        buildStageFocusMarkup(selectedStage)
+        buildStageFocusMarkup(focusStage)
       ].filter(Boolean).join("");
     }
 
