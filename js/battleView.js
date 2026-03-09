@@ -30,6 +30,15 @@
     }
   };
 
+  function isTextInputElement(target) {
+    if (!target) {
+      return false;
+    }
+
+    const tagName = String(target.tagName || "").toUpperCase();
+    return tagName === "INPUT" || tagName === "TEXTAREA" || tagName === "SELECT";
+  }
+
   function getElement(id) {
     return document.getElementById(id);
   }
@@ -319,55 +328,36 @@
   }
 
   function getBattleMatchupSummary(unit) {
-    const weaponType = unit && unit.weapon ? unit.weapon.type : "";
-
-    if (weaponType === "sword") {
-      return "강함: 저명중 근접, 도끼형 / 약함: 창 전열, 장거리 견제";
-    }
-
-    if (weaponType === "lance") {
-      return "강함: 근접 난전, 길목 방어 / 약함: 고화력 도끼, 원거리 집중사격";
-    }
-
-    if (weaponType === "bow") {
-      return "강함: 느린 전열, 근접 병종 / 약함: 돌진형 적, 인접전";
-    }
-
-    if (weaponType === "focus") {
-      return "강함: 유지전, 아군 지원 / 약함: 돌진 암살, 직접 난전";
-    }
-
-    if (weaponType === "axe") {
-      return "강함: 중장, 고체력 적 / 약함: 고회피 적, 선공 견제";
-    }
-
-    return "강함: 역할 맞는 교전 / 약함: 상성 불리한 정면전";
+    const classProfile = unit ? SkillsService.getClassProfile(unit) : null;
+    return classProfile && classProfile.matchup
+      ? classProfile.matchup
+      : "강약 병종 정보 없음";
   }
 
   function getBattleCautionSummary(unit) {
     const weaponType = unit && unit.weapon ? unit.weapon.type : "";
 
     if (weaponType === "bow") {
-      return "체력이 낮은 편. 후열에서 사거리 유지.";
+      return "후열 딜러, 인접전 취약.";
     }
 
     if (weaponType === "focus") {
-      return "직접 맞으면 약함. 전열 뒤에서 운용.";
+      return "지원형, 전열 뒤 유지.";
     }
 
     if (weaponType === "lance") {
-      return "추격은 둔함. 길목이나 전열 유지에 집중.";
+      return "전열형, 길목 유지에 강함.";
     }
 
     if (weaponType === "axe") {
-      return "명중이 흔들릴 수 있음. 느린 적부터 압박.";
+      return "근딜 선봉, 명중 기복 있음.";
     }
 
     if (weaponType === "sword") {
-      return "균형형이지만 원거리 압박엔 약함. 접근전 유도.";
+      return "근접 딜러, 원거리엔 약함.";
     }
 
-    return "병종 장점이 살아나는 거리와 위치를 유지.";
+    return "강한 거리만 유지하면 됨.";
   }
 
   function findSpecialActorFromLogs(logs, units) {
@@ -573,6 +563,206 @@
 
     if (event.key === "Escape") {
       closeModal();
+      return;
+    }
+
+    if (event.code !== "Space" && event.key !== " ") {
+      return;
+    }
+
+    if (isTextInputElement(event.target)) {
+      return;
+    }
+
+    if (viewState.modal) {
+      if (
+        viewState.modal.dataset.spaceConfirmAction === "wait-selected-unit"
+        || viewState.modal.dataset.spaceConfirmAction === "end-player-turn"
+      ) {
+        event.preventDefault();
+        const confirmButton = viewState.modal.querySelector("[data-space-confirm='true']");
+
+        if (confirmButton) {
+          confirmButton.click();
+        }
+      }
+
+      return;
+    }
+
+    if (!viewState.snapshot) {
+      return;
+    }
+
+    if (shouldOfferSpaceEndTurn(viewState.snapshot)) {
+      event.preventDefault();
+      openEndTurnConfirmModal();
+      return;
+    }
+
+    const selectedUnit = getSelectedUnit(viewState.snapshot);
+    const movePreview = viewState.snapshot.ui.movePreview;
+    const pendingMove = viewState.snapshot.ui.pendingMove
+      || (selectedUnit && selectedUnit.turnMoveCommit)
+      || null;
+    const canControlUnit = !!(
+      selectedUnit
+      && selectedUnit.team === "ally"
+      && selectedUnit.alive
+      && !selectedUnit.acted
+      && viewState.snapshot.battle
+      && viewState.snapshot.battle.phase === "player"
+    );
+
+    if (!canControlUnit || viewState.snapshot.ui.pendingAttack || viewState.snapshot.ui.pendingSkillId) {
+      return;
+    }
+
+    event.preventDefault();
+
+    if (movePreview && movePreview.unitId === selectedUnit.id) {
+      try {
+        BattleService.commitMovePreview();
+      } catch (error) {
+        viewState.config.showToast(error.message, true);
+      }
+      return;
+    }
+
+    if (pendingMove && pendingMove.unitId === selectedUnit.id) {
+      openWaitConfirmModal(selectedUnit);
+    }
+  }
+
+  function shouldOfferSpaceEndTurn(snapshot) {
+    if (!snapshot || !snapshot.battle || viewState.aiRunning) {
+      return false;
+    }
+
+    if (snapshot.battle.phase !== "player" || snapshot.battle.victoryCondition === "support_complete") {
+      return false;
+    }
+
+    if (snapshot.ui.pendingAttack || snapshot.ui.pendingSkillId || snapshot.ui.movePreview || snapshot.ui.pendingMove) {
+      return false;
+    }
+
+    return !snapshot.battle.units.some((unit) => unit.team === "ally" && unit.alive && !unit.acted);
+  }
+
+  function openWaitConfirmModal(unit) {
+    if (!unit) {
+      return;
+    }
+
+    const body = [
+      `<h3>${unit.name} 행동 확정</h3>`,
+      '<div class="modal-list">',
+      '<article class="modal-card">',
+      `  <p class="wait-confirm-copy">${unit.name}의 이동을 확정했고 더 이상 행동하지 않도록 종료할까요?</p>`,
+      '  <p class="action-hint">스페이스바를 한 번 더 누르면 바로 확정됩니다.</p>',
+      '  <div class="button-row">',
+      '    <button class="primary-button small-button" type="button" data-space-confirm="true" data-confirm-wait="true">행동 확정</button>',
+      '    <button class="ghost-button small-button" type="button" data-cancel-wait="true">취소</button>',
+      "  </div>",
+      "</article>",
+      "</div>"
+    ].join("");
+
+    showModal(body, {
+      panelClass: "battle-wait-confirm-panel",
+      bodyClass: "battle-wait-confirm-body"
+    });
+
+    if (!viewState.modal) {
+      return;
+    }
+
+    viewState.modal.dataset.spaceConfirmAction = "wait-selected-unit";
+    const confirmButton = viewState.modal.querySelector("[data-confirm-wait='true']");
+    const cancelButton = viewState.modal.querySelector("[data-cancel-wait='true']");
+
+    if (confirmButton) {
+      confirmButton.addEventListener("click", () => {
+        closeModal();
+
+        try {
+          BattleService.waitSelectedUnit();
+        } catch (error) {
+          viewState.config.showToast(error.message, true);
+        }
+      });
+    }
+
+    if (cancelButton) {
+      cancelButton.addEventListener("click", () => {
+        closeModal();
+      });
+    }
+  }
+
+  function openEndTurnConfirmModal() {
+    const snapshot = viewState.snapshot;
+
+    if (!shouldOfferSpaceEndTurn(snapshot)) {
+      return;
+    }
+
+    const body = [
+      "<h3>턴 종료 확인</h3>",
+      '<div class="modal-list">',
+      '<article class="modal-card">',
+      '  <p class="wait-confirm-copy">현재 아군 전원의 행동이 확정되었습니다. 턴을 종료하고 적 턴으로 넘길까요?</p>',
+      '  <p class="action-hint">스페이스바를 한 번 더 누르면 바로 턴이 종료됩니다.</p>',
+      '  <div class="button-row">',
+      '    <button class="primary-button small-button" type="button" data-space-confirm="true" data-confirm-end-turn="true">턴 종료</button>',
+      '    <button class="ghost-button small-button" type="button" data-cancel-end-turn="true">취소</button>',
+      "  </div>",
+      "</article>",
+      "</div>"
+    ].join("");
+
+    showModal(body, {
+      panelClass: "battle-wait-confirm-panel",
+      bodyClass: "battle-wait-confirm-body"
+    });
+
+    if (!viewState.modal) {
+      return;
+    }
+
+    viewState.modal.dataset.spaceConfirmAction = "end-player-turn";
+    const confirmButton = viewState.modal.querySelector("[data-confirm-end-turn='true']");
+    const cancelButton = viewState.modal.querySelector("[data-cancel-end-turn='true']");
+
+    if (confirmButton) {
+      confirmButton.addEventListener("click", async () => {
+        closeModal();
+        await executeEndTurnFlow();
+      });
+    }
+
+    if (cancelButton) {
+      cancelButton.addEventListener("click", () => {
+        closeModal();
+      });
+    }
+  }
+
+  async function executeEndTurnFlow() {
+    if (!viewState.snapshot || viewState.aiRunning || viewState.snapshot.battle.phase !== "player") {
+      return;
+    }
+
+    viewState.aiRunning = true;
+
+    try {
+      BattleService.endPlayerTurn();
+      await BattleService.runEnemyPhase();
+    } catch (error) {
+      viewState.config.showToast(error.message || "적 턴 진행 중 오류가 발생했습니다.", true);
+    } finally {
+      viewState.aiRunning = false;
     }
   }
 
@@ -914,7 +1104,7 @@
     const statusText = formatStatusEffects(selectedUnit);
     const committedMove = snapshot.ui.pendingMove && snapshot.ui.pendingMove.unitId === selectedUnit.id
       ? snapshot.ui.pendingMove
-      : null;
+      : selectedUnit.turnMoveCommit || null;
     const movePreview = snapshot.ui.movePreview && snapshot.ui.movePreview.unitId === selectedUnit.id
       ? snapshot.ui.movePreview
       : null;
@@ -929,6 +1119,9 @@
       `HP ${selectedUnit.hp}/${selectedUnit.maxHp}`,
       `MOV ${selectedUnit.mov}`
     ].join(" / ");
+    const enemyMoveHint = selectedUnit.team === "enemy" && snapshot.ui.reachableTiles.length
+      ? `적 이동범위 표시 중: 현재 위치 포함 ${snapshot.ui.reachableTiles.length}칸`
+      : "";
     const isAttackMode = !!snapshot.ui.pendingAttack;
     const attackPreviewText = selectedUnit.team === "ally" && isAttackMode
       ? (snapshot.ui.attackableTargetIds || []).map((targetId) => {
@@ -970,7 +1163,7 @@
       )
       : movePreview
         ? `이동 미리보기: (${movePreview.x}, ${movePreview.y}) / 이번 경로 비용 ${movePreview.cost} / 총 이동 ${movePreview.totalCost} / 남은 이동 ${movePreview.remainingMovement}.`
-      : snapshot.ui.pendingMove && snapshot.ui.pendingMove.unitId === selectedUnit.id
+      : committedMove
         ? (
           remainingMovement > 0
             ? `이동이 확정되었습니다. 남은 이동 ${remainingMovement}칸 범위 안에서 추가 이동을 미리본 뒤 다시 확정할 수 있습니다.`
@@ -1018,9 +1211,11 @@
       "  </div>",
       `  <div class="detail-stats">${StatsService.PRIMARY_STATS.map((statName) => buildPrimaryStatMetaPill(statName, previewPrimaryStats[statName], draft.stats && draft.stats[statName])).join("")}</div>`,
       `  <p>위치: ${terrainLabel}${elevation > 0 ? ` / 고도 ${elevation}` : ""}${effectiveRange && effectiveRange.bonus > 0 ? ` / 사거리 +${effectiveRange.bonus}` : ""}</p>`,
+      selectedUnit.enemyEquipmentSummary ? `  <p>장비: ${selectedUnit.weapon ? `${selectedUnit.weapon.name}, ` : ""}${selectedUnit.enemyEquipmentSummary}</p>` : "",
       selectedUnit.eliteTraitName ? `  <p>정예 특성: ${selectedUnit.eliteTraitName}</p>` : "",
       activeSkillText !== "없음" ? `  <p>액티브: ${activeSkillText}</p>` : "",
       statusText !== "없음" ? `  <p>상태: ${statusText}</p>` : "",
+      enemyMoveHint ? `  <p class="action-hint enemy-range-hint">${enemyMoveHint}</p>` : "",
       postMoveHint ? `  <p class="action-hint">${postMoveHint}</p>` : "",
       attackPreviewText ? `  <div class="preview-list">${attackPreviewText}</div>` : "",
       committedMove ? `  <p>확정 이동 누적: ${committedMove.spentCost} / ${selectedUnit.mov}</p>` : "",
@@ -1251,6 +1446,7 @@
     const selectedUnit = getSelectedUnit(snapshot);
     const movePreview = snapshot.ui.movePreview || null;
     const previewPathKeys = new Set((movePreview && Array.isArray(movePreview.path) ? movePreview.path : []).map((step) => `${step.x},${step.y}`));
+    const isEnemyInspection = !!(selectedUnit && selectedUnit.team === "enemy" && !snapshot.ui.pendingAttack && !snapshot.ui.pendingSkillId);
 
     for (let y = 0; y < snapshot.battle.map.height; y += 1) {
       for (let x = 0; x < snapshot.battle.map.width; x += 1) {
@@ -1277,7 +1473,7 @@
         }
 
         if (isReachable) {
-          classes.push("is-reachable");
+          classes.push(isEnemyInspection ? "is-enemy-reachable" : "is-reachable");
         }
 
         if (isMovePreviewPath) {
@@ -1326,7 +1522,7 @@
           `  <span class="tile-elevation"></span>`,
           `  <span class="tile-top"></span>`,
           `  <span class="tile-overlay"></span>`,
-          isReachable && reachableTile ? `  <span class="tile-cost">${reachableTile.cost}</span>` : "",
+          isReachable && reachableTile ? `  <span class="tile-cost ${isEnemyInspection ? "is-enemy-range" : ""}">${reachableTile.cost}</span>` : "",
           unit ? buildTileUnitMarkup(unit) : "",
           !unit && isMovePreviewTarget && selectedUnit && movePreview && movePreview.unitId === selectedUnit.id ? [
             buildTileUnitMarkup(selectedUnit, {
@@ -1868,16 +2064,7 @@
       return;
     }
 
-    viewState.aiRunning = true;
-
-    try {
-      BattleService.endPlayerTurn();
-      await BattleService.runEnemyPhase();
-    } catch (error) {
-      viewState.config.showToast(error.message || "적 턴 진행 중 오류가 발생했습니다.", true);
-    } finally {
-      viewState.aiRunning = false;
-    }
+    await executeEndTurnFlow();
   }
 
   function handleReturnMenu() {
@@ -1903,7 +2090,7 @@
     ];
 
     items.forEach((item) => {
-      const canEquip = InventoryService.canEquip(unit, item);
+      const canEquip = InventoryService.canEquip(snapshot.saveData, unit, item);
       const rarityMeta = InventoryService.getRarityMeta(item.rarity);
       const disabled = !canEquip ? "disabled" : "";
       const equipLabel = item.equippedBy === unit.id ? "장착 중" : "장착";

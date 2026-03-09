@@ -27,6 +27,17 @@
     { x: 11, y: 2 },
     { x: 12, y: 3 }
   ];
+  const ENDLESS_ENEMY_SPAWN_CANDIDATES = [
+    { x: 12, y: 1 },
+    { x: 11, y: 1 },
+    { x: 10, y: 1 },
+    { x: 12, y: 2 },
+    { x: 13, y: 2 },
+    { x: 11, y: 2 },
+    { x: 10, y: 2 },
+    { x: 12, y: 3 },
+    { x: 11, y: 3 }
+  ];
 
   const TILE_ELEVATION_BY_TYPE = {
     plain: 0,
@@ -181,6 +192,7 @@
       "basilisk"
     ]
   };
+  const NON_REPEATABLE_STAGE_IDS = new Set(["prologue-field"]);
 
   const ENEMY_VARIANT_PREFIXES = {
     maxHp: "거대한",
@@ -191,6 +203,84 @@
   };
 
   const ENEMY_VARIANT_STATS = ["maxHp", "str", "skl", "spd", "def"];
+  const ENDLESS_PARTY_HIDDEN_STAT_KEYS = [
+    "physicalAttack",
+    "magicAttack",
+    "skillPower",
+    "healPower",
+    "accuracy",
+    "evasion",
+    "physicalDefense",
+    "magicDefense",
+    "critChance"
+  ];
+  const ENDLESS_ENEMY_PRIMARY_WEIGHTS = {
+    sword: { str: 0.64, dex: 0.58, vit: 0.52, int: 0.18, luk: 0.34 },
+    axe: { str: 0.76, dex: 0.34, vit: 0.62, int: 0.12, luk: 0.22 },
+    bow: { str: 0.46, dex: 0.82, vit: 0.38, int: 0.18, luk: 0.48 },
+    lance: { str: 0.58, dex: 0.48, vit: 0.72, int: 0.14, luk: 0.28 },
+    staff: { str: 0.18, dex: 0.42, vit: 0.34, int: 0.82, luk: 0.32 },
+    wand: { str: 0.16, dex: 0.46, vit: 0.32, int: 0.88, luk: 0.34 },
+    tome: { str: 0.14, dex: 0.44, vit: 0.34, int: 0.94, luk: 0.36 },
+    grimoire: { str: 0.16, dex: 0.42, vit: 0.36, int: 0.98, luk: 0.34 },
+    focus: { str: 0.18, dex: 0.38, vit: 0.42, int: 0.92, luk: 0.34 }
+  };
+  const ENDLESS_ENEMY_EQUIPMENT_TEMPLATES = {
+    sword: {
+      items: ["사냥 투구", "척후 흉갑", "경장 장화", "철 버클러"],
+      primaryBonuses: { str: 1, dex: 1, vit: 1, luk: 1 },
+      hiddenBonuses: { physicalAttack: 3, accuracy: 5, evasion: 3, physicalDefense: 4, critChance: 1 },
+      weaponBonuses: { might: 1, hit: 2 }
+    },
+    axe: {
+      items: ["뿔 투구", "돌격 갑주", "강철 장화", "전투 토템"],
+      primaryBonuses: { str: 2, vit: 2 },
+      hiddenBonuses: { physicalAttack: 5, physicalDefense: 4, accuracy: 2, critChance: 2 },
+      weaponBonuses: { might: 2, hit: 1 }
+    },
+    bow: {
+      items: ["사냥 후드", "레인저 조끼", "질주 장화", "강화 화살통"],
+      primaryBonuses: { str: 1, dex: 2, vit: 1, luk: 1 },
+      hiddenBonuses: { physicalAttack: 2, accuracy: 9, evasion: 4, critChance: 3 },
+      weaponBonuses: { might: 1, hit: 4 }
+    },
+    lance: {
+      items: ["가드 헬름", "수비 갑옷", "철각 경갑", "카이트 실드"],
+      primaryBonuses: { str: 1, dex: 1, vit: 2 },
+      hiddenBonuses: { physicalAttack: 2, accuracy: 4, physicalDefense: 6, magicDefense: 2 },
+      weaponBonuses: { might: 1, hit: 2 }
+    },
+    staff: {
+      items: ["성직 모자", "예식 장포", "정화 신발", "은빛 성유물"],
+      primaryBonuses: { vit: 1, int: 2, luk: 1 },
+      hiddenBonuses: { magicAttack: 2, healPower: 5, magicDefense: 5, accuracy: 4 },
+      weaponBonuses: { might: 1, hit: 3 }
+    },
+    wand: {
+      items: ["마도 후드", "비전 예복", "공명 장화", "암영 구체"],
+      primaryBonuses: { dex: 1, int: 2, luk: 1 },
+      hiddenBonuses: { magicAttack: 5, skillPower: 4, accuracy: 4, evasion: 2 },
+      weaponBonuses: { might: 2, hit: 2 }
+    },
+    tome: {
+      items: ["마도 후드", "비전 예복", "공명 장화", "암영 구체"],
+      primaryBonuses: { dex: 1, int: 2, luk: 1 },
+      hiddenBonuses: { magicAttack: 5, skillPower: 4, accuracy: 4, evasion: 2 },
+      weaponBonuses: { might: 2, hit: 2 }
+    },
+    grimoire: {
+      items: ["마도 후드", "비전 예복", "공명 장화", "암영 구체"],
+      primaryBonuses: { dex: 1, int: 2, luk: 1 },
+      hiddenBonuses: { magicAttack: 5, skillPower: 4, accuracy: 4, evasion: 2 },
+      weaponBonuses: { might: 2, hit: 2 }
+    },
+    focus: {
+      items: ["성직 모자", "예식 장포", "정화 신발", "은빛 성유물"],
+      primaryBonuses: { vit: 1, int: 2, luk: 1 },
+      hiddenBonuses: { magicAttack: 2, healPower: 5, magicDefense: 5, accuracy: 4 },
+      weaponBonuses: { might: 1, hit: 3 }
+    }
+  };
 
   const ENDLESS_STAGE_META = {
     id: ENDLESS_STAGE_ID,
@@ -915,6 +1005,10 @@
 
   function clone(value) {
     return StorageService.cloneValue(value);
+  }
+
+  function clampNumber(value, min, max) {
+    return Math.max(min, Math.min(max, value));
   }
 
   function subscribe(listener) {
@@ -2155,7 +2249,7 @@
     }
 
     const protectedTiles = new Set(
-      ALLY_SPAWNS.concat(ENEMY_SPAWN_CANDIDATES).map((position) => `${position.x},${position.y}`)
+      ALLY_SPAWNS.concat(ENDLESS_ENEMY_SPAWN_CANDIDATES).map((position) => `${position.x},${position.y}`)
     );
     const wallBreakCandidates = shuffleWithRandom(collectWallBreachCandidates(mapTiles, protectedTiles), random);
     const breachCount = floorType === "combat" || floorType === "boss"
@@ -2201,7 +2295,7 @@
       setMapTile(mapTiles, tile.x, tile.y, "ruin");
     });
 
-    ALLY_SPAWNS.concat(ENEMY_SPAWN_CANDIDATES).forEach((position) => {
+    ALLY_SPAWNS.concat(ENDLESS_ENEMY_SPAWN_CANDIDATES).forEach((position) => {
       setMapTile(mapTiles, position.x, position.y, "plain");
     });
 
@@ -2305,7 +2399,7 @@
             : "모든 적 격파",
       mapTiles,
       allySpawns: ALLY_SPAWNS,
-      enemySpawns: floorType === "rest" || floorType === "supply" ? [] : shuffleWithRandom(ENEMY_SPAWN_CANDIDATES, random),
+      enemySpawns: floorType === "rest" || floorType === "supply" ? [] : shuffleWithRandom(ENDLESS_ENEMY_SPAWN_CANDIDATES, random),
       enemyBonus: Math.min(8, normalizedFloor <= 4 ? Math.floor((normalizedFloor - 1) / 2) : Math.floor(normalizedFloor / 2)),
       rewardGold: floorType === "rest"
         ? 70 + normalizedFloor * 12
@@ -2479,6 +2573,7 @@
   function initializeUnitBattleState(unit) {
     unit.statusEffects = clone(unit.statusEffects || []);
     unit.skillCooldowns = clone(unit.skillCooldowns || {});
+    unit.turnMoveCommit = clone(unit.turnMoveCommit || null);
     return unit;
   }
 
@@ -2713,7 +2808,203 @@
     return sequence;
   }
 
-  function rollEnemyLevel(stageDefinition, averageLevel) {
+  function summarizePartyCombatProfile(units) {
+    const selectedUnits = (units || []).filter(Boolean);
+    const unitCount = Math.max(1, selectedUnits.length);
+    const effectiveUnits = selectedUnits.map((unit) => InventoryService.getEffectiveUnitStats(state.saveData, clone(unit)));
+    const primaryStats = StatsService.PRIMARY_STATS.reduce((accumulator, statName) => {
+      accumulator[statName] = 0;
+      return accumulator;
+    }, {});
+    const hiddenStats = ENDLESS_PARTY_HIDDEN_STAT_KEYS.reduce((accumulator, statName) => {
+      accumulator[statName] = 0;
+      return accumulator;
+    }, {});
+    const profile = {
+      averageLevel: Math.round(
+        (effectiveUnits.reduce((sum, unit) => sum + Number(unit.level || 1), 0) || unitCount) / unitCount
+      ),
+      primaryStats,
+      hiddenStats,
+      pressureByPrimary: {}
+    };
+
+    effectiveUnits.forEach((unit) => {
+      const normalizedPrimary = unit.primaryStats || StatsService.derivePrimaryStatsFromLegacy(unit);
+      const normalizedHidden = unit.hiddenStats || {};
+
+      StatsService.PRIMARY_STATS.forEach((statName) => {
+        profile.primaryStats[statName] += Number(normalizedPrimary[statName] || 0);
+      });
+
+      ENDLESS_PARTY_HIDDEN_STAT_KEYS.forEach((statName) => {
+        profile.hiddenStats[statName] += Number(normalizedHidden[statName] || 0);
+      });
+    });
+
+    StatsService.PRIMARY_STATS.forEach((statName) => {
+      profile.primaryStats[statName] = Number((profile.primaryStats[statName] / unitCount).toFixed(1));
+    });
+
+    ENDLESS_PARTY_HIDDEN_STAT_KEYS.forEach((statName) => {
+      profile.hiddenStats[statName] = Number((profile.hiddenStats[statName] / unitCount).toFixed(1));
+    });
+
+    profile.pressureByPrimary = {
+      str: Number((
+        (profile.hiddenStats.physicalAttack / 30)
+        + (profile.hiddenStats.critChance / 14)
+      ).toFixed(1)),
+      dex: Number((
+        (profile.hiddenStats.accuracy / 90)
+        + (profile.hiddenStats.evasion / 120)
+      ).toFixed(1)),
+      vit: Number((
+        (profile.hiddenStats.physicalDefense / 38)
+        + (profile.hiddenStats.magicDefense / 46)
+      ).toFixed(1)),
+      int: Number((
+        (profile.hiddenStats.magicAttack / 28)
+        + (profile.hiddenStats.skillPower / 34)
+        + (profile.hiddenStats.healPower / 40)
+      ).toFixed(1)),
+      luk: Number((
+        (profile.hiddenStats.critChance / 8)
+        + (profile.hiddenStats.evasion / 180)
+      ).toFixed(1))
+    };
+
+    return profile;
+  }
+
+  function getEndlessEnemyPrimaryWeights(weaponType) {
+    return ENDLESS_ENEMY_PRIMARY_WEIGHTS[weaponType] || ENDLESS_ENEMY_PRIMARY_WEIGHTS.sword;
+  }
+
+  function applyEndlessPartyPressure(unit, partyProfile, stageDefinition, options) {
+    if (!unit || !partyProfile || stageDefinition.id !== ENDLESS_STAGE_ID) {
+      return unit;
+    }
+
+    const nextOptions = options || {};
+    const floor = Math.max(1, Number(stageDefinition.endlessFloor || 1));
+    const level = Math.max(1, Number(unit.level || partyProfile.averageLevel || 1));
+    const basePrimary = StatsService.derivePrimaryStatsFromLegacy(unit);
+    const weights = getEndlessEnemyPrimaryWeights(unit.weapon ? unit.weapon.type : null);
+    const floorPressure = Math.max(0, Math.floor((floor - 1) / 4));
+    const bossPressure = nextOptions.isBoss ? 1.4 : nextOptions.isElite ? 0.8 : 0;
+    const nextPrimary = {};
+
+    StatsService.PRIMARY_STATS.forEach((statName) => {
+      const baseValue = Number(basePrimary[statName] || 1);
+      const partyValue = Number(partyProfile.primaryStats[statName] || baseValue);
+      const hiddenPressure = Number(partyProfile.pressureByPrimary[statName] || 0);
+      const roleWeight = Number(weights[statName] || 0.45);
+      nextPrimary[statName] = Math.max(
+        1,
+        Math.round(
+          (baseValue * 0.58)
+          + (partyValue * roleWeight)
+          + (hiddenPressure * (0.55 + roleWeight * 0.2))
+          + (level * 0.09)
+          + (floorPressure * (0.35 + roleWeight * 0.2))
+          + bossPressure
+        )
+      );
+    });
+
+    unit.primaryStats = nextPrimary;
+    StatsService.recalculateUnitStats(unit, { keepHpFull: true });
+    return unit;
+  }
+
+  function buildEndlessEnemyEquipmentPackage(unit, stageDefinition, options) {
+    if (!unit || !stageDefinition || stageDefinition.id !== ENDLESS_STAGE_ID) {
+      return null;
+    }
+
+    const nextOptions = options || {};
+    const template = ENDLESS_ENEMY_EQUIPMENT_TEMPLATES[unit.weapon ? unit.weapon.type : "sword"]
+      || ENDLESS_ENEMY_EQUIPMENT_TEMPLATES.sword;
+    const floor = Math.max(1, Number(stageDefinition.endlessFloor || 1));
+    const level = Math.max(1, Number(unit.level || 1));
+    const tier = Math.max(
+      1,
+      1
+      + Math.floor(level / 7)
+      + Math.floor(Math.max(0, floor - 1) / 5)
+      + (nextOptions.isElite ? 1 : 0)
+      + (nextOptions.isBoss ? 2 : 0)
+    );
+    const primaryBonuses = {};
+    const hiddenBonuses = {};
+    const weaponBonuses = {};
+
+    Object.keys(template.primaryBonuses || {}).forEach((statName) => {
+      const baseValue = Number(template.primaryBonuses[statName] || 0);
+      primaryBonuses[statName] = baseValue + Math.floor((tier - 1) / 2);
+    });
+
+    Object.keys(template.hiddenBonuses || {}).forEach((statName) => {
+      const baseValue = Number(template.hiddenBonuses[statName] || 0);
+      hiddenBonuses[statName] = baseValue + Math.floor(tier * 1.5);
+    });
+
+    Object.keys(template.weaponBonuses || {}).forEach((statName) => {
+      const baseValue = Number(template.weaponBonuses[statName] || 0);
+      weaponBonuses[statName] = baseValue + Math.floor((tier - 1) / 2);
+    });
+
+    return {
+      items: clone(template.items || []),
+      primaryBonuses,
+      hiddenBonuses,
+      weaponBonuses
+    };
+  }
+
+  function applyEnemyEquipmentPackage(unit, equipmentPackage) {
+    if (!unit || !equipmentPackage) {
+      return unit;
+    }
+
+    const nextPrimary = Object.assign(
+      {},
+      clone(unit.primaryStats || StatsService.derivePrimaryStatsFromLegacy(unit))
+    );
+
+    Object.keys(equipmentPackage.primaryBonuses || {}).forEach((statName) => {
+      nextPrimary[statName] = Math.max(
+        1,
+        Number(nextPrimary[statName] || 0) + Number(equipmentPackage.primaryBonuses[statName] || 0)
+      );
+    });
+
+    unit.primaryStats = nextPrimary;
+    StatsService.recalculateUnitStats(unit, { keepHpFull: true });
+    unit.hiddenStats = Object.assign({}, clone(unit.hiddenStats || {}));
+
+    Object.keys(equipmentPackage.hiddenBonuses || {}).forEach((statName) => {
+      unit.hiddenStats[statName] = Math.round(
+        Number(unit.hiddenStats[statName] || 0) + Number(equipmentPackage.hiddenBonuses[statName] || 0)
+      );
+    });
+
+    if (unit.weapon) {
+      Object.keys(equipmentPackage.weaponBonuses || {}).forEach((statName) => {
+        unit.weapon[statName] = Math.round(
+          Number(unit.weapon[statName] || 0) + Number(equipmentPackage.weaponBonuses[statName] || 0)
+        );
+      });
+    }
+
+    unit.enemyEquipment = clone(equipmentPackage.items || []);
+    unit.enemyEquipmentSummary = (equipmentPackage.items || []).join(", ");
+    unit.hp = unit.maxHp;
+    return unit;
+  }
+
+  function rollEnemyLevel(stageDefinition, averageLevel, partyProfile) {
     const floorBonus = Math.max(0, Number(stageDefinition.enemyBonus || 0));
 
     if (stageDefinition.id !== ENDLESS_STAGE_ID) {
@@ -2721,11 +3012,18 @@
       return Math.max(1, stageAnchor + Math.floor(Math.random() * 2));
     }
 
-    const floorPressure = Math.floor(floorBonus / 3);
-    const averageAnchor = Math.max(1, averageLevel + floorPressure + 1);
-    const floorMinimum = Math.max(1, 1 + floorBonus);
-    const variance = Math.floor(Math.random() * 3) - 1;
-    return Math.max(floorMinimum, averageAnchor + variance);
+    const floor = Math.max(1, Number(stageDefinition.endlessFloor || 1));
+    const minLevel = Math.max(1, Number(averageLevel || (partyProfile && partyProfile.averageLevel) || 1) - 5);
+    const maxLevel = Math.max(minLevel, Number(averageLevel || (partyProfile && partyProfile.averageLevel) || 1) + 5);
+    const band = maxLevel - minLevel + 1;
+    let nextLevel = minLevel + Math.floor(Math.random() * band);
+    const upwardBiasChance = Math.min(0.82, 0.34 + floor * 0.032);
+
+    if (Math.random() < upwardBiasChance) {
+      nextLevel += 1 + Math.floor(floor / 9);
+    }
+
+    return clampNumber(nextLevel, minLevel, maxLevel);
   }
 
   function rollEnemyVariant(level, extraBudget) {
@@ -2808,13 +3106,22 @@
     };
   }
 
-  function buildBossUnit(stageDefinition, averageLevel) {
+  function buildBossUnit(stageDefinition, averageLevel, partyProfile) {
     if (!stageDefinition.boss) {
       return null;
     }
 
     const boss = stageDefinition.boss;
-    const level = Math.max(2, averageLevel + (boss.levelBonus || 0));
+    const level = stageDefinition.id === ENDLESS_STAGE_ID
+      ? clampNumber(
+          Math.max(
+            averageLevel || 1,
+            rollEnemyLevel(stageDefinition, averageLevel, partyProfile) + 2 + Math.floor(Number(boss.levelBonus || 0) / 2)
+          ),
+          Math.max(1, (averageLevel || 1) - 5),
+          Math.max(1, (averageLevel || 1) + 5)
+        )
+      : Math.max(2, averageLevel + (boss.levelBonus || 0));
     const maxHp = 14 + level * 2 + (boss.maxHpBonus || 0);
     const bossUnit = {
       id: boss.id,
@@ -2844,6 +3151,8 @@
     };
 
     if (stageDefinition.id === ENDLESS_STAGE_ID) {
+      applyEndlessPartyPressure(bossUnit, partyProfile, stageDefinition, { isBoss: true });
+      applyEnemyEquipmentPackage(bossUnit, buildEndlessEnemyEquipmentPackage(bossUnit, stageDefinition, { isBoss: true }));
       applyEnemyVariant(bossUnit, rollEnemyVariant(level, 1));
       bossUnit.hp = bossUnit.maxHp;
     }
@@ -2906,6 +3215,17 @@
     unit.statusEffects = unit.statusEffects || [];
     unit.statusEffects.push(createEliteTraitEffect(eliteTrait));
     unit.rewardBias = Math.min(4, tierBonus);
+    unit.hiddenStats = Object.assign({}, clone(unit.hiddenStats || {}));
+    unit.hiddenStats.physicalAttack = Math.round(Number(unit.hiddenStats.physicalAttack || unit.str) + 3 + tierBonus);
+    unit.hiddenStats.magicAttack = Math.round(Number(unit.hiddenStats.magicAttack || unit.skl) + 2 + Math.floor(tierBonus / 2));
+    unit.hiddenStats.accuracy = Math.round(Number(unit.hiddenStats.accuracy || (unit.skl * 5)) + 6 + tierBonus * 2);
+    unit.hiddenStats.evasion = Math.round(Number(unit.hiddenStats.evasion || (unit.spd * 3)) + 4 + tierBonus);
+    unit.hiddenStats.physicalDefense = Math.round(Number(unit.hiddenStats.physicalDefense || unit.def) + 4 + tierBonus);
+    unit.hiddenStats.magicDefense = Math.round(Number(unit.hiddenStats.magicDefense || unit.def) + 3 + tierBonus);
+    unit.hiddenStats.critChance = Math.max(
+      0,
+      Math.round(Number(unit.hiddenStats.critChance || 0) + 2 + Math.floor(tierBonus / 2))
+    );
     return unit;
   }
 
@@ -2916,21 +3236,27 @@
 
     const selectedParty = getSelectedPartyUnits();
     const allyCount = selectedParty.length || 3;
-    const averageLevel = Math.round(
-      ((selectedParty.reduce((sum, unit) => sum + (unit.level || 1), 0) || allyCount) / allyCount)
-    );
+    const partyProfile = summarizePartyCombatProfile(selectedParty);
+    const averageLevel = partyProfile.averageLevel;
     const isEndlessStage = stageDefinition.id === ENDLESS_STAGE_ID;
-    const earlyEndless = isEndlessStage && (stageDefinition.endlessFloor || 1) <= 4;
-    const bonusEnemy = !earlyEndless && averageLevel >= 3 && Math.random() < 0.55 ? 1 : 0;
+    const endlessFloor = Math.max(1, Number(stageDefinition.endlessFloor || 1));
+    const earlyEndless = isEndlessStage && endlessFloor <= 3;
+    const bonusEnemy = !earlyEndless && averageLevel >= 3 && Math.random() < (isEndlessStage ? 0.72 : 0.55) ? 1 : 0;
+    const endlessPressureBonus = isEndlessStage
+      ? (earlyEndless ? 0 : 1) + Math.floor(Math.max(0, endlessFloor - 2) / 5) + (endlessFloor >= 12 ? 1 : 0)
+      : 0;
     const enemyCount = Math.min(
       stageDefinition.enemySpawns.length,
-      Math.max(2, allyCount + (earlyEndless ? 0 : 1) + bonusEnemy - (stageDefinition.boss ? 1 : 0))
+      Math.max(
+        isEndlessStage ? 3 : 2,
+        allyCount + (earlyEndless ? 0 : 1) + bonusEnemy + endlessPressureBonus - (stageDefinition.boss ? 1 : 0)
+      )
     );
     const archetypeSequence = buildEnemyArchetypeSequence(stageDefinition, enemyCount);
     const enemies = stageDefinition.enemySpawns.slice(0, enemyCount).map((spawn, index) => {
       const archetype = archetypeSequence[index] || pickEnemyArchetype(stageDefinition);
       const statBonuses = archetype.statBonuses || {};
-      const level = rollEnemyLevel(stageDefinition, averageLevel);
+      const level = rollEnemyLevel(stageDefinition, averageLevel, partyProfile);
       const maxHp = Math.max(8, 11 + level * 2 + (archetype.weaponType === "axe" ? 1 : 0) + (statBonuses.maxHp || 0));
       const unit = {
         id: `enemy-${Date.now()}-${index}`,
@@ -2958,6 +3284,8 @@
       };
 
       if (isEndlessStage) {
+        applyEndlessPartyPressure(unit, partyProfile, stageDefinition);
+        applyEnemyEquipmentPackage(unit, buildEndlessEnemyEquipmentPackage(unit, stageDefinition));
         applyEnemyVariant(unit, rollEnemyVariant(level, 2));
       } else if (Number(stageDefinition.enemyBonus || 0) >= 2) {
         applyEnemyVariant(unit, rollEnemyVariant(level, 1));
@@ -2967,7 +3295,7 @@
       return unit;
     });
 
-    const bossUnit = buildBossUnit(stageDefinition, averageLevel);
+    const bossUnit = buildBossUnit(stageDefinition, averageLevel, partyProfile);
 
     if (bossUnit) {
       enemies.push(bossUnit);
@@ -2978,7 +3306,7 @@
       const eliteCandidates = enemies.filter((unit) => !unit.isBoss);
       const eliteCount = Math.min(
         eliteCandidates.length,
-        floor >= 18 ? 3 : floor >= 9 ? 2 : floor >= 4 ? 1 : (Math.random() < 0.5 ? 1 : 0)
+        floor >= 20 ? 4 : floor >= 12 ? 3 : floor >= 6 ? 2 : floor >= 3 ? 1 : 0
       );
 
       for (let index = 0; index < eliteCount; index += 1) {
@@ -3067,6 +3395,10 @@
     SkillsService.normalizeRosterLearnedSkills(state.saveData);
     ensureCampaignState();
     ensureEndlessState();
+
+    if (!options.resume && isStageReplayLocked(state.saveData, state.saveData.stageId)) {
+      throw new Error("프롤로그는 클리어 후 다시 입장할 수 없습니다.");
+    }
 
     if (options.resume && state.saveData.battleState && state.saveData.stageStatus === "in_progress") {
       state.battle = clone(state.saveData.battleState);
@@ -3424,19 +3756,37 @@
     return reachable;
   }
 
-  function collectAttackTilesFromPositions(unit, positions) {
+  function collectAttackTilesFromPositions(unit, positions, options) {
     const tiles = [];
     const seen = new Set();
+    const nextOptions = options || {};
 
     positions.forEach((origin) => {
+      const originContext = {
+        attackerTileType: getTileType(origin.x, origin.y),
+        attackerElevation: getTileElevation(origin.x, origin.y),
+        defenderTileType: getTileType(origin.x, origin.y),
+        defenderElevation: getTileElevation(origin.x, origin.y)
+      };
+      const displayRange = nextOptions.ignoreMinRange
+        ? CombatService.getEffectiveWeaponRange(unit, originContext)
+        : null;
+
       for (let y = 0; y < state.battle.map.height; y += 1) {
         for (let x = 0; x < state.battle.map.width; x += 1) {
-          if (CombatService.isInWeaponRange(unit, origin, { x, y }, {
+          const context = {
             attackerTileType: getTileType(origin.x, origin.y),
             attackerElevation: getTileElevation(origin.x, origin.y),
             defenderTileType: getTileType(x, y),
             defenderElevation: getTileElevation(x, y)
-          })) {
+          };
+          const distance = Math.abs(origin.x - x) + Math.abs(origin.y - y);
+          const effectiveRange = CombatService.getEffectiveWeaponRange(unit, context);
+          const isDisplayRange = nextOptions.ignoreMinRange
+            ? distance > 0 && distance <= displayRange.rangeMax
+            : CombatService.isInWeaponRange(unit, origin, { x, y }, context);
+
+          if (isDisplayRange) {
             const key = `${x},${y}`;
 
             if (!seen.has(key)) {
@@ -3675,9 +4025,12 @@
   }
 
   function getCommittedMove(unitId) {
-    return state.ui.pendingMove && state.ui.pendingMove.unitId === unitId
-      ? state.ui.pendingMove
-      : null;
+    if (state.ui.pendingMove && state.ui.pendingMove.unitId === unitId) {
+      return state.ui.pendingMove;
+    }
+
+    const unit = getUnitById(unitId);
+    return unit && unit.turnMoveCommit ? clone(unit.turnMoveCommit) : null;
   }
 
   function getMovePreview(unitId) {
@@ -3703,7 +4056,7 @@
 
     if (attackMode || skillMode) {
       state.ui.reachableTiles = [];
-    } else if (unit.team === "ally" && state.battle.phase === "player" && !unit.acted && remainingMovement > 0) {
+    } else if (unit.team === "ally" && state.battle.phase === "player" && !unit.acted && !committedMove && remainingMovement > 0) {
       const reachableTiles = buildReachableTiles(unit, true, remainingMovement).map((tile) => {
         const totalCost = tile.cost + Number(committedMove ? committedMove.spentCost : 0);
         return Object.assign({}, tile, {
@@ -3712,6 +4065,11 @@
         });
       });
       state.ui.reachableTiles = reachableTiles;
+    } else if (unit.team === "enemy" && unit.alive) {
+      state.ui.reachableTiles = buildReachableTiles(unit, true).map((tile) => Object.assign({}, tile, {
+        totalCost: tile.cost,
+        remainingMovement: Math.max(0, unit.mov - tile.cost)
+      }));
     } else {
       state.ui.reachableTiles = committedMove
         ? [{ x: unit.x, y: unit.y, cost: 0, path: [], elevation: getTileElevation(unit.x, unit.y) }]
@@ -3719,7 +4077,9 @@
     }
 
     if (unit.team === "ally" && state.battle.phase === "player" && !unit.acted && attackMode) {
-      state.ui.attackTiles = collectAttackTilesFromPositions(unit, [{ x: unit.x, y: unit.y }]);
+      state.ui.attackTiles = collectAttackTilesFromPositions(unit, [{ x: unit.x, y: unit.y }], {
+        ignoreMinRange: true
+      });
       state.ui.attackableTargetIds = collectAttackableTargets(unit, { x: unit.x, y: unit.y });
     } else {
       state.ui.attackTiles = [];
@@ -3761,6 +4121,10 @@
     const unit = getUnitById(state.ui.selectedUnitId);
 
     if (!canPlayerControl(unit)) {
+      return;
+    }
+
+    if (getCommittedMove(unit.id)) {
       return;
     }
 
@@ -3810,16 +4174,18 @@
       return null;
     }
 
-    const committedMove = getCommittedMove(unit.id);
-    const origin = committedMove ? committedMove.origin : { x: unit.x, y: unit.y };
+    const existingCommit = getCommittedMove(unit.id);
+    const origin = existingCommit ? existingCommit.origin : { x: unit.x, y: unit.y };
     unit.x = preview.x;
     unit.y = preview.y;
     unit.movedThisTurn = true;
-    state.ui.pendingMove = {
+    const committedMove = {
       unitId: unit.id,
       origin,
       spentCost: preview.totalCost
     };
+    unit.turnMoveCommit = clone(committedMove);
+    state.ui.pendingMove = committedMove;
     clearMovePreview();
     triggerContactEncounter(unit, unit.x, unit.y);
     refreshSelectionState(unit);
@@ -3865,6 +4231,7 @@
     unit.x = state.ui.pendingMove.origin.x;
     unit.y = state.ui.pendingMove.origin.y;
     unit.movedThisTurn = false;
+    unit.turnMoveCommit = null;
     state.ui.pendingMove = null;
     clearMovePreview();
     selectUnit(unit.id);
@@ -3872,6 +4239,7 @@
 
   function finalizeUnitAction(unit) {
     unit.acted = true;
+    unit.turnMoveCommit = null;
     state.ui.pendingMove = null;
     state.ui.movePreview = null;
     state.ui.pendingSkillId = null;
@@ -4010,6 +4378,7 @@
     unit.turnAttackCount = 0;
     unit.movedThisTurn = false;
     unit.usedSkillThisTurn = false;
+    unit.turnMoveCommit = null;
   }
 
   function applyOnHitAilments(attacker, target, sourceLabel) {
@@ -4561,6 +4930,10 @@
       campaign.clearedStageIds.push(currentStage.id);
     }
 
+    if (NON_REPEATABLE_STAGE_IDS.has(currentStage.id)) {
+      campaign.availableStageIds = (campaign.availableStageIds || []).filter((stageId) => stageId !== currentStage.id);
+    }
+
     const nextIndex = Math.min(STAGE_DEFINITIONS.length - 1, (campaign.currentStageIndex || 0) + 1);
     campaign.currentStageIndex = nextIndex;
 
@@ -4626,6 +4999,25 @@
     return STAGE_DEFINITIONS.every((stage) => (campaign.clearedStageIds || []).includes(stage.id));
   }
 
+  function isStageReplayLocked(saveData, stageId) {
+    if (!NON_REPEATABLE_STAGE_IDS.has(stageId)) {
+      return false;
+    }
+
+    const campaign = saveData && saveData.campaign
+      ? saveData.campaign
+      : {
+          clearedStageIds: []
+        };
+    const cleared = (campaign.clearedStageIds || []).includes(stageId);
+    const inProgress = saveData
+      && saveData.stageStatus === "in_progress"
+      && saveData.stageId === stageId
+      && !!saveData.battleState;
+
+    return cleared && !inProgress;
+  }
+
   function getStageCatalog(saveData) {
     const campaign = saveData && saveData.campaign
       ? saveData.campaign
@@ -4642,7 +5034,11 @@
         };
     const endlessUnlocked = isEndlessUnlocked(saveData);
 
-    return STAGE_DEFINITIONS.map((stage, index) => ({
+    return STAGE_DEFINITIONS.map((stage, index) => {
+      const replayLocked = isStageReplayLocked(saveData, stage.id);
+      const inProgress = saveData && saveData.stageStatus === "in_progress" && saveData.stageId === stage.id;
+
+      return ({
       id: stage.id,
       name: stage.name,
       objective: stage.objective,
@@ -4650,12 +5046,13 @@
       category: "tutorial",
       victoryCondition: stage.victoryCondition || "route_enemy",
       victoryLabel: getVictoryConditionLabel(stage.victoryCondition || "route_enemy"),
-      available: (campaign.availableStageIds || []).includes(stage.id),
+      available: !replayLocked && (campaign.availableStageIds || []).includes(stage.id),
       cleared: (campaign.clearedStageIds || []).includes(stage.id),
-      selected: saveData ? saveData.stageId === stage.id : (campaign.currentStageIndex || 0) === index,
-      inProgress: saveData && saveData.stageStatus === "in_progress" && saveData.stageId === stage.id,
+      selected: saveData ? (saveData.stageId === stage.id && (!replayLocked || inProgress)) : (campaign.currentStageIndex || 0) === index,
+      inProgress,
       order: index + 1
-    })).concat([
+    });
+    }).concat([
       {
         id: ENDLESS_STAGE_ID,
         name: `${ENDLESS_STAGE_META.name} ${endless.currentFloor}층`,
@@ -4812,6 +5209,10 @@
 
     if (!(saveData.campaign.availableStageIds || []).includes(stageId)) {
       throw new Error("아직 개방되지 않은 스테이지입니다.");
+    }
+
+    if (isStageReplayLocked(saveData, stageId)) {
+      throw new Error("프롤로그는 클리어 후 다시 입장할 수 없습니다.");
     }
 
     const isChangingFromActiveBattle =

@@ -154,12 +154,17 @@
                 <h2 id="menu-detail-title">파티 관리</h2>
               </div>
               <div id="menu-detail-header-actions" class="menu-detail-header-actions hidden">
-                <div class="inventory-category-tabs" role="tablist" aria-label="인벤토리 분류">
+                <div id="inventory-header-tabs" class="inventory-category-tabs" role="tablist" aria-label="인벤토리 분류">
                   <button class="inventory-category-tab active" type="button" data-inventory-tab="equipment">장비</button>
                   <button class="inventory-category-tab" type="button" data-inventory-tab="consumable">소모품</button>
                 </div>
+                <div id="shop-header-tabs" class="inventory-category-tabs shop-category-tabs hidden" role="tablist" aria-label="상점 분류">
+                  <button class="inventory-category-tab active" type="button" data-shop-tab="equipment">장비</button>
+                  <button class="inventory-category-tab" type="button" data-shop-tab="consumable">소모품</button>
+                </div>
                 <div id="tavern-header-actions" class="tavern-header-actions hidden">
                   <button id="tavern-manual-refresh-button" class="secondary-button small-button" type="button">주점 새로고침</button>
+                  <button id="tavern-paid-refresh-button" class="ghost-button small-button" type="button">2000G 새로고침</button>
                   <div class="tavern-header-refresh-meta">
                     <strong id="tavern-manual-refresh-count">5/5</strong>
                     <span id="tavern-manual-refresh-timer">다음 복구까지 0시간 0분</span>

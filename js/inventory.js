@@ -29,14 +29,11 @@
 
   const EQUIP_SLOT_LAYOUT = [
     { key: "head", label: "머리", accepts: ["head"] },
-    { key: "shoulder", label: "어깨", accepts: ["shoulder"] },
-    { key: "chest", label: "상의", accepts: ["chest"] },
+    { key: "chest", label: "상의", accepts: ["chest", "shoulder"] },
     { key: "legs", label: "하의", accepts: ["legs"] },
     { key: "boots", label: "신발", accepts: ["boots"] },
-    { key: "bracelet_1", label: "팔찌 1", accepts: ["bracelet"] },
-    { key: "bracelet_2", label: "팔찌 2", accepts: ["bracelet"] },
-    { key: "ring_1", label: "반지 1", accepts: ["ring"] },
-    { key: "ring_2", label: "반지 2", accepts: ["ring"] },
+    { key: "bracelet", label: "팔찌", accepts: ["bracelet"] },
+    { key: "ring", label: "반지", accepts: ["ring"] },
     { key: "weapon", label: "주무기", accepts: ["weapon"] },
     { key: "subweapon", label: "보조무기", accepts: ["subweapon"] },
     { key: "charm", label: "부적", accepts: ["charm", "accessory"] }
@@ -71,6 +68,8 @@
     shield: "방패",
     quiver: "화살통",
     focus: "성구",
+    arcane_orb: "마도구",
+    holy_relic: "성유물",
     helmet: "투구",
     hood: "후드",
     shoulder_guard: "견갑",
@@ -295,6 +294,61 @@
     "클레릭", "비숍", "오라클", "세라핌", "인퀴지터", "성녀", "아크저지"
   ].forEach((className) => {
     CLASS_WEAPON_PROFICIENCY[className] = { favoredFamilies: ["sacred"], toleratedFamilies: ["arcane"] };
+  });
+
+  const WEAPON_EQUIP_RULES = {
+    sword: { offhandRoles: ["shield"] },
+    greatsword: {},
+    tachi: {},
+    katana: { offhandRoles: ["shield"] },
+    hwando: { offhandRoles: ["shield"] },
+    lance: { offhandRoles: ["shield"] },
+    spear: { offhandRoles: ["shield"] },
+    halberd: {},
+    bow: { offhandRoles: ["quiver"] },
+    shortbow: { offhandRoles: ["quiver"] },
+    longbow: { offhandRoles: ["quiver"] },
+    crossbow: { offhandRoles: ["quiver"] },
+    axe: {},
+    handaxe: { offhandRoles: ["shield"], offhandWeaponTypes: ["handaxe"] },
+    battleaxe: {},
+    greataxe: {},
+    staff: { offhandRoles: ["arcane"] },
+    wand: { offhandRoles: ["arcane"] },
+    tome: { offhandRoles: ["arcane"] },
+    grimoire: { offhandRoles: ["arcane"] },
+    focus: { offhandRoles: ["sacred"] }
+  };
+
+  const SUBWEAPON_ROLE_BY_TYPE = {
+    shield: "shield",
+    quiver: "quiver",
+    arcane_orb: "arcane",
+    holy_relic: "sacred"
+  };
+
+  const CLASS_SUBWEAPON_ROLES = {};
+  [
+    "로드", "하이로드", "블레이드로드", "소드마스터", "엠퍼러", "검성", "오버로드", "스타블레이드", "검사",
+    "랜서", "팔라딘", "가디언", "센티넬", "홀리랜서", "포트리스", "아크랜서", "이지스로드", "솔저",
+    "브리건드", "버서커", "워브레이커", "데스브링어", "월드이터"
+  ].forEach((className) => {
+    CLASS_SUBWEAPON_ROLES[className] = ["shield"];
+  });
+  [
+    "아처", "스나이퍼", "레인저", "트래퍼", "호크아이", "그림트래퍼", "천궁성", "나이트메어헌트", "헌터"
+  ].forEach((className) => {
+    CLASS_SUBWEAPON_ROLES[className] = ["quiver"];
+  });
+  [
+    "메이지", "위저드", "소서러", "아크메이지", "워록", "대현자", "보이드로드"
+  ].forEach((className) => {
+    CLASS_SUBWEAPON_ROLES[className] = ["arcane"];
+  });
+  [
+    "클레릭", "비숍", "오라클", "세라핌", "인퀴지터", "성녀", "아크저지"
+  ].forEach((className) => {
+    CLASS_SUBWEAPON_ROLES[className] = ["sacred", "arcane"];
   });
 
   const LOOT_TEMPLATES = [
@@ -763,6 +817,57 @@
       baseBonus: { def: 2, maxHp: 1 }
     },
     {
+      key: "quiver",
+      names: {
+        common: "사냥 화살통",
+        uncommon: "정찰 화살통",
+        rare: "매눈 화살통",
+        unique: "명수 화살통",
+        legendary: "천궁 화살통",
+        epic: "유성 화살통",
+        mystic: "아폴론의 화살집",
+        primordial: "새벽 사수의 화살통"
+      },
+      slot: "subweapon",
+      type: "quiver",
+      basePrimaryBonus: { dex: 1 },
+      baseHiddenBonus: { accuracy: 4, critChance: 0.01 }
+    },
+    {
+      key: "arcane_orb",
+      names: {
+        common: "견습 마도구",
+        uncommon: "은빛 마도구",
+        rare: "청명 마도구",
+        unique: "현자의 마도구",
+        legendary: "별빛 마도구",
+        epic: "성운 마도구",
+        mystic: "원환의 마핵",
+        primordial: "태초의 비전핵"
+      },
+      slot: "subweapon",
+      type: "arcane_orb",
+      basePrimaryBonus: { int: 1 },
+      baseHiddenBonus: { magicAttack: 2, maxMana: 4 }
+    },
+    {
+      key: "holy_relic",
+      names: {
+        common: "순례 성유물",
+        uncommon: "은빛 성유물",
+        rare: "축성 성유물",
+        unique: "대사제 성유물",
+        legendary: "광휘 성유물",
+        epic: "천상 성유물",
+        mystic: "첫 기도의 유물",
+        primordial: "새벽 신앙의 증표"
+      },
+      slot: "subweapon",
+      type: "holy_relic",
+      basePrimaryBonus: { int: 1 },
+      baseHiddenBonus: { healPower: 2, magicDefense: 2, maxMana: 3 }
+    },
+    {
       key: "charm",
       names: {
         common: "참나무 부적",
@@ -1144,6 +1249,39 @@
       statBonus: { def: 2, maxHp: 2 }
     },
     {
+      id: "shop-ranger-quiver",
+      name: "레인저 화살통",
+      type: "quiver",
+      slot: "subweapon",
+      rarity: "rare",
+      price: 154,
+      description: "활과 석궁 계열 주무기와 함께 쓰는 보조 화살통.",
+      primaryStatBonus: { dex: 1 },
+      hiddenBonus: { accuracy: 5, critChance: 0.02 }
+    },
+    {
+      id: "shop-arcane-orb",
+      name: "비전 마도구",
+      type: "arcane_orb",
+      slot: "subweapon",
+      rarity: "rare",
+      price: 166,
+      description: "메이지 계열이 지팡이, 완드, 마도서와 함께 쓰는 보조 마도구.",
+      primaryStatBonus: { int: 1 },
+      hiddenBonus: { magicAttack: 3, maxMana: 5 }
+    },
+    {
+      id: "shop-holy-relic",
+      name: "축성 성유물",
+      type: "holy_relic",
+      slot: "subweapon",
+      rarity: "rare",
+      price: 168,
+      description: "클레릭 계열이 성구와 함께 쓰는 보조 성유물.",
+      primaryStatBonus: { int: 1 },
+      hiddenBonus: { healPower: 2, magicDefense: 2, maxMana: 4 }
+    },
+    {
       id: "shop-guardian-charm",
       name: "수호 부적",
       type: "charm",
@@ -1380,7 +1518,7 @@
       family: "eagle_eye",
       allowedRarities: ["rare", "unique", "legendary", "epic", "mystic", "primordial"],
       slotWeights: { weapon: 5, head: 4, bracelet: 3, ring: 2 },
-      hiddenBonus: { accuracy: 6, rangeBonus: 1 }
+      hiddenBonus: { accuracy: 6 }
     },
     {
       id: "bloodletter",
@@ -1583,7 +1721,7 @@
       suffix: "사냥행군",
       family: "legendary_unique",
       allowedSlots: ["boots", "weapon", "bracelet"],
-      hiddenBonus: { rangeBonus: 1, moveThenAttackDamagePercent: 0.14 },
+      hiddenBonus: { moveThenAttackDamagePercent: 0.14 },
       legacyStatBonus: { mov: 1 }
     },
     {
@@ -1648,7 +1786,7 @@
       bonuses: [
         { pieces: 2, hiddenBonus: { accuracy: 8, critChance: 0.06 }, description: "명중과 치명 확률이 오른다." },
         { pieces: 3, legacyStatBonus: { mov: 1 }, hiddenBonus: { moveThenAttackDamagePercent: 0.12 }, description: "이동력과 이동 후 공격 피해가 오른다." },
-        { pieces: 4, hiddenBonus: { rangeBonus: 1, executeDamagePercent: 0.12 }, description: "사거리와 마무리 피해가 오른다." }
+        { pieces: 4, hiddenBonus: { executeDamagePercent: 0.12 }, description: "마무리 피해가 오른다." }
       ]
     }
   };
@@ -2054,6 +2192,32 @@
     return parts.join(" / ");
   }
 
+  function sanitizeRangeBonusText(text) {
+    return String(text || "")
+      .split(" / ")
+      .filter((part) => part && !part.startsWith("사거리 +"))
+      .join(" / ");
+  }
+
+  function sanitizeItemRangeBonus(item) {
+    if (!item) {
+      return item;
+    }
+
+    if (item.hiddenBonus && Object.prototype.hasOwnProperty.call(item.hiddenBonus, "rangeBonus")) {
+      item.hiddenBonus.rangeBonus = 0;
+    }
+
+    if (Array.isArray(item.affixes)) {
+      item.affixes = item.affixes.map((affix) => Object.assign({}, affix, {
+        description: sanitizeRangeBonusText(affix && affix.description)
+      }));
+    }
+
+    item.hiddenBonus = hasAnyBonus(item.hiddenBonus) ? item.hiddenBonus : null;
+    return item;
+  }
+
   function chooseAffixCount(rarity) {
     const range = AFFIX_COUNT_BY_RARITY[rarity] || AFFIX_COUNT_BY_RARITY.common;
     return getRandomIntInclusive(range[0], range[1]);
@@ -2387,7 +2551,25 @@
   }
 
   function getClassWeaponTypes(className) {
-    return CLASS_WEAPONS[className] || ["sword"];
+    const baseTypes = CLASS_WEAPONS[className] || ["sword"];
+    const proficiencyProfile = className ? CLASS_WEAPON_PROFICIENCY[className] : null;
+
+    if (!proficiencyProfile) {
+      return baseTypes;
+    }
+
+    const allowedFamilies = new Set(
+      []
+        .concat(proficiencyProfile.favoredFamilies || [])
+        .concat(proficiencyProfile.toleratedFamilies || [])
+        .filter(Boolean)
+    );
+
+    if (!allowedFamilies.size) {
+      return baseTypes;
+    }
+
+    return baseTypes.filter((type) => allowedFamilies.has(getWeaponFamily(type)));
   }
 
   function getWeaponFamily(type) {
@@ -2404,6 +2586,103 @@
     }
 
     return "";
+  }
+
+  function getWeaponEquipRule(type) {
+    const rule = WEAPON_EQUIP_RULES[type] || {};
+    return {
+      offhandRoles: (rule.offhandRoles || []).slice(),
+      offhandWeaponTypes: (rule.offhandWeaponTypes || []).slice()
+    };
+  }
+
+  function getSubweaponRole(itemOrType) {
+    const type = typeof itemOrType === "string"
+      ? itemOrType
+      : itemOrType && itemOrType.type;
+    return SUBWEAPON_ROLE_BY_TYPE[type] || "";
+  }
+
+  function getClassSubweaponRoles(className) {
+    return (CLASS_SUBWEAPON_ROLES[className] || []).slice();
+  }
+
+  function parseEquipArgs(arg1, arg2, arg3, arg4) {
+    const looksLikeSaveData = !!arg1 && typeof arg1 === "object"
+      && (Array.isArray(arg1.inventory) || Array.isArray(arg1.roster));
+
+    if (typeof arg4 !== "undefined" || looksLikeSaveData) {
+      return {
+        saveData: looksLikeSaveData ? arg1 : null,
+        unit: arg2,
+        item: arg3,
+        slotKey: arg4
+      };
+    }
+
+    return {
+      saveData: null,
+      unit: arg1,
+      item: arg2,
+      slotKey: arg3
+    };
+  }
+
+  function buildCandidateLoadout(saveData, unitId, item, targetSlotKey) {
+    const loadout = {};
+
+    EQUIP_SLOT_LAYOUT.forEach((entry) => {
+      loadout[entry.key] = null;
+    });
+
+    if (saveData && unitId) {
+      Object.assign(loadout, getEquipmentLoadout(saveData, unitId));
+    }
+
+    Object.keys(loadout).forEach((slotKey) => {
+      if (loadout[slotKey] && item && loadout[slotKey].id === item.id) {
+        loadout[slotKey] = null;
+      }
+    });
+
+    if (targetSlotKey) {
+      loadout[targetSlotKey] = item;
+    }
+
+    return loadout;
+  }
+
+  function getOffhandWeaponSupportBonus(item) {
+    const hiddenBonus = createHiddenBonusMap();
+
+    if (!item || item.slot !== "weapon" || item.equippedSlotKey !== "subweapon") {
+      return hiddenBonus;
+    }
+
+    const discipline = getWeaponDiscipline(item.type);
+    hiddenBonus.accuracy += Math.max(2, Math.floor(Number(item.hit || 0) / 24));
+
+    if (discipline === "magic") {
+      hiddenBonus.magicAttack += Math.max(1, Math.floor(Number(item.might || 0) / 3));
+      hiddenBonus.skillPower += 1;
+    } else {
+      hiddenBonus.physicalAttack += Math.max(1, Math.floor(Number(item.might || 0) / 3));
+      hiddenBonus.critChance += 0.01;
+    }
+
+    return hiddenBonus;
+  }
+
+  function canUseSubweaponRole(unit, role) {
+    return !!role && getClassSubweaponRoles(unit && unit.className).includes(role);
+  }
+
+  function canWeaponUseOffhandRole(weaponType, role) {
+    return !!role && getWeaponEquipRule(weaponType).offhandRoles.includes(role);
+  }
+
+  function canWeaponUseOffhandWeaponType(weaponType, offhandWeaponType) {
+    return !!offhandWeaponType && getWeaponEquipRule(weaponType).offhandWeaponTypes.includes(offhandWeaponType);
   }
 
   function getWeaponProficiency(unit, weaponOrType) {
@@ -2548,6 +2827,10 @@
       return [];
     }
 
+    if (item.slot === "weapon") {
+      return ["weapon", "subweapon"];
+    }
+
     if (item.slot === "accessory") {
       return ["charm"];
     }
@@ -2617,30 +2900,66 @@
     item.hiddenBonus = hasAnyBonus(item.hiddenBonus) ? item.hiddenBonus : null;
     item.weaponBonus = hasAnyBonus(item.weaponBonus) ? item.weaponBonus : null;
     item.affixes = Array.isArray(item.affixes) ? item.affixes : [];
+    sanitizeItemRangeBonus(item);
 
     return item;
   }
 
-  function canEquipIntoSlot(unit, item, slotKey) {
+  function canEquipIntoSlot(arg1, arg2, arg3, arg4) {
+    const { saveData, unit, item, slotKey } = parseEquipArgs(arg1, arg2, arg3, arg4);
     const slotMeta = getEquipSlotMeta(slotKey);
 
     if (!unit || !item || !slotMeta || isConsumable(item)) {
       return false;
     }
 
-    if (!slotMeta.accepts.includes(item.slot) && !(item.slot === "accessory" && slotKey === "charm")) {
+    const isAccessoryCharm = item.slot === "accessory" && slotKey === "charm";
+    const isWeaponInOffhand = slotKey === "subweapon" && item.slot === "weapon";
+
+    if (!slotMeta.accepts.includes(item.slot) && !isAccessoryCharm && !isWeaponInOffhand) {
       return false;
     }
 
-    if (slotMeta.accepts.includes("weapon")) {
-      return getClassWeaponTypes(unit.className).includes(item.type);
+    if (item.slot === "weapon" && !getClassWeaponTypes(unit.className).includes(item.type)) {
+      return false;
+    }
+
+    if (slotKey === "weapon") {
+      return item.slot === "weapon";
+    }
+
+    if (slotKey === "subweapon") {
+      if (!saveData) {
+        if (item.slot === "weapon") {
+          return item.type === "handaxe";
+        }
+
+        const role = getSubweaponRole(item);
+        return canUseSubweaponRole(unit, role)
+          && getClassWeaponTypes(unit.className).some((weaponType) => canWeaponUseOffhandRole(weaponType, role));
+      }
+
+      const candidateLoadout = buildCandidateLoadout(saveData, unit.id, item, slotKey);
+      const mainWeapon = candidateLoadout.weapon;
+
+      if (!mainWeapon || mainWeapon.id === item.id) {
+        return false;
+      }
+
+      if (item.slot === "weapon") {
+        return canWeaponUseOffhandWeaponType(mainWeapon.type, item.type);
+      }
+
+      const role = getSubweaponRole(item);
+      return canUseSubweaponRole(unit, role) && canWeaponUseOffhandRole(mainWeapon.type, role);
     }
 
     return true;
   }
 
-  function canEquip(unit, item) {
-    return getCompatibleSlotKeys(item).some((slotKey) => canEquipIntoSlot(unit, item, slotKey));
+  function canEquip(arg1, arg2, arg3) {
+    const { saveData, unit, item } = parseEquipArgs(arg1, arg2, arg3);
+    return getCompatibleSlotKeys(item).some((slotKey) => canEquipIntoSlot(saveData, unit, item, slotKey));
   }
 
   function getEquipmentLoadout(saveData, unitId) {
@@ -2685,6 +3004,22 @@
     unit.weapon = loadout.weapon ? loadout.weapon.id : null;
   }
 
+  function pruneUnitLoadoutConflicts(saveData, unitId) {
+    const unit = getUnitById(saveData, unitId);
+
+    if (!unit) {
+      return;
+    }
+
+    const loadout = getEquipmentLoadout(saveData, unitId);
+    const subweapon = loadout.subweapon;
+
+    if (subweapon && !canEquipIntoSlot(saveData, unit, subweapon, "subweapon")) {
+      subweapon.equippedBy = null;
+      subweapon.equippedSlotKey = null;
+    }
+  }
+
   function normalizeInventoryState(saveData) {
     if (!saveData) {
       return saveData;
@@ -2704,7 +3039,16 @@
         return;
       }
 
-      const compatibleSlotKeys = getCompatibleSlotKeys(item);
+      const unit = getUnitById(saveData, item.equippedBy);
+
+      if (!unit) {
+        item.equippedBy = null;
+        item.equippedSlotKey = null;
+        return;
+      }
+
+      const compatibleSlotKeys = getCompatibleSlotKeys(item)
+        .filter((slotKey) => canEquipIntoSlot(saveData, unit, item, slotKey));
 
       if (!compatibleSlotKeys.length) {
         item.equippedBy = null;
@@ -2713,12 +3057,14 @@
       }
 
       const usedSlots = usedSlotsByUnit[item.equippedBy] || [];
-      let resolvedSlotKey = compatibleSlotKeys.includes(item.equippedSlotKey)
+      let resolvedSlotKey = compatibleSlotKeys.includes(item.equippedSlotKey) && !usedSlots.includes(item.equippedSlotKey)
         ? item.equippedSlotKey
-        : compatibleSlotKeys.find((slotKey) => !usedSlots.includes(slotKey)) || compatibleSlotKeys[0];
+        : compatibleSlotKeys.find((slotKey) => !usedSlots.includes(slotKey));
 
       if (!resolvedSlotKey) {
-        resolvedSlotKey = compatibleSlotKeys[0];
+        item.equippedBy = null;
+        item.equippedSlotKey = null;
+        return;
       }
 
       usedSlots.push(resolvedSlotKey);
@@ -2727,6 +3073,7 @@
     });
 
     (saveData.roster || []).forEach((unit) => {
+      pruneUnitLoadoutConflicts(saveData, unit.id);
       syncEquippedItems(saveData, unit.id);
     });
 
@@ -2734,8 +3081,10 @@
   }
 
   function getFirstAvailableSlotKey(saveData, unitId, item) {
+    const unit = getUnitById(saveData, unitId);
     const loadout = getEquipmentLoadout(saveData, unitId);
-    const compatibleSlotKeys = getCompatibleSlotKeys(item);
+    const compatibleSlotKeys = getCompatibleSlotKeys(item)
+      .filter((slotKey) => canEquipIntoSlot(saveData, unit, item, slotKey));
     return compatibleSlotKeys.find((slotKey) => !loadout[slotKey]) || compatibleSlotKeys[0] || null;
   }
 
@@ -2755,7 +3104,7 @@
 
     const targetSlotKey = preferredSlotKey || getFirstAvailableSlotKey(saveData, unitId, item);
 
-    if (!targetSlotKey || !canEquipIntoSlot(unit, item, targetSlotKey)) {
+    if (!targetSlotKey || !canEquipIntoSlot(saveData, unit, item, targetSlotKey)) {
       throw new Error(`${unit.className}은 ${getTypeLabel(item.type || item.slot)}을(를) 장착할 수 없습니다.`);
     }
 
@@ -2772,9 +3121,11 @@
 
     item.equippedBy = unitId;
     item.equippedSlotKey = targetSlotKey;
+    pruneUnitLoadoutConflicts(saveData, unitId);
     syncEquippedItems(saveData, unitId);
 
     if (previousOwnerId && previousOwnerId !== unitId) {
+      pruneUnitLoadoutConflicts(saveData, previousOwnerId);
       syncEquippedItems(saveData, previousOwnerId);
     }
 
@@ -2793,6 +3144,7 @@
     item.equippedSlotKey = null;
 
     if (previousOwnerId) {
+      pruneUnitLoadoutConflicts(saveData, previousOwnerId);
       syncEquippedItems(saveData, previousOwnerId);
     }
 
@@ -2885,6 +3237,7 @@
     saveData.inventory = (saveData.inventory || []).filter((item) => item.id !== itemId);
 
     if (previousOwnerId) {
+      pruneUnitLoadoutConflicts(saveData, previousOwnerId);
       syncEquippedItems(saveData, previousOwnerId);
     }
   }
@@ -3110,7 +3463,9 @@
     };
 
     normalizeLegacyItem(Object.assign(item, {
-      statBonus: scaleBonusMap(template.baseBonus || {}, Math.max(0, RARITY_ORDER.indexOf(rarity)), enemyLevel || 1)
+      statBonus: scaleBonusMap(template.baseBonus || {}, Math.max(0, RARITY_ORDER.indexOf(rarity)), enemyLevel || 1),
+      primaryStatBonus: scalePrimaryBonusMap(template.basePrimaryBonus || {}, Math.max(0, RARITY_ORDER.indexOf(rarity)), enemyLevel || 1),
+      hiddenBonus: scaleHiddenBonusMap(template.baseHiddenBonus || {}, Math.max(0, RARITY_ORDER.indexOf(rarity)), enemyLevel || 1)
     }));
     finalizeGeneratedEquipment(item, rarity, enemyLevel || 1);
     return item;
@@ -3157,6 +3512,7 @@
       addBonusMaps(bonuses.primary, item.primaryStatBonus || {}, clampPrimaryBonus);
       addBonusMaps(bonuses.legacy, item.statBonus || {}, null);
       addBonusMaps(bonuses.hidden, item.hiddenBonus || {}, roundHiddenBonus);
+      addBonusMaps(bonuses.hidden, getOffhandWeaponSupportBonus(item), roundHiddenBonus);
 
       if (item.setId) {
         setCounts[item.setId] = Number(setCounts[item.setId] || 0) + 1;

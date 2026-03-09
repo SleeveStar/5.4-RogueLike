@@ -85,15 +85,11 @@
     }
 
     const attackerTileType = context && context.attackerTileType;
-    const attackerElevation = context && context.attackerElevation || 0;
-    const defenderElevation = context && context.defenderElevation || 0;
-    const rangedHighGroundBonus = isBowFamilyWeapon(weapon) && (attackerTileType === "hill" || attackerElevation > defenderElevation) ? 1 : 0;
-    const hiddenRangeBonus = Math.max(0, Number(unit && unit.hiddenStats && unit.hiddenStats.rangeBonus || 0));
-
+    const rangedHighGroundBonus = isBowFamilyWeapon(weapon) && attackerTileType === "hill" ? 1 : 0;
     return {
       rangeMin: weapon.rangeMin,
-      rangeMax: weapon.rangeMax + rangedHighGroundBonus + hiddenRangeBonus,
-      bonus: rangedHighGroundBonus + hiddenRangeBonus
+      rangeMax: weapon.rangeMax + rangedHighGroundBonus,
+      bonus: rangedHighGroundBonus
     };
   }
 
@@ -106,16 +102,7 @@
   }
 
   function getWeaponRangeDistance(unit, fromPosition, toPosition) {
-    const weapon = getWeapon(unit);
-    const dx = Math.abs(fromPosition.x - toPosition.x);
-    const dy = Math.abs(fromPosition.y - toPosition.y);
-    const baseDistance = Math.max(dx, dy);
-
-    if (isBowFamilyWeapon(weapon) && dx > 0 && dy > 0) {
-      return baseDistance + 1;
-    }
-
-    return baseDistance;
+    return getDistance(fromPosition, toPosition);
   }
 
   function isInWeaponRange(unit, origin, targetPosition, context) {
@@ -127,8 +114,7 @@
 
     const effectiveRange = getEffectiveWeaponRange(unit, context);
     const distance = getWeaponRangeDistance(unit, origin, targetPosition);
-    const effectiveMin = effectiveRange.rangeMax > 1 ? 1 : effectiveRange.rangeMin;
-    return distance >= effectiveMin && distance <= effectiveRange.rangeMax;
+    return distance >= effectiveRange.rangeMin && distance <= effectiveRange.rangeMax;
   }
 
   function calculatePreview(attacker, defender, context) {

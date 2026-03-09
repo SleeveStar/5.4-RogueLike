@@ -10,13 +10,14 @@
   const LINEUP_SIZE = 4;
   const MAX_SORTIE_SIZE = 5;
   const DAILY_MANUAL_REFRESH_LIMIT = 5;
+  const PAID_MANUAL_REFRESH_COST = 2000;
 
   const GUILD_RANK_META = {
     D: {
       label: "D",
       title: "수습 모험가",
       cardRarity: "common",
-      cost: 120,
+      cost: 450,
       minLevel: 1,
       maxLevel: 1,
       passiveSkills: 0,
@@ -30,7 +31,7 @@
       label: "C",
       title: "현장 모험가",
       cardRarity: "uncommon",
-      cost: 180,
+      cost: 700,
       minLevel: 1,
       maxLevel: 2,
       passiveSkills: 1,
@@ -44,7 +45,7 @@
       label: "B",
       title: "정예 모험가",
       cardRarity: "rare",
-      cost: 280,
+      cost: 1200,
       minLevel: 2,
       maxLevel: 3,
       passiveSkills: 1,
@@ -58,7 +59,7 @@
       label: "A",
       title: "베테랑 모험가",
       cardRarity: "unique",
-      cost: 430,
+      cost: 2200,
       minLevel: 3,
       maxLevel: 4,
       passiveSkills: 2,
@@ -72,7 +73,7 @@
       label: "S",
       title: "길드 간판 모험가",
       cardRarity: "legendary",
-      cost: 680,
+      cost: 3800,
       minLevel: 4,
       maxLevel: 5,
       passiveSkills: 2,
@@ -86,7 +87,7 @@
       label: "SS",
       title: "영웅급 모험가",
       cardRarity: "epic",
-      cost: 980,
+      cost: 6200,
       minLevel: 5,
       maxLevel: 6,
       passiveSkills: 3,
@@ -100,7 +101,7 @@
       label: "SSS",
       title: "천외천 모험가",
       cardRarity: "primordial",
-      cost: 1480,
+      cost: 9800,
       minLevel: 6,
       maxLevel: 8,
       passiveSkills: 4,
@@ -144,37 +145,37 @@
   const CLASS_ARCHETYPES = {
     로드: {
       weaponType: "sword",
-      baseStats: { maxHp: 18, str: 6, skl: 7, spd: 8, def: 4, mov: 5 },
+      baseStats: { maxHp: 18, str: 6, skl: 7, spd: 8, def: 4, mov: 4 },
       namePool: ["카이란", "에드릭", "루시안", "세드릭", "레오릭", "알드렌", "테오란", "바렌", "로웬", "다미르"]
     },
     하이로드: {
       weaponType: "sword",
-      baseStats: { maxHp: 21, str: 8, skl: 8, spd: 8, def: 6, mov: 6 },
+      baseStats: { maxHp: 21, str: 8, skl: 8, spd: 8, def: 6, mov: 5 },
       namePool: ["알레리온", "시그런", "에델란", "르시엘", "이사르", "아벨론", "로엔", "테오도르", "마르칸", "벨리안"]
     },
     클레릭: {
       weaponType: "focus",
-      baseStats: { maxHp: 15, str: 3, skl: 7, spd: 6, def: 3, mov: 5 },
+      baseStats: { maxHp: 15, str: 3, skl: 7, spd: 6, def: 3, mov: 4 },
       namePool: ["엘리엔", "마리엘", "요안나", "세라핀", "리오네", "유리에", "시아나", "에벨린", "라티아", "지젤라"]
     },
     비숍: {
       weaponType: "focus",
-      baseStats: { maxHp: 18, str: 4, skl: 9, spd: 7, def: 4, mov: 5 },
+      baseStats: { maxHp: 18, str: 4, skl: 9, spd: 7, def: 4, mov: 4 },
       namePool: ["루시아르", "에스텔라", "라오나", "미카엘라", "세리엔", "아리엘", "엘리아나", "소렐", "다에린", "주벨"]
     },
     메이지: {
       weaponType: "staff",
-      baseStats: { maxHp: 14, str: 3, skl: 9, spd: 6, def: 2, mov: 5 },
+      baseStats: { maxHp: 14, str: 3, skl: 9, spd: 6, def: 2, mov: 4 },
       namePool: ["리안델", "시아르", "유엘린", "노에른", "다이란", "세오른", "하라스", "윤셀", "라에르", "타린"]
     },
     위저드: {
       weaponType: "staff",
-      baseStats: { maxHp: 16, str: 4, skl: 11, spd: 7, def: 3, mov: 5 },
+      baseStats: { maxHp: 16, str: 4, skl: 11, spd: 7, def: 3, mov: 4 },
       namePool: ["아린델", "테아노", "에리온", "다오르", "예르딘", "로아르", "지하르", "유헨", "도안", "시리온"]
     },
     소서러: {
       weaponType: "staff",
-      baseStats: { maxHp: 15, str: 4, skl: 10, spd: 8, def: 2, mov: 5 },
+      baseStats: { maxHp: 15, str: 4, skl: 10, spd: 8, def: 2, mov: 4 },
       namePool: ["세오른", "리브라", "카엘룸", "하린느", "미네라", "레이나", "도리안", "세헤라", "타이론", "루하나"]
     },
     랜서: {
@@ -189,22 +190,22 @@
     },
     아처: {
       weaponType: "bow",
-      baseStats: { maxHp: 16, str: 5, skl: 8, spd: 7, def: 3, mov: 5 },
+      baseStats: { maxHp: 16, str: 5, skl: 8, spd: 7, def: 3, mov: 4 },
       namePool: ["리아나", "하엘", "유라", "케인", "세율", "하진느", "지율렌", "미르재", "로웬", "시아"]
     },
     스나이퍼: {
       weaponType: "bow",
-      baseStats: { maxHp: 18, str: 7, skl: 10, spd: 8, def: 4, mov: 5 },
+      baseStats: { maxHp: 18, str: 7, skl: 10, spd: 8, def: 4, mov: 4 },
       namePool: ["테슬", "미르", "이벨", "카란", "지후르", "도겜", "아린델", "세은느", "이든", "타민"]
     },
     검사: {
       weaponType: "sword",
-      baseStats: { maxHp: 17, str: 6, skl: 6, spd: 7, def: 3, mov: 5 },
+      baseStats: { maxHp: 17, str: 6, skl: 6, spd: 7, def: 3, mov: 4 },
       namePool: ["유진느", "라프", "나린", "델로", "가윈", "예산", "재민느", "시후르", "지세르", "하온"]
     },
     브리건드: {
       weaponType: "axe",
-      baseStats: { maxHp: 19, str: 8, skl: 4, spd: 5, def: 4, mov: 4 },
+      baseStats: { maxHp: 19, str: 8, skl: 4, spd: 5, def: 4, mov: 3 },
       namePool: ["가론", "브릭", "네로", "하즈", "도하르", "타산", "준타르", "세온드", "강룬", "헨빈"]
     },
     헌터: {
@@ -703,28 +704,49 @@
 
   function getManualRefreshState(saveData) {
     const tavern = ensureTavernShape(saveData);
-    const used = Math.min(DAILY_MANUAL_REFRESH_LIMIT, Number(tavern.manualRefreshUsed || 0));
+    const used = Math.max(0, Math.floor(Number(tavern.manualRefreshUsed || 0)));
     const remaining = Math.max(0, DAILY_MANUAL_REFRESH_LIMIT - used);
+    const paidMode = remaining <= 0;
+    const canAffordPaid = (saveData.partyGold || 0) >= PAID_MANUAL_REFRESH_COST;
 
     return {
       used,
       remaining,
       limit: DAILY_MANUAL_REFRESH_LIMIT,
-      exhausted: remaining <= 0,
+      paidMode,
+      refreshCost: PAID_MANUAL_REFRESH_COST,
+      canAffordPaid,
+      exhausted: paidMode ? !canAffordPaid : false,
       resetAt: new Date(getNextDailyResetTimestamp()).toISOString()
     };
   }
 
   function useManualRefresh(saveData) {
     const tavern = ensureTavernShape(saveData);
-    const used = Math.min(DAILY_MANUAL_REFRESH_LIMIT, Number(tavern.manualRefreshUsed || 0));
+    const used = Math.max(0, Math.floor(Number(tavern.manualRefreshUsed || 0)));
     const remaining = Math.max(0, DAILY_MANUAL_REFRESH_LIMIT - used);
 
     if (remaining <= 0) {
-      throw new Error("오늘 사용할 수 있는 주점 새로고침을 모두 소진했습니다.");
+      throw new Error("오늘 사용할 수 있는 무료 주점 새로고침을 모두 소진했습니다.");
     }
 
-    tavern.manualRefreshUsed = Math.min(DAILY_MANUAL_REFRESH_LIMIT, used + 1);
+    tavern.manualRefreshUsed = used + 1;
+    refreshLineup(saveData);
+
+    return {
+      tavern: saveData.tavern,
+      manualState: getManualRefreshState(saveData)
+    };
+  }
+
+  function usePaidRefresh(saveData) {
+    ensureTavernShape(saveData);
+
+    if ((saveData.partyGold || 0) < PAID_MANUAL_REFRESH_COST) {
+      throw new Error(`새로고침에 필요한 골드가 부족합니다. (${PAID_MANUAL_REFRESH_COST}G 필요)`);
+    }
+
+    saveData.partyGold -= PAID_MANUAL_REFRESH_COST;
     refreshLineup(saveData);
 
     return {
@@ -924,11 +946,13 @@
   global.TavernService = {
     REFRESH_INTERVAL_MS,
     DAILY_MANUAL_REFRESH_LIMIT,
+    PAID_MANUAL_REFRESH_COST,
     GUILD_RANK_META,
     GUILD_RANK_ORDER,
     syncTavern,
     getManualRefreshState,
     useManualRefresh,
+    usePaidRefresh,
     recruitAdventurer,
     trainUnit,
     promoteGuildRank,

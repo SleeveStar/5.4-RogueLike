@@ -93,21 +93,21 @@
   };
 
   const CLASS_DERIVED_MODIFIERS = {
-    로드: { hp: 1, attack: 0.4, accuracy: 0.2, speed: 0.15, defense: 0.05, mov: 5, crit: 1, skill: 0.1 },
-    하이로드: { hp: 2, attack: 0.55, accuracy: 0.25, speed: 0.25, defense: 0.1, mov: 6, crit: 2, skill: 0.15 },
-    클레릭: { hp: -1, attack: -0.2, accuracy: 0.35, speed: 0.08, defense: -0.1, mov: 5, crit: 1, skill: 0.72 },
-    비숍: { hp: 0, attack: -0.05, accuracy: 0.42, speed: 0.12, defense: -0.02, mov: 5, crit: 2, skill: 0.9 },
-    메이지: { hp: -2, attack: -0.18, accuracy: 0.48, speed: 0.12, defense: -0.16, mov: 5, crit: 2, skill: 1.08 },
-    위저드: { hp: -1, attack: -0.12, accuracy: 0.56, speed: 0.18, defense: -0.08, mov: 5, crit: 3, skill: 1.2 },
-    소서러: { hp: -2, attack: -0.06, accuracy: 0.46, speed: 0.24, defense: -0.14, mov: 5, crit: 4, skill: 1.16 },
+    로드: { hp: 1, attack: 0.4, accuracy: 0.2, speed: 0.15, defense: 0.05, mov: 4, crit: 1, skill: 0.1 },
+    하이로드: { hp: 2, attack: 0.55, accuracy: 0.25, speed: 0.25, defense: 0.1, mov: 5, crit: 2, skill: 0.15 },
+    클레릭: { hp: -1, attack: -0.2, accuracy: 0.35, speed: 0.08, defense: -0.1, mov: 4, crit: 1, skill: 0.72 },
+    비숍: { hp: 0, attack: -0.05, accuracy: 0.42, speed: 0.12, defense: -0.02, mov: 4, crit: 2, skill: 0.9 },
+    메이지: { hp: -2, attack: -0.18, accuracy: 0.48, speed: 0.12, defense: -0.16, mov: 4, crit: 2, skill: 1.08 },
+    위저드: { hp: -1, attack: -0.12, accuracy: 0.56, speed: 0.18, defense: -0.08, mov: 4, crit: 3, skill: 1.2 },
+    소서러: { hp: -2, attack: -0.06, accuracy: 0.46, speed: 0.24, defense: -0.14, mov: 4, crit: 4, skill: 1.16 },
     랜서: { hp: 3, attack: 0.15, accuracy: -0.05, speed: -0.1, defense: 0.55, mov: 4, crit: 0, skill: 0.05 },
     팔라딘: { hp: 3, attack: 0.2, accuracy: 0, speed: -0.05, defense: 0.65, mov: 5, crit: 0, skill: 0.05 },
-    아처: { hp: -1, attack: 0, accuracy: 0.7, speed: 0.45, defense: -0.15, mov: 5, crit: 3, skill: 0.2 },
-    스나이퍼: { hp: 0, attack: 0.2, accuracy: 0.85, speed: 0.5, defense: -0.05, mov: 5, crit: 5, skill: 0.3 },
-    검사: { hp: 0, attack: 0.3, accuracy: 0.45, speed: 0.55, defense: -0.1, mov: 5, crit: 3, skill: 0.1 },
-    브리건드: { hp: 2, attack: 0.8, accuracy: -0.25, speed: -0.15, defense: 0.15, mov: 4, crit: 1, skill: -0.05 },
+    아처: { hp: -1, attack: 0, accuracy: 0.7, speed: 0.45, defense: -0.15, mov: 4, crit: 3, skill: 0.2 },
+    스나이퍼: { hp: 0, attack: 0.2, accuracy: 0.85, speed: 0.5, defense: -0.05, mov: 4, crit: 5, skill: 0.3 },
+    검사: { hp: 0, attack: 0.3, accuracy: 0.45, speed: 0.55, defense: -0.1, mov: 4, crit: 3, skill: 0.1 },
+    브리건드: { hp: 2, attack: 0.8, accuracy: -0.25, speed: -0.15, defense: 0.15, mov: 3, crit: 1, skill: -0.05 },
     헌터: { hp: 0, attack: 0.1, accuracy: 0.65, speed: 0.35, defense: -0.1, mov: 5, crit: 3, skill: 0.15 },
-    솔저: { hp: 1, attack: 0.15, accuracy: 0.1, speed: 0, defense: 0.35, mov: 5, crit: 0, skill: 0.05 }
+    솔저: { hp: 1, attack: 0.15, accuracy: 0.1, speed: 0, defense: 0.35, mov: 4, crit: 0, skill: 0.05 }
   };
 
   Object.assign(CLASS_GROWTH_WEIGHTS, {
@@ -145,37 +145,37 @@
   });
 
   Object.assign(CLASS_DERIVED_MODIFIERS, {
-    블레이드로드: { hp: 1, attack: 0.6, accuracy: 0.34, speed: 0.34, defense: 0, mov: 6, crit: 3, skill: 0.16 },
-    소드마스터: { hp: 0, attack: 0.42, accuracy: 0.56, speed: 0.66, defense: -0.12, mov: 6, crit: 5, skill: 0.16 },
-    엠퍼러: { hp: 2, attack: 0.7, accuracy: 0.32, speed: 0.26, defense: 0.16, mov: 6, crit: 3, skill: 0.18 },
-    검성: { hp: 1, attack: 0.48, accuracy: 0.66, speed: 0.76, defense: -0.08, mov: 6, crit: 6, skill: 0.18 },
-    오버로드: { hp: 3, attack: 0.82, accuracy: 0.36, speed: 0.28, defense: 0.2, mov: 6, crit: 4, skill: 0.2 },
-    스타블레이드: { hp: 1, attack: 0.56, accuracy: 0.72, speed: 0.82, defense: -0.05, mov: 6, crit: 7, skill: 0.22 },
+    블레이드로드: { hp: 1, attack: 0.6, accuracy: 0.34, speed: 0.34, defense: 0, mov: 5, crit: 3, skill: 0.16 },
+    소드마스터: { hp: 0, attack: 0.42, accuracy: 0.56, speed: 0.66, defense: -0.12, mov: 5, crit: 5, skill: 0.16 },
+    엠퍼러: { hp: 2, attack: 0.7, accuracy: 0.32, speed: 0.26, defense: 0.16, mov: 5, crit: 3, skill: 0.18 },
+    검성: { hp: 1, attack: 0.48, accuracy: 0.66, speed: 0.76, defense: -0.08, mov: 5, crit: 6, skill: 0.18 },
+    오버로드: { hp: 3, attack: 0.82, accuracy: 0.36, speed: 0.28, defense: 0.2, mov: 5, crit: 4, skill: 0.2 },
+    스타블레이드: { hp: 1, attack: 0.56, accuracy: 0.72, speed: 0.82, defense: -0.05, mov: 5, crit: 7, skill: 0.22 },
     가디언: { hp: 4, attack: 0.1, accuracy: -0.08, speed: -0.14, defense: 0.78, mov: 4, crit: 0, skill: 0.02 },
-    센티넬: { hp: 2, attack: 0.18, accuracy: 0.06, speed: -0.02, defense: 0.48, mov: 5, crit: 1, skill: 0.06 },
-    홀리랜서: { hp: 3, attack: 0.26, accuracy: 0.1, speed: 0.02, defense: 0.58, mov: 6, crit: 1, skill: 0.1 },
-    포트리스: { hp: 5, attack: 0.08, accuracy: -0.1, speed: -0.18, defense: 0.92, mov: 4, crit: 0, skill: 0.02 },
-    아크랜서: { hp: 4, attack: 0.34, accuracy: 0.12, speed: 0.04, defense: 0.66, mov: 6, crit: 2, skill: 0.12 },
-    이지스로드: { hp: 6, attack: 0.1, accuracy: -0.08, speed: -0.2, defense: 1.04, mov: 4, crit: 0, skill: 0.02 },
-    레인저: { hp: 0, attack: 0.16, accuracy: 0.78, speed: 0.48, defense: -0.08, mov: 6, crit: 4, skill: 0.2 },
-    트래퍼: { hp: 0, attack: 0.12, accuracy: 0.72, speed: 0.44, defense: -0.08, mov: 6, crit: 4, skill: 0.2 },
-    호크아이: { hp: 1, attack: 0.24, accuracy: 0.96, speed: 0.56, defense: -0.04, mov: 6, crit: 6, skill: 0.28 },
-    그림트래퍼: { hp: 1, attack: 0.22, accuracy: 0.84, speed: 0.52, defense: -0.04, mov: 6, crit: 5, skill: 0.24 },
+    센티넬: { hp: 2, attack: 0.18, accuracy: 0.06, speed: -0.02, defense: 0.48, mov: 4, crit: 1, skill: 0.06 },
+    홀리랜서: { hp: 3, attack: 0.26, accuracy: 0.1, speed: 0.02, defense: 0.58, mov: 5, crit: 1, skill: 0.1 },
+    포트리스: { hp: 5, attack: 0.08, accuracy: -0.1, speed: -0.18, defense: 0.92, mov: 3, crit: 0, skill: 0.02 },
+    아크랜서: { hp: 4, attack: 0.34, accuracy: 0.12, speed: 0.04, defense: 0.66, mov: 5, crit: 2, skill: 0.12 },
+    이지스로드: { hp: 6, attack: 0.1, accuracy: -0.08, speed: -0.2, defense: 1.04, mov: 3, crit: 0, skill: 0.02 },
+    레인저: { hp: 0, attack: 0.16, accuracy: 0.78, speed: 0.48, defense: -0.08, mov: 5, crit: 4, skill: 0.2 },
+    트래퍼: { hp: 0, attack: 0.12, accuracy: 0.72, speed: 0.44, defense: -0.08, mov: 5, crit: 4, skill: 0.2 },
+    호크아이: { hp: 1, attack: 0.24, accuracy: 0.96, speed: 0.56, defense: -0.04, mov: 5, crit: 6, skill: 0.28 },
+    그림트래퍼: { hp: 1, attack: 0.22, accuracy: 0.84, speed: 0.52, defense: -0.04, mov: 5, crit: 5, skill: 0.24 },
     천궁성: { hp: 2, attack: 0.3, accuracy: 1.02, speed: 0.6, defense: 0, mov: 6, crit: 7, skill: 0.32 },
     나이트메어헌트: { hp: 2, attack: 0.28, accuracy: 0.9, speed: 0.58, defense: -0.02, mov: 6, crit: 6, skill: 0.28 },
-    버서커: { hp: 3, attack: 0.98, accuracy: -0.3, speed: -0.12, defense: 0.18, mov: 5, crit: 2, skill: -0.08 },
-    워브레이커: { hp: 3, attack: 0.88, accuracy: -0.18, speed: -0.08, defense: 0.24, mov: 5, crit: 1, skill: -0.04 },
-    데스브링어: { hp: 4, attack: 1.06, accuracy: -0.26, speed: -0.1, defense: 0.24, mov: 5, crit: 3, skill: -0.06 },
-    월드이터: { hp: 5, attack: 1.14, accuracy: -0.22, speed: -0.06, defense: 0.28, mov: 5, crit: 3, skill: -0.02 },
-    아크메이지: { hp: 0, attack: -0.02, accuracy: 0.64, speed: 0.24, defense: -0.04, mov: 5, crit: 4, skill: 1.32 },
-    워록: { hp: 0, attack: 0.08, accuracy: 0.54, speed: 0.28, defense: -0.08, mov: 5, crit: 5, skill: 1.26 },
-    대현자: { hp: 1, attack: 0.02, accuracy: 0.68, speed: 0.26, defense: 0.02, mov: 5, crit: 5, skill: 1.42 },
-    보이드로드: { hp: 1, attack: 0.14, accuracy: 0.58, speed: 0.32, defense: -0.02, mov: 5, crit: 6, skill: 1.38 },
-    오라클: { hp: 0, attack: -0.02, accuracy: 0.48, speed: 0.12, defense: -0.04, mov: 5, crit: 2, skill: 0.92 },
-    세라핌: { hp: 1, attack: 0, accuracy: 0.44, speed: 0.16, defense: 0, mov: 5, crit: 2, skill: 1.02 },
-    인퀴지터: { hp: 1, attack: 0.12, accuracy: 0.52, speed: 0.16, defense: -0.02, mov: 5, crit: 3, skill: 0.98 },
-    성녀: { hp: 2, attack: 0.04, accuracy: 0.48, speed: 0.18, defense: 0.04, mov: 5, crit: 3, skill: 1.1 },
-    아크저지: { hp: 2, attack: 0.18, accuracy: 0.56, speed: 0.2, defense: 0, mov: 5, crit: 4, skill: 1.06 }
+    버서커: { hp: 3, attack: 0.98, accuracy: -0.3, speed: -0.12, defense: 0.18, mov: 4, crit: 2, skill: -0.08 },
+    워브레이커: { hp: 3, attack: 0.88, accuracy: -0.18, speed: -0.08, defense: 0.24, mov: 4, crit: 1, skill: -0.04 },
+    데스브링어: { hp: 4, attack: 1.06, accuracy: -0.26, speed: -0.1, defense: 0.24, mov: 4, crit: 3, skill: -0.06 },
+    월드이터: { hp: 5, attack: 1.14, accuracy: -0.22, speed: -0.06, defense: 0.28, mov: 4, crit: 3, skill: -0.02 },
+    아크메이지: { hp: 0, attack: -0.02, accuracy: 0.64, speed: 0.24, defense: -0.04, mov: 4, crit: 4, skill: 1.32 },
+    워록: { hp: 0, attack: 0.08, accuracy: 0.54, speed: 0.28, defense: -0.08, mov: 4, crit: 5, skill: 1.26 },
+    대현자: { hp: 1, attack: 0.02, accuracy: 0.68, speed: 0.26, defense: 0.02, mov: 4, crit: 5, skill: 1.42 },
+    보이드로드: { hp: 1, attack: 0.14, accuracy: 0.58, speed: 0.32, defense: -0.02, mov: 4, crit: 6, skill: 1.38 },
+    오라클: { hp: 0, attack: -0.02, accuracy: 0.48, speed: 0.12, defense: -0.04, mov: 4, crit: 2, skill: 0.92 },
+    세라핌: { hp: 1, attack: 0, accuracy: 0.44, speed: 0.16, defense: 0, mov: 4, crit: 2, skill: 1.02 },
+    인퀴지터: { hp: 1, attack: 0.12, accuracy: 0.52, speed: 0.16, defense: -0.02, mov: 4, crit: 3, skill: 0.98 },
+    성녀: { hp: 2, attack: 0.04, accuracy: 0.48, speed: 0.18, defense: 0.04, mov: 4, crit: 3, skill: 1.1 },
+    아크저지: { hp: 2, attack: 0.18, accuracy: 0.56, speed: 0.2, defense: 0, mov: 4, crit: 4, skill: 1.06 }
   });
 
   function clamp(value, min, max) {
@@ -273,8 +273,8 @@
     const defense = Math.round(primary.vit * 0.86 + primary.str * 0.26 + primary.int * 0.14 + modifiers.defense);
     const move = clamp(
       Math.round(modifiers.mov + Math.floor((primary.dex + primary.luk) / 30)),
-      4,
-      8
+      3,
+      6
     );
     const hiddenStats = {
       physicalAttack: Math.round(4 + primary.str * 1.35 + primary.dex * 0.15 + primary.vit * 0.25 + modifiers.attack),
