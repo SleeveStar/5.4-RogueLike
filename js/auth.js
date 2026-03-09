@@ -1124,6 +1124,10 @@
     const equippedSlotIndex = detailedSkill.skillType === "active"
       ? (unit.equippedActiveSkillIds || []).indexOf(detailedSkill.id)
       : -1;
+    const formulaLines = performance && performance.formulaLines ? performance.formulaLines.slice(0, 2) : [];
+    const formulaOverflowCount = performance && performance.formulaLines
+      ? Math.max(0, performance.formulaLines.length - formulaLines.length)
+      : 0;
 
     return [
       `<div class="item-title-row"><strong class="card-title">${detailedSkill.name}</strong><span class="card-subtitle">${detailedSkill.skillType === "active" ? "ACTIVE" : "PASSIVE"}</span></div>`,
@@ -1134,15 +1138,44 @@
       `    <span class="meta-pill">개방 Lv.${detailedSkill.unlockLevel}</span>`,
       detailedSkill.sourceClassName && detailedSkill.sourceClassName !== "special" ? `    <span class="meta-pill is-muted">${detailedSkill.sourceClassName}</span>` : "",
       "  </div>",
-      `  <p>${detailedSkill.description}</p>`,
-      detailedSkill.skillType === "active" ? `  <p>대상: ${getSkillTargetLabel(detailedSkill)} / 사거리: ${getSkillRangeLabel(detailedSkill)} / 재사용 ${detailedSkill.cooldown}턴</p>` : "",
-      detailedSkill.skillType === "active" ? `  <p>지형 조건: ${getSkillTerrainLabel(detailedSkill)}</p>` : "",
-      performance ? `  <p>현재 성능: ${performance.currentSummary}</p>` : "",
-      performance ? performance.formulaLines.map((line) => `  <p>${line}</p>`).join("") : "",
-      detailedSkill.canLevelUp ? "  <p>현재 레벨 기준으로 더 강화할 수 있습니다.</p>" : "",
-      detailedSkill.skillType === "active" && !detailedSkill.canLevelUp && detailedSkill.skillLevel >= detailedSkill.maxSkillLevel
-        ? `  <p>현재 레벨에서 가능한 최대 스킬 레벨입니다.</p>`
-        : ""
+      '  <div class="detail-metric-grid skill-detail-metrics">',
+      detailedSkill.skillType === "active"
+        ? [
+          buildDetailKeyValue("대상", getSkillTargetLabel(detailedSkill), "cyan"),
+          buildDetailKeyValue("사거리", getSkillRangeLabel(detailedSkill), "violet"),
+          buildDetailKeyValue("재사용", `${detailedSkill.cooldown}턴`, "gold"),
+          buildDetailKeyValue("지형", getSkillTerrainLabel(detailedSkill), "muted")
+        ].join("")
+        : [
+          buildDetailKeyValue("분류", "상시 패시브", "gold"),
+          buildDetailKeyValue("출처", detailedSkill.sourceClassName === "special" ? "특수" : (detailedSkill.sourceClassName || "공통"), "muted"),
+          buildDetailKeyValue("개방", `Lv.${detailedSkill.unlockLevel}`, "cyan"),
+          buildDetailKeyValue("상태", "항상 적용", "violet")
+        ].join(""),
+      "  </div>",
+      '  <div class="skill-detail-grid">',
+      '    <section class="skill-detail-pane">',
+      '      <div class="detail-feature-title">운용 개요</div>',
+      `      <p class="skill-detail-copy">${detailedSkill.description}</p>`,
+      detailedSkill.skillType === "active"
+        ? `      <p class="skill-detail-note">장착 상태: ${equippedSlotIndex >= 0 ? `${getSkillSlotLabel(equippedSlotIndex)} 배치` : "미장착"}</p>`
+        : `      <p class="skill-detail-note">${detailedSkill.sourceClassName === "special" ? "특수 패시브로 자동 적용됩니다." : "습득 시 자동 적용되는 지속 효과입니다."}</p>`,
+      "    </section>",
+      '    <section class="skill-detail-pane">',
+      '      <div class="detail-feature-title">현재 성능</div>',
+      performance
+        ? `      <p class="skill-detail-copy skill-detail-current">${performance.currentSummary}</p>`
+        : '      <p class="skill-detail-copy">현재 수치가 필요한 능동 효과는 없습니다.</p>',
+      formulaLines.length
+        ? `      <div class="skill-detail-note-list">${formulaLines.map((line) => `<p class="skill-detail-note">${line}</p>`).join("")}${formulaOverflowCount ? `<p class="skill-detail-note">추가 계산식 ${formulaOverflowCount}개</p>` : ""}</div>`
+        : "",
+      detailedSkill.canLevelUp
+        ? '      <p class="skill-detail-note is-upgrade">현재 레벨 기준으로 더 강화할 수 있습니다.</p>'
+        : (detailedSkill.skillType === "active" && detailedSkill.skillLevel >= detailedSkill.maxSkillLevel
+          ? '      <p class="skill-detail-note">현재 레벨에서 가능한 최대 스킬 레벨입니다.</p>'
+          : ""),
+      "    </section>",
+      "  </div>"
     ].filter(Boolean).join("");
   }
 
@@ -2892,7 +2925,7 @@
 
     host.innerHTML = [
       '<div class="modal-backdrop menu-modal-backdrop">',
-      '  <div class="modal-panel modal-panel-wide">',
+      '  <div class="modal-panel modal-panel-wide skill-modal-panel">',
       '    <button id="menu-skill-modal-close-button" class="ghost-button modal-close-button" type="button">닫기</button>',
       '    <div class="modal-body skill-modal-body">',
       `      <div class="item-title-row equipment-modal-header"><strong class="card-title">${unit.name} 스킬 관리</strong><span class="card-subtitle">${unit.className} / 액티브 최대 ${SkillsService.MAX_EQUIPPED_ACTIVE_SKILLS}개 / 남은 KP ${unit.skillPoints || 0}</span></div>`,
