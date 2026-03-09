@@ -962,6 +962,12 @@ body.use-floating-stat-tooltip .stat-tooltip-pill::after {
   background: linear-gradient(180deg, rgba(17, 27, 41, 0.94), rgba(10, 16, 26, 0.98));
 }
 
+.sortie-slot-heading {
+  display: grid;
+  gap: 2px;
+  align-content: start;
+}
+
 .sortie-slot-card.is-empty {
   border-style: dashed;
   opacity: 0.88;
@@ -979,10 +985,13 @@ body.use-floating-stat-tooltip .stat-tooltip-pill::after {
 
 .sortie-slot-card .card-title {
   font-size: 0.82rem;
+  line-height: 1.06;
 }
 
 .sortie-slot-card .card-subtitle {
+  display: block;
   font-size: 0.6rem;
+  line-height: 1.1;
 }
 
 .sortie-slot-card .roster-meta {

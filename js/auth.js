@@ -14,7 +14,7 @@
   const SHOP_PAGE_SIZE = 3;
   const INVENTORY_PAGE_SIZE = 4;
   const EQUIPMENT_MODAL_PAGE_SIZE = 4;
-  const SORTIE_MANAGER_PAGE_SIZE = 5;
+  const SORTIE_MANAGER_PAGE_SIZE = 4;
 
   const appState = {
     currentUserId: null,
@@ -792,6 +792,15 @@
     const averageLevel = selectedUnits.length
       ? (selectedUnits.reduce((sum, unit) => sum + Number(unit.level || 0), 0) / selectedUnits.length).toFixed(1)
       : "0.0";
+    const rankOrder = TavernService.GUILD_RANK_ORDER || ["D", "C", "B", "A", "S", "SS", "SSS"];
+    const highestRank = selectedUnits.reduce((best, unit) => {
+      const unitRank = unit.guildRank || "D";
+      return rankOrder.indexOf(unitRank) > rankOrder.indexOf(best) ? unitRank : best;
+    }, "D");
+    const filledRatio = `${selectedUnits.length}/${MAX_SORTIE_SIZE}`;
+    const classSpread = selectedUnits.length
+      ? Array.from(new Set(selectedUnits.map((unit) => unit.className))).slice(0, 3).join(" / ")
+      : "미편성";
     const totalPages = Math.max(1, Math.ceil(sortedRoster.length / SORTIE_MANAGER_PAGE_SIZE));
     const currentPage = Math.max(1, Math.min(totalPages, Number(appState.sortieManagerView.page || 1)));
     const pageStart = (currentPage - 1) * SORTIE_MANAGER_PAGE_SIZE;
@@ -831,7 +840,10 @@
 
         return [
           `<article class="${classes.join(" ")}">`,
-          `  <div class="item-title-row"><strong class="card-title">${unit ? unit.name : `${index + 1}번 슬롯`}</strong><span class="card-subtitle">${unit ? `${index + 1}번 슬롯 · ${unit.className}` : "EMPTY"}</span></div>`,
+          '  <div class="sortie-slot-heading">',
+          `    <strong class="card-title">${unit ? unit.name : `${index + 1}번 슬롯`}</strong>`,
+          `    <span class="card-subtitle">${unit ? `${index + 1}번 슬롯 · ${unit.className}` : "EMPTY"}</span>`,
+          "  </div>",
           unit
             ? `  <div class="roster-meta"><span class="meta-pill rank-${String(unit.guildRank || "D").toLowerCase().replace("+", "plus")}">${formatRankBadge(unit.guildRank || "D")}</span><span class="meta-pill">Lv.${unit.level}</span><span class="meta-pill ${appState.saveData.leaderUnitId === unit.id ? "is-gold" : "is-muted"}">${appState.saveData.leaderUnitId === unit.id ? "리더" : "일반"}</span><span class="meta-pill ${weapon ? "is-cyan" : "is-muted"}">${weapon ? `주무기 ${weapon.name}` : "주무기 없음"}</span></div>`
             : '  <div class="roster-meta"><span class="meta-pill is-muted">비어 있음</span></div>',
@@ -852,9 +864,12 @@
       '        <div class="inventory-meta">',
       `          <span class="meta-pill ${leaderUnit ? `rank-${String(leaderUnit.guildRank || "D").toLowerCase().replace("+", "plus")}` : "is-muted"}">${leaderUnit ? `리더 ${formatRankBadge(leaderUnit.guildRank || "D")}` : "리더 없음"}</span>`,
       `          <span class="meta-pill is-cyan">평균 Lv.${averageLevel}</span>`,
+      `          <span class="meta-pill is-gold">최고 ${formatRankBadge(highestRank)}</span>`,
+      `          <span class="meta-pill ${selectedUnits.length === MAX_SORTIE_SIZE ? "is-cyan" : "is-muted"}">편성률 ${filledRatio}</span>`,
       `          <span class="meta-pill ${emptySlotCount ? "is-gold" : "is-muted"}">빈 슬롯 ${emptySlotCount}</span>`,
       "        </div>",
       `        <p>${leaderUnit ? `${leaderUnit.name}이(가) 현재 작전 리더입니다.` : "리더가 아직 지정되지 않았습니다."}</p>`,
+      `        <p>핵심 병종: ${classSpread}</p>`,
       `        <p>${appState.quickSwapSlotIndex !== null
         ? `${appState.quickSwapSlotIndex + 1}번 슬롯이 교체 대기 중입니다. 우측 후보 중 원하는 모험가를 눌러 바로 배치하세요.`
         : emptySlotCount
