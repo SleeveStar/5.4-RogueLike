@@ -1273,6 +1273,37 @@
     ].filter(Boolean).join("");
   }
 
+  function buildCompactEquipmentItemDetailMarkup(item) {
+    const rarity = InventoryService.getRarityMeta(item.rarity);
+    const ownerText = item.equippedBy
+      ? `${getUnitNameById(item.equippedBy)} / ${InventoryService.getSlotLabel(item.equippedSlotKey || InventoryService.getCompatibleSlotKeys(item)[0] || item.slot)}`
+      : "미장착";
+    const setDefinition = item.setId ? InventoryService.getSetDefinition(item.setId) : null;
+    const statSummary = InventoryService.formatStatBonusLine(item);
+
+    return [
+      `<div class="item-title-row"><strong class="card-title">${item.name}</strong><span class="card-subtitle">${rarity.label}</span></div>`,
+      '  <div class="inventory-meta detail-hero-meta">',
+      `    <span class="meta-pill">${InventoryService.getTypeLabel(item.type || item.slot)}</span>`,
+      `    <span class="meta-pill ${item.equippedBy ? "is-cyan" : "is-muted"}">${ownerText}</span>`,
+      setDefinition ? `    <span class="meta-pill is-gold">${setDefinition.name}</span>` : "",
+      "  </div>",
+      `  <div class="detail-metric-grid compact-equipment-detail-grid">${buildItemMetricGrid(item, InventoryService.isEquipment(item) ? [
+        { label: "희귀도", value: rarity.label, tone: "gold" }
+      ] : [])}</div>`,
+      statSummary !== "추가 능력치 없음"
+        ? buildItemFeatureSection(
+          "능력치",
+          `<div class="detail-token-list">${statSummary.split(" / ").map((entry) => `<span class="detail-token is-stat compact-loadout-token">${entry}</span>`).join("")}</div>`,
+          "is-stats"
+        )
+        : "",
+      item.affixes && item.affixes.length
+        ? buildItemFeatureSection("옵션", buildAffixListMarkup(item), "is-affix")
+        : ""
+    ].filter(Boolean).join("");
+  }
+
   function buildEquipTargetPickerMarkup(item) {
     const roster = (appState.saveData && appState.saveData.roster) || [];
     const compatibleTypeLabel = InventoryService.getTypeLabel(item.type || item.slot);
@@ -2447,7 +2478,7 @@
     }
 
     if (item) {
-      return buildInventoryItemDetailMarkup(item);
+      return buildCompactEquipmentItemDetailMarkup(item);
     }
 
     if (slotKey) {
@@ -3478,8 +3509,13 @@
         classes.push("is-in-progress");
       }
 
+      if (stage.cleared) {
+        classes.push("is-cleared");
+      }
+
       return [
         `<article class="${classes.join(" ")} interactive-summary-card" data-open-detail="stage" data-detail-id="${stage.id}">`,
+        stage.cleared ? '  <div class="stage-clear-badge">완료</div>' : "",
         `  <div class="item-title-row"><strong>${stage.order}. ${stage.name}</strong><span>${stage.available ? "개방" : "잠김"}</span></div>`,
         '  <div class="inventory-meta">',
         `    <span class="meta-pill ${stage.category === "main" ? "is-gold" : "is-cyan"}">${stage.category === "main" ? "메인 콘텐츠" : "튜토리얼"}</span>`,

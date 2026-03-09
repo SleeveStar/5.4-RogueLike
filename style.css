@@ -1296,6 +1296,34 @@ body.use-floating-stat-tooltip .stat-tooltip-pill::after {
   box-shadow: var(--shadow-glow-gold);
 }
 
+.stage-card.is-cleared {
+  border-color: rgba(103, 215, 232, 0.28);
+  box-shadow: 0 0 0 1px rgba(103, 215, 232, 0.1);
+}
+
+.stage-card.is-cleared::after {
+  background: linear-gradient(180deg, rgba(103, 215, 232, 0.92), rgba(103, 215, 232, 0.18));
+}
+
+.stage-clear-badge {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(103, 215, 232, 0.28);
+  background: rgba(103, 215, 232, 0.14);
+  color: #9feeff;
+  font-size: 0.7rem;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
 .stage-card.locked,
 .reward-card.locked {
   opacity: 0.62;
