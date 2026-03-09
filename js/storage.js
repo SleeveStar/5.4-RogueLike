@@ -45,6 +45,8 @@
       refreshBlock: null,
       lastRefreshAt: null,
       nextRefreshAt: null,
+      manualRefreshDate: null,
+      manualRefreshUsed: 0,
       lineup: []
     },
     selectedPartyIds: ["hero-1", "ally-2", "ally-3"],

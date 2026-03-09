@@ -294,6 +294,53 @@
     return `${hours}시간 ${minutes}분`;
   }
 
+  function renderDetailHeaderActions() {
+    const headerActions = getElement("menu-detail-header-actions");
+    const inventoryTabs = headerActions ? headerActions.querySelector(".inventory-category-tabs") : null;
+    const tavernActions = getElement("tavern-header-actions");
+
+    if (!headerActions) {
+      return;
+    }
+
+    const isInventoryPanel = appState.activeMainPanel === "inventory";
+    const isTavernPanel = appState.activeMainPanel === "tavern";
+
+    headerActions.classList.toggle("hidden", !isInventoryPanel && !isTavernPanel);
+
+    if (inventoryTabs) {
+      inventoryTabs.classList.toggle("hidden", !isInventoryPanel);
+    }
+
+    if (tavernActions) {
+      tavernActions.classList.toggle("hidden", !isTavernPanel);
+    }
+
+    if (!isTavernPanel || !appState.saveData || !TavernService) {
+      return;
+    }
+
+    const manualState = TavernService.getManualRefreshState(appState.saveData);
+    const refreshButton = getElement("tavern-manual-refresh-button");
+    const refreshCount = getElement("tavern-manual-refresh-count");
+    const refreshTimer = getElement("tavern-manual-refresh-timer");
+
+    if (refreshButton) {
+      refreshButton.disabled = manualState.exhausted;
+      refreshButton.textContent = manualState.exhausted ? "새로고침 소진" : "주점 새로고침";
+    }
+
+    if (refreshCount) {
+      refreshCount.textContent = `${manualState.remaining}/${manualState.limit}`;
+    }
+
+    if (refreshTimer) {
+      refreshTimer.textContent = manualState.exhausted
+        ? `${formatRemainingRefresh(manualState.resetAt)} 뒤 재활성화`
+        : `오늘 남은 수동 교체 ${manualState.remaining}회`;
+    }
+  }
+
   function syncTavernState(showRefreshToast) {
     if (!appState.saveData || !TavernService) {
       return null;
@@ -494,10 +541,7 @@
     const meta = MAIN_PANEL_META[appState.activeMainPanel];
     getElement("menu-detail-eyebrow").textContent = meta.eyebrow;
     getElement("menu-detail-title").textContent = meta.title;
-    const headerActions = getElement("menu-detail-header-actions");
-    if (headerActions) {
-      headerActions.classList.toggle("hidden", appState.activeMainPanel !== "inventory");
-    }
+    renderDetailHeaderActions();
 
     const sortieStrip = getElement("menu-sortie-strip");
     if (sortieStrip) {
@@ -3552,18 +3596,24 @@
     }
 
     const tavern = appState.saveData.tavern;
+    const manualState = TavernService.getManualRefreshState(appState.saveData);
     const nextRefreshText = tavern && tavern.nextRefreshAt
       ? `${new Date(tavern.nextRefreshAt).toLocaleString("ko-KR")} (${formatRemainingRefresh(tavern.nextRefreshAt)} 후)`
       : "알 수 없음";
 
     if (statusTarget) {
       statusTarget.innerHTML = [
-        `<p class="status-line is-gold">보유 골드: ${appState.saveData.partyGold}G</p>`,
-        `<p class="status-line">파티 리더: ${getLeaderUnit(appState.saveData) ? getLeaderUnit(appState.saveData).name : "없음"}</p>`,
-        `<p class="status-line">현재 명단: ${Math.min(4, tavern && tavern.lineup ? tavern.lineup.length : 0)}명</p>`,
-        `<p class="status-line">다음 교대: ${nextRefreshText}</p>`
+        '<div class="tavern-status-grid">',
+        `  <p class="status-line is-gold">보유 골드: ${appState.saveData.partyGold}G</p>`,
+        `  <p class="status-line">파티 리더: ${getLeaderUnit(appState.saveData) ? getLeaderUnit(appState.saveData).name : "없음"}</p>`,
+        `  <p class="status-line">현재 명단: ${Math.min(4, tavern && tavern.lineup ? tavern.lineup.length : 0)}명</p>`,
+        `  <p class="status-line">길드 대기열: ${Math.min(4, tavern && tavern.lineup ? tavern.lineup.filter((candidate) => !candidate.recruitedAt).length : 0)}명</p>`,
+        `  <p class="status-line tavern-status-wide">다음 교대: ${nextRefreshText}</p>`,
+        '</div>'
       ].join("");
     }
+
+    renderDetailHeaderActions();
 
     const lineup = ((tavern && tavern.lineup) || []).slice(0, 4);
 
@@ -3578,9 +3628,10 @@
       const recruited = !!candidate.recruitedAt;
       const signaturePassives = getSignaturePassiveDefinitions(unit, candidate);
       const potentialMeta = StatsService.getPotentialMeta(unit);
+      const isSupreme = candidate.guildRank === "SSS";
 
       return [
-        `<article class="shop-card tavern-card rarity-${candidate.rarity} interactive-summary-card" data-open-detail="tavern" data-detail-id="${candidate.id}">`,
+        `<article class="shop-card tavern-card rarity-${candidate.rarity} ${isSupreme ? "is-supreme-candidate" : ""} interactive-summary-card" data-open-detail="tavern" data-detail-id="${candidate.id}">`,
         `  <div class="item-title-row"><strong class="card-title">${unit.name}</strong><span class="card-subtitle">${unit.className}</span></div>`,
         '  <div class="inventory-meta">',
         `    <span class="meta-pill ${rankClass}">${candidate.guildRank}</span>`,
@@ -4134,6 +4185,22 @@
         setInventoryCategory(button.dataset.inventoryTab);
         renderInventoryList();
       });
+    });
+    getElement("tavern-manual-refresh-button").addEventListener("click", () => {
+      if (!appState.saveData || !TavernService) {
+        return;
+      }
+
+      try {
+        const refreshResult = TavernService.useManualRefresh(appState.saveData);
+        appState.saveData.tavern = refreshResult.tavern;
+        renderDetailHeaderActions();
+        renderTavern();
+        persistSession(appState.saveData, appState.settings);
+        showToast(`주점 명단을 수동으로 새로 교체했습니다. (${refreshResult.manualState.remaining}/${refreshResult.manualState.limit})`);
+      } catch (error) {
+        showToast(error.message, true);
+      }
     });
     getElement("menu-inventory-sort").addEventListener("change", (event) => {
       appState.inventoryView.sort = event.target.value;

@@ -9,6 +9,7 @@
   const REFRESH_INTERVAL_MS = 3 * 60 * 60 * 1000;
   const LINEUP_SIZE = 4;
   const MAX_SORTIE_SIZE = 5;
+  const DAILY_MANUAL_REFRESH_LIMIT = 5;
 
   const GUILD_RANK_META = {
     D: {
@@ -364,14 +365,38 @@
     return getRefreshWindowStart(block + 1);
   }
 
+  function getLocalDateKey(dateValue) {
+    const currentDate = dateValue ? new Date(dateValue) : new Date();
+    const year = currentDate.getFullYear();
+    const month = String(currentDate.getMonth() + 1).padStart(2, "0");
+    const day = String(currentDate.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  }
+
+  function getNextDailyResetTimestamp() {
+    const nextReset = new Date();
+    nextReset.setHours(24, 0, 0, 0);
+    return nextReset.getTime();
+  }
+
   function ensureTavernShape(saveData) {
     saveData.tavern = Object.assign({
       refreshBlock: null,
       lastRefreshAt: null,
       nextRefreshAt: null,
-      lineup: []
+      lineup: [],
+      manualRefreshDate: null,
+      manualRefreshUsed: 0
     }, clone(saveData.tavern || {}));
     saveData.tavern.lineup = clone(saveData.tavern.lineup || []);
+    saveData.tavern.manualRefreshDate = saveData.tavern.manualRefreshDate || getLocalDateKey();
+    saveData.tavern.manualRefreshUsed = Math.max(0, Math.floor(Number(saveData.tavern.manualRefreshUsed || 0)));
+
+    if (saveData.tavern.manualRefreshDate !== getLocalDateKey()) {
+      saveData.tavern.manualRefreshDate = getLocalDateKey();
+      saveData.tavern.manualRefreshUsed = 0;
+    }
+
     return saveData.tavern;
   }
 
@@ -676,6 +701,38 @@
     };
   }
 
+  function getManualRefreshState(saveData) {
+    const tavern = ensureTavernShape(saveData);
+    const used = Math.min(DAILY_MANUAL_REFRESH_LIMIT, Number(tavern.manualRefreshUsed || 0));
+    const remaining = Math.max(0, DAILY_MANUAL_REFRESH_LIMIT - used);
+
+    return {
+      used,
+      remaining,
+      limit: DAILY_MANUAL_REFRESH_LIMIT,
+      exhausted: remaining <= 0,
+      resetAt: new Date(getNextDailyResetTimestamp()).toISOString()
+    };
+  }
+
+  function useManualRefresh(saveData) {
+    const tavern = ensureTavernShape(saveData);
+    const used = Math.min(DAILY_MANUAL_REFRESH_LIMIT, Number(tavern.manualRefreshUsed || 0));
+    const remaining = Math.max(0, DAILY_MANUAL_REFRESH_LIMIT - used);
+
+    if (remaining <= 0) {
+      throw new Error("오늘 사용할 수 있는 주점 새로고침을 모두 소진했습니다.");
+    }
+
+    tavern.manualRefreshUsed = Math.min(DAILY_MANUAL_REFRESH_LIMIT, used + 1);
+    refreshLineup(saveData);
+
+    return {
+      tavern: saveData.tavern,
+      manualState: getManualRefreshState(saveData)
+    };
+  }
+
   function recruitAdventurer(saveData, adventurerId) {
     const tavern = ensureTavernShape(saveData);
     const candidate = (tavern.lineup || []).find((entry) => entry.id === adventurerId);
@@ -866,9 +923,12 @@
 
   global.TavernService = {
     REFRESH_INTERVAL_MS,
+    DAILY_MANUAL_REFRESH_LIMIT,
     GUILD_RANK_META,
     GUILD_RANK_ORDER,
     syncTavern,
+    getManualRefreshState,
+    useManualRefresh,
     recruitAdventurer,
     trainUnit,
     promoteGuildRank,

@@ -561,6 +561,29 @@ body.use-floating-stat-tooltip .stat-tooltip-pill::after {
   margin-bottom: 0;
 }
 
+.tavern-header-actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.tavern-header-refresh-meta {
+  display: grid;
+  gap: 2px;
+  text-align: right;
+}
+
+.tavern-header-refresh-meta strong {
+  color: var(--text-strong);
+  font-size: 0.95rem;
+}
+
+.tavern-header-refresh-meta span {
+  color: var(--text-muted);
+  font-size: 0.72rem;
+}
+
 .inline-eyebrow-row {
   display: inline-flex;
   align-items: center;
@@ -1121,6 +1144,26 @@ body.use-floating-stat-tooltip .stat-tooltip-pill::after {
 .shop-status-card,
 .tavern-status-card {
   min-height: 120px;
+}
+
+.tavern-status-card {
+  min-height: 88px;
+  padding: 10px 12px;
+}
+
+.tavern-status-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px 18px;
+  align-items: start;
+}
+
+.tavern-status-grid .status-line {
+  margin: 0;
+}
+
+.tavern-status-wide {
+  grid-column: 1 / -1;
 }
 
 .stage-focus-card {
@@ -1984,6 +2027,44 @@ body.use-floating-stat-tooltip .stat-tooltip-pill::after {
 
 .tavern-card .inventory-meta {
   align-items: center;
+}
+
+.tavern-card.is-supreme-candidate {
+  position: relative;
+  overflow: hidden;
+  border-color: rgba(191, 252, 255, 0.55);
+  background:
+    radial-gradient(circle at top, rgba(191, 252, 255, 0.22), transparent 46%),
+    linear-gradient(145deg, rgba(8, 20, 30, 0.98), rgba(20, 35, 46, 0.95));
+  box-shadow:
+    0 0 0 1px rgba(191, 252, 255, 0.08),
+    0 18px 34px rgba(10, 28, 40, 0.34),
+    0 0 26px rgba(191, 252, 255, 0.18);
+}
+
+.tavern-card.is-supreme-candidate::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(115deg, transparent 18%, rgba(191, 252, 255, 0.16) 48%, transparent 76%);
+  transform: translateX(-70%);
+  animation: supremeSweep 4.8s linear infinite;
+  pointer-events: none;
+}
+
+.tavern-card.is-supreme-candidate .card-title {
+  color: #effdff;
+  text-shadow: 0 0 14px rgba(191, 252, 255, 0.22);
+}
+
+@keyframes supremeSweep {
+  0% {
+    transform: translateX(-75%);
+  }
+
+  100% {
+    transform: translateX(135%);
+  }
 }
 
 .inventory-meta-action {
