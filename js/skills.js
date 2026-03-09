@@ -1326,6 +1326,18 @@
       defenderEffect() {
         return { defenseBonus: 2, avoidBonus: 6 };
       }
+    },
+    otherworldly_existence: {
+      id: "otherworldly_existence",
+      name: "이세계의 존재",
+      description: "선공 시 명중 +10, 피해 +3 / 방어 시 방어 +2, 회피 +8",
+      unlockLevel: 1,
+      attackerEffect(context) {
+        return context.isInitiator ? { hitBonus: 10, attackPowerBonus: 3 } : null;
+      },
+      defenderEffect() {
+        return { defenseBonus: 2, avoidBonus: 8 };
+      }
     }
   });
 

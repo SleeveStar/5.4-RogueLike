@@ -20,7 +20,7 @@
       maxLevel: 1,
       passiveSkills: 0,
       activeSkills: 0,
-      signaturePassiveChance: 0,
+      signaturePassiveChance: 0.03,
       partySlots: 1,
       classPool: ["검사", "브리건드", "헌터", "솔저", "클레릭", "메이지"],
       bonusStats: {}
@@ -34,7 +34,7 @@
       maxLevel: 2,
       passiveSkills: 1,
       activeSkills: 0,
-      signaturePassiveChance: 0.04,
+      signaturePassiveChance: 0.07,
       partySlots: 1,
       classPool: ["검사", "브리건드", "헌터", "솔저", "랜서", "아처", "클레릭", "메이지"],
       bonusStats: { maxHp: 1 }
@@ -48,7 +48,7 @@
       maxLevel: 3,
       passiveSkills: 1,
       activeSkills: 1,
-      signaturePassiveChance: 0.12,
+      signaturePassiveChance: 0.16,
       partySlots: 2,
       classPool: ["검사", "브리건드", "헌터", "솔저", "랜서", "아처", "클레릭", "메이지"],
       bonusStats: { maxHp: 1, str: 1, skl: 1 }
@@ -62,7 +62,7 @@
       maxLevel: 4,
       passiveSkills: 2,
       activeSkills: 1,
-      signaturePassiveChance: 0.28,
+      signaturePassiveChance: 0.32,
       partySlots: 3,
       classPool: ["로드", "랜서", "아처", "검사", "브리건드", "헌터", "솔저", "클레릭", "메이지"],
       bonusStats: { maxHp: 2, str: 1, skl: 1, spd: 1, def: 1 }
@@ -76,7 +76,7 @@
       maxLevel: 5,
       passiveSkills: 2,
       activeSkills: 2,
-      signaturePassiveChance: 0.56,
+      signaturePassiveChance: 0.58,
       partySlots: 4,
       classPool: ["로드", "랜서", "아처", "하이로드", "팔라딘", "스나이퍼", "클레릭", "비숍", "위저드", "소서러"],
       bonusStats: { maxHp: 3, str: 2, skl: 2, spd: 1, def: 1 }
@@ -90,7 +90,7 @@
       maxLevel: 6,
       passiveSkills: 3,
       activeSkills: 2,
-      signaturePassiveChance: 0.82,
+      signaturePassiveChance: 0.84,
       partySlots: 5,
       classPool: ["하이로드", "팔라딘", "스나이퍼", "비숍", "위저드", "소서러"],
       bonusStats: { maxHp: 4, str: 2, skl: 2, spd: 2, def: 2, mov: 1 }
@@ -104,7 +104,7 @@
       maxLevel: 8,
       passiveSkills: 4,
       activeSkills: 3,
-      signaturePassiveChance: 0.96,
+      signaturePassiveChance: 0.97,
       partySlots: 5,
       classPool: ["하이로드", "팔라딘", "스나이퍼", "비숍", "위저드", "소서러"],
       bonusStats: { maxHp: 6, str: 3, skl: 3, spd: 3, def: 3, mov: 1 }
@@ -246,42 +246,43 @@
   };
 
   const SIGNATURE_PASSIVE_POOL_BY_CLASS = {
-    로드: ["sovereign_drive", "warlord_presence"],
-    하이로드: ["sovereign_drive", "imperial_banner"],
+    로드: ["sovereign_drive", "warlord_presence", "vanguard", "royal_drive", "highland_command", "regal_aura", "guardian_command"],
+    하이로드: ["sovereign_drive", "imperial_banner", "regal_aura", "guardian_command", "crown_highground", "vanguard", "royal_drive", "highland_command"],
     블레이드로드: ["blade_discipline", "sovereign_drive"],
-    검사: ["blade_discipline"],
+    검사: ["blade_discipline", "vanguard", "warlord_presence", "fortress_heart", "royal_drive", "duel_focus", "woodland_step"],
     소드마스터: ["blade_discipline"],
     엠퍼러: ["imperial_banner", "sovereign_drive"],
     검성: ["blade_discipline", "sovereign_drive"],
     오버로드: ["imperial_banner", "warlord_presence"],
     스타블레이드: ["blade_discipline", "nightmare_trail"],
-    랜서: ["guardian_oath"],
-    팔라딘: ["guardian_oath", "holy_charge"],
+    랜서: ["guardian_oath", "brace", "steady_point", "ridge_guard", "fortress_heart", "holy_charge", "steady_guard"],
+    팔라딘: ["guardian_oath", "holy_charge", "fortress_charge", "steady_guard", "plateau_lancer", "brace", "ridge_guard", "aegis_core"],
     가디언: ["guardian_oath", "aegis_core"],
     센티넬: ["guardian_oath", "aegis_core"],
     홀리랜서: ["holy_charge", "guardian_oath"],
     포트리스: ["aegis_core", "guardian_oath"],
     아크랜서: ["holy_charge", "aegis_core"],
     이지스로드: ["aegis_core", "guardian_oath"],
-    아처: ["ranger_instinct"],
-    스나이퍼: ["ranger_instinct", "celestial_scope"],
+    아처: ["ranger_instinct", "eagle_eye", "finish_shot", "ridge_archery", "eagle_commander", "deadeye", "elevated_scope"],
+    스나이퍼: ["ranger_instinct", "celestial_scope", "deadeye", "piercing_focus", "elevated_scope", "eagle_eye", "finish_shot"],
     레인저: ["ranger_instinct", "celestial_scope"],
     호크아이: ["celestial_scope", "ranger_instinct"],
     천궁성: ["celestial_scope", "ranger_instinct"],
-    헌터: ["trap_sense"],
+    헌터: ["trap_sense", "lurking_shot", "canopy_veil", "ranger_instinct", "nightmare_trail", "eagle_eye", "finish_shot"],
     트래퍼: ["trap_sense", "nightmare_trail"],
     그림트래퍼: ["trap_sense", "nightmare_trail"],
     나이트메어헌트: ["nightmare_trail", "trap_sense"],
-    브리건드: ["berserk_blood"],
+    브리건드: ["berserk_blood", "savage_blow", "cliff_raider", "doom_mark", "fortress_heart", "warlord_presence", "steady_guard"],
     버서커: ["berserk_blood", "doom_mark"],
     워브레이커: ["berserk_blood", "doom_mark"],
     데스브링어: ["doom_mark", "berserk_blood"],
     월드이터: ["doom_mark", "berserk_blood"],
-    클레릭: ["saint_guard"],
-    비숍: ["saint_guard", "oracle_insight"],
-    메이지: ["mana_well", "mystic_barrier"],
-    위저드: ["mana_well", "spell_overflow"],
-    소서러: ["spell_overflow", "mystic_barrier"],
+    클레릭: ["saint_guard", "sacred_bulwark", "blessed_guidance", "oracle_insight", "mystic_barrier", "sanctuary_aura", "divine_focus"],
+    비숍: ["saint_guard", "oracle_insight", "sanctuary_aura", "judgment_light", "divine_focus", "sacred_bulwark", "blessed_guidance"],
+    메이지: ["mana_well", "mystic_barrier", "spellcraft", "mana_skin", "oracle_insight", "spell_echo", "arcane_flow"],
+    위저드: ["mana_well", "spell_overflow", "spell_echo", "arcane_flow", "mystic_barrier", "spellcraft", "oracle_insight"],
+    소서러: ["spell_overflow", "mystic_barrier", "abyss_focus", "hex_sight", "mana_well", "spellcraft", "arcane_flow"],
+    솔저: ["shield_wall", "stonefoot", "guardian_oath", "fortress_heart", "steady_guard", "brace", "ridge_guard"],
     오라클: ["oracle_insight", "saint_guard"],
     세라핌: ["saint_guard"],
     인퀴지터: ["oracle_insight", "saint_guard"],
@@ -441,7 +442,7 @@
     const bonusChance = Math.min(
       0.92,
       baseChance * 0.55
-        + (rank === "D" ? 0.03 : rank === "C" ? 0.05 : 0)
+        + (rank === "D" ? 0.05 : rank === "C" ? 0.07 : rank === "B" ? 0.05 : rank === "A" ? 0.03 : 0)
         + (potentialScore >= 75 ? 0.12 : potentialScore >= 60 ? 0.06 : 0)
     );
 
@@ -451,12 +452,13 @@
 
     const jackpotChance = Math.min(
       0.48,
-      (rank === "D" ? 0.025 : rank === "C" ? 0.04 : rank === "B" ? 0.05 : rank === "A" ? 0.07 : rank === "S" ? 0.1 : 0.15)
+      (rank === "D" ? 0.035 : rank === "C" ? 0.05 : rank === "B" ? 0.07 : rank === "A" ? 0.09 : rank === "S" ? 0.12 : rank === "SS" ? 0.16 : 0.22)
         + (potentialScore >= 90 ? 0.08 : 0)
     );
 
     if (Math.random() <= jackpotChance) {
-      targetCount = Math.max(targetCount, 2 + Math.floor(Math.random() * Math.min(2, pool.length)));
+      const jackpotRollRange = Math.min(4, Math.max(1, pool.length - 1));
+      targetCount = Math.max(targetCount, 2 + Math.floor(Math.random() * jackpotRollRange));
     }
 
     if (rank === "SS" && targetCount <= 0) {
@@ -551,6 +553,10 @@
       rank,
       potentialScore
     });
+
+    if (rank === "SSS") {
+      appendUniqueSkillId(signaturePassiveIds, "otherworldly_existence");
+    }
 
     signaturePassiveIds.forEach((skillId) => appendUniqueSkillId(unit.specialSkillIds, skillId));
     unit.signaturePassiveIds = signaturePassiveIds.slice();
