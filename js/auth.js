@@ -814,7 +814,7 @@
           `<article class="${classes.join(" ")}">`,
           `  <div class="item-title-row"><strong class="card-title">${unit ? unit.name : `${index + 1}번 슬롯`}</strong><span class="card-subtitle">${unit ? `${index + 1}번 슬롯 · ${unit.className}` : "EMPTY"}</span></div>`,
           unit
-            ? `  <div class="roster-meta"><span class="meta-pill rank-${String(unit.guildRank || "D").toLowerCase().replace("+", "plus")}">${unit.guildRank || "D"}</span><span class="meta-pill">Lv.${unit.level}</span><span class="meta-pill ${appState.saveData.leaderUnitId === unit.id ? "is-gold" : "is-muted"}">${appState.saveData.leaderUnitId === unit.id ? "리더" : "일반"}</span><span class="meta-pill ${weapon ? "is-cyan" : "is-muted"}">${weapon ? `주무기 ${weapon.name}` : "주무기 없음"}</span></div>`
+            ? `  <div class="roster-meta"><span class="meta-pill rank-${String(unit.guildRank || "D").toLowerCase().replace("+", "plus")}">${formatRankBadge(unit.guildRank || "D")}</span><span class="meta-pill">Lv.${unit.level}</span><span class="meta-pill ${appState.saveData.leaderUnitId === unit.id ? "is-gold" : "is-muted"}">${appState.saveData.leaderUnitId === unit.id ? "리더" : "일반"}</span><span class="meta-pill ${weapon ? "is-cyan" : "is-muted"}">${weapon ? `주무기 ${weapon.name}` : "주무기 없음"}</span></div>`
             : '  <div class="roster-meta"><span class="meta-pill is-muted">비어 있음</span></div>',
           '  <div class="button-row">',
           `    <button class="${appState.quickSwapSlotIndex === index ? "primary-button" : "secondary-button"} small-button" type="button" data-sortie-swap="${index}">${appState.quickSwapSlotIndex === index ? "선택 중" : unit ? "교체" : "추가"}</button>`,
@@ -832,11 +832,12 @@
       visibleRoster.map((unit) => {
         const currentSlot = selectedPartyMap.has(unit.id) ? selectedPartyMap.get(unit.id) + 1 : null;
         const isTarget = appState.quickSwapSlotIndex !== null;
+        const rankClass = `rank-${String(unit.guildRank || "D").toLowerCase().replace("+", "plus")}`;
         return [
           `<article class="inventory-card sortie-candidate-card ${currentSlot ? "is-in-party" : ""}">`,
           '  <div>',
           `    <div class="item-title-row"><strong class="card-title">${unit.name}</strong><span class="card-subtitle">${unit.className}</span></div>`,
-          `    <div class="inventory-meta"><span class="meta-pill">Lv.${unit.level}</span><span class="meta-pill ${currentSlot ? "is-cyan" : "is-muted"}">${currentSlot ? `${currentSlot}번 슬롯` : "후방 대기"}</span></div>`,
+          `    <div class="inventory-meta"><span class="meta-pill ${rankClass}">${formatRankBadge(unit.guildRank || "D")}</span><span class="meta-pill">Lv.${unit.level}</span><span class="meta-pill ${currentSlot ? "is-cyan" : "is-muted"}">${currentSlot ? `${currentSlot}번 슬롯` : "후방 대기"}</span></div>`,
           "  </div>",
           '  <div class="button-row">',
           `    <button class="ghost-button small-button" type="button" data-sortie-focus="${unit.id}">상세</button>`,
