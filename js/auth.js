@@ -837,7 +837,7 @@
           `<article class="inventory-card sortie-candidate-card ${currentSlot ? "is-in-party" : ""}">`,
           '  <div>',
           `    <div class="item-title-row"><strong class="card-title">${unit.name}</strong><span class="card-subtitle">${unit.className}</span></div>`,
-          `    <div class="inventory-meta"><span class="meta-pill ${rankClass}">${formatRankBadge(unit.guildRank || "D")}</span><span class="meta-pill">Lv.${unit.level}</span><span class="meta-pill ${currentSlot ? "is-cyan" : "is-muted"}">${currentSlot ? `${currentSlot}번 슬롯` : "후방 대기"}</span></div>`,
+          `    <div class="inventory-meta"><span class="meta-pill ${rankClass}">${formatRankBadge(unit.guildRank || "D")}</span><span class="meta-pill">Lv.${unit.level}</span><span class="meta-pill ${currentSlot ? "is-gold" : "is-muted"}">${currentSlot ? "배치 중" : "후방 대기"}</span><span class="meta-pill ${currentSlot ? "is-cyan" : "is-muted"}">${currentSlot ? `${currentSlot}번 슬롯` : "미배치"}</span></div>`,
           "  </div>",
           '  <div class="button-row">',
           `    <button class="ghost-button small-button" type="button" data-sortie-focus="${unit.id}">상세</button>`,

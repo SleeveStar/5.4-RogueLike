@@ -1012,9 +1012,9 @@ body.use-floating-stat-tooltip .stat-tooltip-pill::after {
   gap: var(--space-10);
   min-height: 0;
   margin-top: 0;
-  max-height: 56vh;
-  overflow-y: auto;
-  padding-right: 4px;
+  max-height: none;
+  overflow: visible;
+  padding-right: 0;
 }
 
 .sortie-candidate-card {
@@ -1031,6 +1031,16 @@ body.use-floating-stat-tooltip .stat-tooltip-pill::after {
 
 .sortie-candidate-card.is-in-party {
   border-color: rgba(103, 215, 232, 0.24);
+  background:
+    radial-gradient(circle at top right, rgba(103, 215, 232, 0.16), transparent 36%),
+    linear-gradient(180deg, rgba(12, 24, 37, 0.96), rgba(8, 15, 24, 0.98));
+  box-shadow:
+    0 0 0 1px rgba(103, 215, 232, 0.12),
+    0 14px 28px rgba(7, 24, 38, 0.32);
+}
+
+.sortie-candidate-card.is-in-party .card-title {
+  color: #8fe6ff;
 }
 
 .stage-focus-card,
