@@ -2225,21 +2225,45 @@ body.use-floating-stat-tooltip .stat-tooltip-pill::after {
 
 .battle-skill-modal {
   display: grid;
-  gap: var(--space-16);
-  min-width: min(920px, calc(100vw - 64px));
+  gap: var(--space-12);
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.battle-skill-modal-panel {
+  position: relative;
+  width: min(1180px, 100%);
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+.modal-panel.battle-skill-modal-panel .modal-close-button {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  z-index: 2;
+  margin: 0;
+}
+
+.battle-skill-modal-body {
+  display: grid;
+  gap: var(--space-12);
+  padding-top: 52px;
+  overflow-x: hidden;
 }
 
 .battle-skill-hero {
-  padding: var(--space-16);
+  padding: 14px 16px;
 }
 
 .battle-skill-list {
-  gap: var(--space-12);
+  gap: var(--space-10);
 }
 
 .battle-skill-card {
   display: grid;
-  gap: var(--space-12);
+  gap: var(--space-10);
 }
 
 .battle-skill-card.is-disabled {
@@ -2262,25 +2286,39 @@ body.use-floating-stat-tooltip .stat-tooltip-pill::after {
 .battle-skill-copy p {
   margin: 0;
   color: var(--text-muted);
-  line-height: 1.45;
+  font-size: 0.88rem;
+  line-height: 1.38;
 }
 
 .battle-skill-state {
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-end;
-  gap: var(--space-8);
+  gap: 6px;
   flex: 0 0 auto;
 }
 
 .battle-skill-metrics {
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 8px;
+}
+
+.battle-skill-metrics .battle-briefing-metric {
+  padding: 8px 10px;
+}
+
+.battle-skill-metrics .battle-briefing-label {
+  font-size: 0.62rem;
+}
+
+.battle-skill-metrics .battle-briefing-value {
+  font-size: 0.84rem;
 }
 
 .battle-skill-notes {
   display: grid;
-  gap: 6px;
-  padding: 10px 12px;
+  gap: 4px;
+  padding: 8px 10px;
   border-radius: var(--radius-md);
   border: 1px solid rgba(255, 255, 255, 0.07);
   background: rgba(255, 255, 255, 0.035);
@@ -2289,8 +2327,8 @@ body.use-floating-stat-tooltip .stat-tooltip-pill::after {
 .battle-skill-notes p {
   margin: 0;
   color: var(--text-muted);
-  font-size: 0.82rem;
-  line-height: 1.42;
+  font-size: 0.76rem;
+  line-height: 1.34;
 }
 
 .battle-flavor-ribbon {

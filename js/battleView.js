@@ -1913,7 +1913,10 @@
     }
 
     body.push("</div>");
-    showModal(body.join(""));
+    showModal(body.join(""), {
+      panelClass: "modal-panel-wide battle-skill-modal-panel",
+      bodyClass: "battle-skill-modal-body"
+    });
 
     getElement("battle-modal-host").querySelectorAll("[data-use-item]").forEach((button) => {
       button.addEventListener("click", () => {
@@ -2025,7 +2028,10 @@
 
     body.push("  </div>");
     body.push("</div>");
-    showModal(body.join(""));
+    showModal(body.join(""), {
+      panelClass: "modal-panel-wide battle-skill-modal-panel",
+      bodyClass: "battle-skill-modal-body"
+    });
 
     getElement("battle-modal-host").querySelectorAll("[data-skill-id]").forEach((button) => {
       button.addEventListener("click", () => {
