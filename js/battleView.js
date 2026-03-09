@@ -13,6 +13,7 @@
     sessionRef: null,
     aiRunning: false,
     statusAnnounced: null,
+    statusOverlayKey: null,
     modal: null,
     audioContext: null,
     scenePulseTimer: null,
@@ -1577,31 +1578,97 @@
     const banner = getElement("battle-status-banner");
 
     if (!snapshot || !snapshot.battle || snapshot.battle.status === "in_progress") {
+      viewState.statusOverlayKey = null;
       banner.classList.add("hidden");
       banner.innerHTML = "";
       return;
     }
 
-    banner.classList.remove("hidden");
+    banner.classList.add("hidden");
     const rewardItems = ((snapshot.battle.rewardHistory || []).map((item) => item.name).join(", ")) || "없음";
     const endlessSummary = snapshot.battle.stageId === "endless-rift" && snapshot.saveData
       ? BattleService.getEndlessRunSummary(snapshot.saveData)
       : null;
     const endlessStats = endlessSummary && endlessSummary.stats ? endlessSummary.stats : null;
+    const overlayKey = `${snapshot.battle.id}:${snapshot.battle.status}`;
+
     banner.innerHTML = [
       `<strong>${snapshot.battle.status === "victory" ? "승리" : "패배"}</strong>`,
-      `<span>${snapshot.battle.status === "victory" ? `${snapshot.battle.rewardGold || 0}G를 획득하고 다음 스테이지가 개방되었습니다.` : "리더가 쓰러졌습니다."}</span>`,
+      `<span>${snapshot.battle.status === "victory" ? `${snapshot.battle.rewardGold || 0}G를 획득했습니다.` : "전열이 붕괴되어 작전을 정비해야 합니다."}</span>`,
       snapshot.battle.status === "victory" ? `<span>획득 아이템: ${rewardItems}</span>` : "",
       endlessSummary ? `<span>균열 기록: ${endlessSummary.floor}층 / 유물 ${endlessSummary.relicNames.length}개 / 최고 ${endlessSummary.bestFloor}층</span>` : "",
-      endlessStats ? `<span>런 통계: 적 ${endlessStats.enemiesDefeated} / 정예 ${endlessStats.eliteDefeated} / 보스 ${endlessStats.bossesDefeated} / 피해 ${endlessStats.damageDealt} / 획득 ${endlessStats.goldEarned}G</span>` : "",
-      '<div class="unit-action-row">',
-      '  <button id="banner-menu-button" class="secondary-button small-button" type="button">메뉴로</button>',
-      '  <button id="banner-restart-button" class="ghost-button small-button" type="button">새 전투</button>',
-      "</div>"
+      endlessStats ? `<span>런 통계: 적 ${endlessStats.enemiesDefeated} / 정예 ${endlessStats.eliteDefeated} / 보스 ${endlessStats.bossesDefeated} / 피해 ${endlessStats.damageDealt} / 획득 ${endlessStats.goldEarned}G</span>` : ""
     ].join("");
 
-    getElement("banner-menu-button").addEventListener("click", handleReturnMenu);
-    getElement("banner-restart-button").addEventListener("click", () => {
+    if (viewState.statusOverlayKey === overlayKey) {
+      return;
+    }
+
+    viewState.statusOverlayKey = overlayKey;
+    showBattleResultOverlay(snapshot, {
+      rewardItems,
+      endlessSummary,
+      endlessStats
+    });
+  }
+
+  function buildBattleResultOverlayMarkup(snapshot, context) {
+    const nextContext = context || {};
+    const isVictory = snapshot.battle.status === "victory";
+    const nextActionLabel = isVictory ? "다음 전투" : "다시 도전";
+    const summaryCopy = isVictory
+      ? `${snapshot.battle.rewardGold || 0}G를 확보했고, 다음 공세 준비가 완료되었습니다.`
+      : "현재 전투는 실패했습니다. 파티를 정비한 뒤 다시 진입할 수 있습니다.";
+    const rewardCopy = isVictory
+      ? (nextContext.rewardItems && nextContext.rewardItems !== "없음" ? nextContext.rewardItems : "획득 아이템 없음")
+      : "지휘 라인을 재정비해야 합니다.";
+    const endlessSummary = nextContext.endlessSummary;
+    const endlessStats = nextContext.endlessStats;
+
+    return [
+      `<article class="battle-result-modal ${isVictory ? "is-victory" : "is-defeat"}">`,
+      '  <div class="battle-result-hero">',
+      `    <span class="battle-result-kicker">${isVictory ? "Operation Clear" : "Operation Lost"}</span>`,
+      `    <strong>${isVictory ? "작전 승리" : "작전 실패"}</strong>`,
+      `    <p>${summaryCopy}</p>`,
+      "  </div>",
+      buildBattleBriefingMarkup(snapshot, { compact: false }),
+      '  <section class="battle-result-summary">',
+      '    <div class="battle-result-summary-grid">',
+      buildBattleBriefingMetric("결과", isVictory ? "스테이지 클리어" : "전투 패배", isVictory ? "gold" : "crimson"),
+      buildBattleBriefingMetric("골드", `${snapshot.battle.rewardGold || 0}G`, "gold"),
+      buildBattleBriefingMetric("전리품", rewardCopy, isVictory ? "cyan" : "muted"),
+      endlessSummary
+        ? buildBattleBriefingMetric("균열 기록", `${endlessSummary.floor}층 / 최고 ${endlessSummary.bestFloor}층`, "violet")
+        : buildBattleBriefingMetric("다음 행동", isVictory ? "다음 구역 진입 가능" : "파티 정비 필요", "muted"),
+      "    </div>",
+      endlessStats
+        ? `<p class="battle-result-footnote">런 통계: 적 ${endlessStats.enemiesDefeated} / 정예 ${endlessStats.eliteDefeated} / 보스 ${endlessStats.bossesDefeated} / 피해 ${endlessStats.damageDealt} / 획득 ${endlessStats.goldEarned}G</p>`
+        : `<p class="battle-result-footnote">${isVictory ? "메뉴에서 바로 다음 전투를 시작할 수 있습니다." : "메뉴에서 편성과 장비를 다시 정리한 뒤 재도전할 수 있습니다."}</p>`,
+      "  </section>",
+      '  <div class="button-row battle-result-actions">',
+      '    <button id="battle-result-menu-button" class="secondary-button" type="button">메뉴로</button>',
+      `    <button id="battle-result-next-button" class="${isVictory ? "primary-button" : "ghost-button"}" type="button">${nextActionLabel}</button>`,
+      "  </div>",
+      "</article>"
+    ].join("");
+  }
+
+  function showBattleResultOverlay(snapshot, context) {
+    showModal(buildBattleResultOverlayMarkup(snapshot, context));
+
+    if (!viewState.modal) {
+      return;
+    }
+
+    viewState.modal.dataset.locked = "true";
+    getElement("modal-close-button").classList.add("hidden");
+    getElement("battle-result-menu-button").addEventListener("click", () => {
+      viewState.modal.dataset.locked = "false";
+      handleReturnMenu();
+    });
+    getElement("battle-result-next-button").addEventListener("click", () => {
+      viewState.modal.dataset.locked = "false";
       closeModal();
       startNewBattle(getLiveSession());
     });
