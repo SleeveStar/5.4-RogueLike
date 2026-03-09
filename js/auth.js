@@ -14,7 +14,7 @@
   const SHOP_PAGE_SIZE = 3;
   const INVENTORY_PAGE_SIZE = 4;
   const EQUIPMENT_MODAL_PAGE_SIZE = 4;
-  const SORTIE_MANAGER_PAGE_SIZE = 6;
+  const SORTIE_MANAGER_PAGE_SIZE = 5;
 
   const appState = {
     currentUserId: null,
@@ -776,15 +776,26 @@
     const selectedUnits = selectedPartyIds
       .map((unitId) => roster.find((entry) => entry.id === unitId))
       .filter(Boolean);
+    const rosterIndexMap = new Map(roster.map((unit, index) => [unit.id, index]));
+    const sortedRoster = roster.slice().sort((left, right) => {
+      const leftPartyIndex = selectedPartyMap.has(left.id) ? selectedPartyMap.get(left.id) : Number.POSITIVE_INFINITY;
+      const rightPartyIndex = selectedPartyMap.has(right.id) ? selectedPartyMap.get(right.id) : Number.POSITIVE_INFINITY;
+
+      if (leftPartyIndex !== rightPartyIndex) {
+        return leftPartyIndex - rightPartyIndex;
+      }
+
+      return (rosterIndexMap.get(left.id) || 0) - (rosterIndexMap.get(right.id) || 0);
+    });
     const leaderUnit = roster.find((entry) => entry.id === appState.saveData.leaderUnitId) || null;
     const emptySlotCount = Math.max(0, MAX_SORTIE_SIZE - selectedUnits.length);
     const averageLevel = selectedUnits.length
       ? (selectedUnits.reduce((sum, unit) => sum + Number(unit.level || 0), 0) / selectedUnits.length).toFixed(1)
       : "0.0";
-    const totalPages = Math.max(1, Math.ceil(roster.length / SORTIE_MANAGER_PAGE_SIZE));
+    const totalPages = Math.max(1, Math.ceil(sortedRoster.length / SORTIE_MANAGER_PAGE_SIZE));
     const currentPage = Math.max(1, Math.min(totalPages, Number(appState.sortieManagerView.page || 1)));
     const pageStart = (currentPage - 1) * SORTIE_MANAGER_PAGE_SIZE;
-    const visibleRoster = roster.slice(pageStart, pageStart + SORTIE_MANAGER_PAGE_SIZE);
+    const visibleRoster = sortedRoster.slice(pageStart, pageStart + SORTIE_MANAGER_PAGE_SIZE);
 
     appState.sortieManagerView.page = currentPage;
 
