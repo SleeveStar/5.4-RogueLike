@@ -148,9 +148,17 @@
           </section>
 
           <section class="panel command-detail-panel">
-            <div class="panel-header">
-              <p id="menu-detail-eyebrow" class="eyebrow">Party</p>
-              <h2 id="menu-detail-title">파티 관리</h2>
+            <div class="panel-header command-detail-header">
+              <div class="command-detail-header-copy">
+                <p id="menu-detail-eyebrow" class="eyebrow">Party</p>
+                <h2 id="menu-detail-title">파티 관리</h2>
+              </div>
+              <div id="menu-detail-header-actions" class="menu-detail-header-actions hidden">
+                <div class="inventory-category-tabs" role="tablist" aria-label="인벤토리 분류">
+                  <button class="inventory-category-tab active" type="button" data-inventory-tab="equipment">장비</button>
+                  <button class="inventory-category-tab" type="button" data-inventory-tab="consumable">소모품</button>
+                </div>
+              </div>
             </div>
             <div id="menu-sortie-strip" class="menu-sortie-strip"></div>
 

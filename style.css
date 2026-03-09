@@ -534,6 +534,29 @@ body.use-floating-stat-tooltip .stat-tooltip-pill::after {
   margin-bottom: 12px;
 }
 
+.command-detail-header {
+  flex-direction: row;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-14);
+}
+
+.command-detail-header-copy {
+  display: grid;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.menu-detail-header-actions {
+  margin-left: auto;
+  flex: 0 0 auto;
+}
+
+.menu-detail-header-actions .inventory-category-tabs {
+  justify-content: flex-end;
+  margin-bottom: 0;
+}
+
 .inline-eyebrow-row {
   display: inline-flex;
   align-items: center;
@@ -1053,6 +1076,34 @@ body.use-floating-stat-tooltip .stat-tooltip-pill::after {
   box-shadow: var(--shadow-glow-gold);
 }
 
+.inventory-category-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-10);
+  margin-bottom: 10px;
+}
+
+.inventory-category-tab {
+  min-height: 38px;
+  padding: 0 var(--space-14);
+  border-radius: var(--radius-pill);
+  border: 1px solid rgba(103, 215, 232, 0.16);
+  background: linear-gradient(180deg, rgba(18, 28, 42, 0.88), rgba(10, 16, 26, 0.96));
+  color: var(--text-muted);
+  font-size: 0.84rem;
+  font-weight: 800;
+  transition:
+    border-color var(--transition-fast),
+    box-shadow var(--transition-fast),
+    color var(--transition-fast);
+}
+
+.inventory-category-tab.active {
+  border-color: rgba(245, 208, 113, 0.34);
+  color: var(--text-strong);
+  box-shadow: var(--shadow-glow-gold);
+}
+
 .stage-focus-body {
   display: grid;
   gap: 9px;
@@ -1247,6 +1298,10 @@ body.use-floating-stat-tooltip .stat-tooltip-pill::after {
 .stage-card .item-title-row {
   flex-wrap: wrap;
   row-gap: var(--space-8);
+}
+
+.stage-card.is-cleared .item-title-row {
+  padding-right: 72px;
 }
 
 .stage-card .item-title-row strong {
@@ -1905,8 +1960,16 @@ body.use-floating-stat-tooltip .stat-tooltip-pill::after {
   padding: 12px 14px;
 }
 
+.compact-inventory-card-top {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--space-8) var(--space-10);
+  align-items: start;
+}
+
 .compact-inventory-card .item-title-row {
   align-items: center;
+  min-width: 0;
   gap: var(--space-8);
 }
 
@@ -1921,6 +1984,18 @@ body.use-floating-stat-tooltip .stat-tooltip-pill::after {
 .compact-inventory-card .inventory-meta {
   align-items: center;
   gap: var(--space-8);
+}
+
+.compact-inventory-card .inventory-inline-meta {
+  justify-content: flex-end;
+  min-width: 0;
+}
+
+.compact-inventory-card .inventory-inline-meta .meta-pill {
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .compact-inventory-card .inventory-click-hint {
@@ -2070,8 +2145,19 @@ body.use-floating-stat-tooltip .stat-tooltip-pill::after {
 
 .battle-result-modal {
   display: grid;
-  gap: var(--space-16);
-  min-width: min(880px, calc(100vw - 64px));
+  gap: var(--space-14);
+  min-width: min(980px, calc(100vw - 56px));
+}
+
+.battle-result-modal-panel {
+  width: min(1080px, calc(100vw - 40px));
+  max-height: min(92vh, 980px);
+  padding: clamp(22px, 3vw, 30px);
+}
+
+.battle-result-modal-body {
+  display: grid;
+  gap: var(--space-14);
 }
 
 .battle-result-hero {
@@ -2135,6 +2221,76 @@ body.use-floating-stat-tooltip .stat-tooltip-pill::after {
 
 .battle-result-actions {
   justify-content: flex-end;
+}
+
+.battle-skill-modal {
+  display: grid;
+  gap: var(--space-16);
+  min-width: min(920px, calc(100vw - 64px));
+}
+
+.battle-skill-hero {
+  padding: var(--space-16);
+}
+
+.battle-skill-list {
+  gap: var(--space-12);
+}
+
+.battle-skill-card {
+  display: grid;
+  gap: var(--space-12);
+}
+
+.battle-skill-card.is-disabled {
+  opacity: 0.84;
+}
+
+.battle-skill-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--space-12);
+}
+
+.battle-skill-copy {
+  display: grid;
+  gap: var(--space-6);
+  min-width: 0;
+}
+
+.battle-skill-copy p {
+  margin: 0;
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+
+.battle-skill-state {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-8);
+  flex: 0 0 auto;
+}
+
+.battle-skill-metrics {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.battle-skill-notes {
+  display: grid;
+  gap: 6px;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.battle-skill-notes p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  line-height: 1.42;
 }
 
 .battle-flavor-ribbon {
@@ -3525,6 +3681,16 @@ body.use-floating-stat-tooltip .stat-tooltip-pill::after {
   cursor: grabbing;
 }
 
+.equipment-item-summary {
+  margin: 0;
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: 0.74rem;
+  line-height: 1.2;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
 .equipment-inventory-list {
   display: grid;
   gap: 8px;
@@ -3539,11 +3705,12 @@ body.use-floating-stat-tooltip .stat-tooltip-pill::after {
 
 .equipment-detail-panel {
   display: grid;
-  gap: 8px;
+  gap: 6px;
   min-height: 164px;
   max-height: 164px;
+  align-content: start;
   position: relative;
-  overflow: auto;
+  overflow: hidden;
 }
 
 .equipment-detail-panel .detail-stats {
@@ -3580,6 +3747,42 @@ body.use-floating-stat-tooltip .stat-tooltip-pill::after {
 .equipment-detail-panel p {
   font-size: 0.84rem;
   line-height: 1.38;
+}
+
+.equipment-detail-compact-copy {
+  display: grid;
+  gap: 4px;
+  min-height: 0;
+}
+
+.equipment-detail-compact-line {
+  display: grid;
+  gap: 5px;
+  grid-template-columns: 38px minmax(0, 1fr);
+  align-items: center;
+  margin: 0;
+}
+
+.equipment-detail-compact-label {
+  color: var(--text-muted);
+  font-size: 0.68rem;
+  letter-spacing: 0.04em;
+}
+
+.equipment-detail-compact-value {
+  overflow: hidden;
+  font-size: 0.74rem;
+  line-height: 1.15;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.equipment-detail-compact-line.is-muted .equipment-detail-compact-value {
+  color: var(--text-muted);
+}
+
+.equipment-detail-compact-line.is-gold .equipment-detail-compact-value {
+  color: var(--accent-gold);
 }
 
 .equipment-modal-header {
@@ -3665,6 +3868,14 @@ body.use-floating-stat-tooltip .stat-tooltip-pill::after {
     0 16px 32px rgba(82, 64, 22, 0.22);
 }
 
+.skill-slot-card.is-selected,
+.skill-card.is-selected {
+  border-color: rgba(103, 215, 232, 0.42);
+  box-shadow:
+    0 0 0 1px rgba(103, 215, 232, 0.14),
+    0 14px 28px rgba(14, 49, 66, 0.2);
+}
+
 .skill-slot-card.is-drop-ready {
   border-color: rgba(103, 215, 232, 0.52);
   box-shadow: var(--shadow-glow-cyan);
@@ -3688,7 +3899,9 @@ body.use-floating-stat-tooltip .stat-tooltip-pill::after {
 .skill-detail-panel {
   display: grid;
   gap: var(--space-10);
-  min-height: 160px;
+  min-height: 196px;
+  max-height: 196px;
+  overflow: auto;
 }
 
 .skill-slot-help-panel p,
@@ -4551,6 +4764,15 @@ body.use-floating-stat-tooltip .stat-tooltip-pill::after {
     grid-column: 1 / -1;
   }
 
+  .command-detail-header {
+    align-items: stretch;
+    flex-wrap: wrap;
+  }
+
+  .menu-detail-header-actions {
+    margin-left: 0;
+  }
+
   .sortie-slot-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -4593,6 +4815,27 @@ body.use-floating-stat-tooltip .stat-tooltip-pill::after {
 
   .battle-briefing-metrics {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .battle-skill-modal {
+    min-width: min(100%, calc(100vw - 40px));
+  }
+
+  .battle-skill-card-top {
+    flex-direction: column;
+  }
+
+  .battle-skill-state {
+    justify-content: flex-start;
+  }
+
+  .battle-skill-metrics,
+  .battle-result-summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .battle-result-modal {
+    min-width: min(100%, calc(100vw - 56px));
   }
 }
 
@@ -4648,6 +4891,23 @@ body.use-floating-stat-tooltip .stat-tooltip-pill::after {
     justify-items: center;
   }
 
+  .command-detail-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .menu-detail-header-actions .inventory-category-tabs {
+    justify-content: flex-start;
+  }
+
+  .compact-inventory-card-top {
+    grid-template-columns: 1fr;
+  }
+
+  .compact-inventory-card .inventory-inline-meta {
+    justify-content: flex-start;
+  }
+
   .battle-toolbar-actions {
     justify-self: center;
   }
@@ -4659,6 +4919,21 @@ body.use-floating-stat-tooltip .stat-tooltip-pill::after {
 
   .battle-briefing-metrics {
     grid-template-columns: 1fr;
+  }
+
+  .battle-skill-metrics,
+  .battle-result-summary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .battle-result-modal-panel {
+    width: min(100vw - 20px, 100%);
+    max-height: min(92vh, 980px);
+    padding: var(--space-18);
+  }
+
+  .battle-result-modal {
+    min-width: 0;
   }
 
   .battle-briefing-chips {

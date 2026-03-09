@@ -1632,7 +1632,7 @@
       `    <strong>${isVictory ? "작전 승리" : "작전 실패"}</strong>`,
       `    <p>${summaryCopy}</p>`,
       "  </div>",
-      buildBattleBriefingMarkup(snapshot, { compact: false }),
+      buildBattleBriefingMarkup(snapshot, { compact: true }),
       '  <section class="battle-result-summary">',
       '    <div class="battle-result-summary-grid">',
       buildBattleBriefingMetric("결과", isVictory ? "스테이지 클리어" : "전투 패배", isVictory ? "gold" : "crimson"),
@@ -1655,7 +1655,10 @@
   }
 
   function showBattleResultOverlay(snapshot, context) {
-    showModal(buildBattleResultOverlayMarkup(snapshot, context));
+    showModal(buildBattleResultOverlayMarkup(snapshot, context), {
+      panelClass: "modal-panel-wide battle-result-modal-panel",
+      bodyClass: "battle-result-modal-body"
+    });
 
     if (!viewState.modal) {
       return;
@@ -1927,46 +1930,100 @@
     });
   }
 
+  function getSkillRangeSummary(unit, skill) {
+    if (!skill) {
+      return "-";
+    }
+
+    if (skill.useWeaponRange) {
+      const tileType = viewState.snapshot && viewState.snapshot.battle && viewState.snapshot.battle.map
+        && viewState.snapshot.battle.map.tiles[unit.y] && viewState.snapshot.battle.map.tiles[unit.y][unit.x]
+        ? viewState.snapshot.battle.map.tiles[unit.y][unit.x]
+        : "plain";
+      const elevation = viewState.snapshot && viewState.snapshot.battle && viewState.snapshot.battle.map
+        && viewState.snapshot.battle.map.elevations && viewState.snapshot.battle.map.elevations[unit.y]
+        ? (viewState.snapshot.battle.map.elevations[unit.y][unit.x] || 0)
+        : 0;
+      const effectiveRange = CombatService.getEffectiveWeaponRange(unit, {
+        attackerTileType: tileType,
+        attackerElevation: elevation,
+        defenderElevation: elevation
+      });
+      return `무기 ${effectiveRange.rangeMin}-${effectiveRange.rangeMax}`;
+    }
+
+    return `${skill.rangeMin}-${skill.rangeMax}`;
+  }
+
+  function buildBattleSkillCardMarkup(unit, skill) {
+    const performance = SkillsService.getSkillPerformance(unit, skill);
+    const cooldownText = skill.cooldownRemaining > 0 ? `재사용 ${skill.cooldownRemaining}턴` : "사용 가능";
+    const terrainReady = BattleService.canUseSkillOnCurrentTerrain(unit, skill);
+    const terrainText = skill.requiredTileTypes && skill.requiredTileTypes.length
+      ? skill.requiredTileTypes.map((tile) => getTerrainLabel(tile)).join(" / ")
+      : "제한 없음";
+    const disabled = skill.cooldownRemaining > 0 || !terrainReady ? "disabled" : "";
+    const disabledReason = skill.cooldownRemaining > 0
+      ? "재사용 대기 중"
+      : !terrainReady
+        ? "현재 지형에서 사용 불가"
+        : "즉시 사용 가능";
+    const targetLabel = skill.targetType === "self"
+      ? "자신"
+      : skill.targetType === "ally"
+        ? (Number(skill.rangeMin || 0) === 0 ? "자신/아군" : "아군")
+        : "적";
+
+    return [
+      `<article class="modal-card battle-skill-card ${disabled ? "is-disabled" : "is-ready"}">`,
+      '  <div class="battle-skill-card-top">',
+      '    <div class="battle-skill-copy">',
+      `      <div class="item-title-row"><strong>${skill.name}</strong><span>${targetLabel}</span></div>`,
+      `      <p>${skill.description}</p>`,
+      "    </div>",
+      '    <div class="battle-skill-state">',
+      `      <span class="meta-pill ${skill.cooldownRemaining > 0 ? "is-muted" : "is-cyan"}">${cooldownText}</span>`,
+      `      <span class="meta-pill is-violet">Lv.${skill.skillLevel}</span>`,
+      "    </div>",
+      "  </div>",
+      '  <div class="battle-briefing-metrics battle-skill-metrics">',
+      buildBattleBriefingMetric("대상", targetLabel, "cyan"),
+      buildBattleBriefingMetric("사거리", getSkillRangeSummary(unit, skill), "gold"),
+      buildBattleBriefingMetric("지형", terrainText, terrainReady ? "muted" : "crimson"),
+      buildBattleBriefingMetric("상태", disabledReason, disabled ? "crimson" : "violet"),
+      performance ? buildBattleBriefingMetric("현재 성능", performance.currentSummary, "gold") : "",
+      "  </div>",
+      performance && performance.formulaLines && performance.formulaLines.length
+        ? `  <div class="battle-skill-notes">${performance.formulaLines.map((line) => `<p>${line}</p>`).join("")}</div>`
+        : "",
+      `  <div class="button-row"><button class="secondary-button small-button" type="button" data-skill-id="${skill.id}" ${disabled}>선택</button></div>`,
+      "</article>"
+    ].filter(Boolean).join("");
+  }
+
   function openSkillModal(unitId) {
     const snapshot = viewState.snapshot;
     const unit = snapshot.battle.units.find((entry) => entry.id === unitId);
     const skills = BattleService.getActiveSkills(unit);
     const body = [
-      `<h3>${unit.name} 액티브 스킬</h3>`,
-      '<div class="modal-list">'
+      '<div class="battle-skill-modal">',
+      '  <section class="battle-result-hero battle-skill-hero">',
+      '    <span class="battle-result-kicker">Skill Loadout</span>',
+      `    <strong>${unit.name} 액티브 스킬</strong>`,
+      `    <p>${unit.className} / 장착 액티브 ${skills.length}개. 전투 중 즉시 사용할 스킬을 선택합니다.</p>`,
+      "  </section>",
+      '  <div class="modal-list battle-skill-list">'
     ];
 
     if (!skills.length) {
-      body.push('<article class="modal-card"><p>사용 가능한 액티브 스킬이 없습니다.</p></article>');
+      body.push('<article class="modal-card battle-skill-card is-disabled"><p>사용 가능한 액티브 스킬이 없습니다.</p></article>');
     } else {
       skills.forEach((skill) => {
-        const performance = SkillsService.getSkillPerformance(unit, skill);
-        const cooldownText = skill.cooldownRemaining > 0 ? `재사용 ${skill.cooldownRemaining}턴` : "사용 가능";
-        const terrainReady = BattleService.canUseSkillOnCurrentTerrain(unit, skill);
-        const terrainText = skill.requiredTileTypes && skill.requiredTileTypes.length
-          ? `지형: ${skill.requiredTileTypes.map((tile) => tile === "hill" ? "고지" : tile === "forest" ? "숲" : tile).join(", ")} 전용`
-          : "지형 제한 없음";
-        const disabled = skill.cooldownRemaining > 0 || !terrainReady ? "disabled" : "";
-        const targetLabel = skill.targetType === "self"
-          ? "자신"
-          : skill.targetType === "ally"
-            ? (Number(skill.rangeMin || 0) === 0 ? "자신/아군" : "아군")
-            : "적";
-
-        body.push([
-          '<article class="modal-card">',
-          `  <div class="item-title-row"><strong>${skill.name}</strong><span>${cooldownText} / Lv.${skill.skillLevel}</span></div>`,
-          `  <p>${skill.description}</p>`,
-          `  <p>대상: ${targetLabel}</p>`,
-          `  <p>${terrainReady ? terrainText : `${terrainText} / 현재 지형에서 사용 불가`}</p>`,
-          performance ? `  <p>현재 성능: ${performance.currentSummary}</p>` : "",
-          performance ? performance.formulaLines.map((line) => `  <p>${line}</p>`).join("") : "",
-          `  <button class="secondary-button small-button" type="button" data-skill-id="${skill.id}" ${disabled}>선택</button>`,
-          "</article>"
-        ].join(""));
+        body.push(buildBattleSkillCardMarkup(unit, skill));
       });
     }
 
+    body.push("  </div>");
     body.push("</div>");
     showModal(body.join(""));
 
@@ -2126,16 +2183,17 @@
     });
   }
 
-  function showModal(bodyMarkup) {
+  function showModal(bodyMarkup, options) {
     closeModal();
 
+    const nextOptions = options || {};
     const host = getElement("battle-modal-host");
     const modal = document.createElement("div");
     modal.className = "modal-backdrop";
     modal.innerHTML = [
-      '<div class="modal-panel">',
+      `<div class="modal-panel${nextOptions.panelClass ? ` ${nextOptions.panelClass}` : ""}">`,
       '  <button id="modal-close-button" class="ghost-button modal-close-button" type="button">닫기</button>',
-      `  <div class="modal-body">${bodyMarkup}</div>`,
+      `  <div class="modal-body${nextOptions.bodyClass ? ` ${nextOptions.bodyClass}` : ""}">${bodyMarkup}</div>`,
       "</div>"
     ].join("");
 
