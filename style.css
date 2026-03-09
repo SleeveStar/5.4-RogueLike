@@ -87,12 +87,12 @@
   --shadow-glow-cyan: 0 0 0 1px rgba(103, 215, 232, 0.16), 0 0 24px rgba(53, 191, 214, 0.14);
   --shadow-glow-gold: 0 0 0 1px rgba(245, 208, 113, 0.18), 0 0 24px rgba(215, 165, 58, 0.14);
 
-  --shell-width: min(1660px, calc(100vw - 28px));
+  --shell-width: min(1740px, calc(100vw - 24px));
   --battle-unit-width: minmax(270px, 310px);
-  --battle-map-width: minmax(0, 1.72fr);
+  --battle-map-width: minmax(0, 1.95fr);
   --battle-side-width: minmax(270px, 330px);
-  --tile-size: clamp(38px, 2.85vw, 50px);
-  --tile-gap: clamp(4px, 0.45vw, 7px);
+  --tile-size: clamp(44px, 3.15vw, 58px);
+  --tile-gap: clamp(5px, 0.5vw, 8px);
   --transition-fast: 140ms ease;
   --transition-base: 180ms ease;
 }
@@ -1952,7 +1952,7 @@ body.use-floating-stat-tooltip .stat-tooltip-pill::after {
 .battle-map-panel {
   min-width: 0;
   min-height: 0;
-  padding-inline: var(--space-28);
+  padding-inline: var(--space-24);
 }
 
 .battle-map-root {
@@ -2017,6 +2017,20 @@ body.use-floating-stat-tooltip .stat-tooltip-pill::after {
   justify-self: end;
 }
 
+.secondary-button.turn-end-attention {
+  border-color: rgba(245, 208, 113, 0.56);
+  background: linear-gradient(180deg, rgba(54, 38, 14, 0.96), rgba(24, 18, 10, 0.98));
+  box-shadow:
+    0 0 0 1px rgba(245, 208, 113, 0.18),
+    0 0 18px rgba(245, 208, 113, 0.2);
+  animation: attention-pulse 1.6s ease-in-out infinite;
+}
+
+.secondary-button.turn-end-attention::before {
+  opacity: 1;
+  background: linear-gradient(180deg, rgba(245, 208, 113, 0.24), transparent 62%);
+}
+
 .battle-status-banner {
   display: grid;
   gap: var(--space-8);
@@ -2027,30 +2041,47 @@ body.use-floating-stat-tooltip .stat-tooltip-pill::after {
 }
 
 .battle-flavor-ribbon {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  align-items: center;
-  gap: var(--space-16);
-  padding: var(--space-16);
+  display: block;
+  padding: 0;
   border-radius: var(--radius-lg);
   border: 1px solid rgba(103, 215, 232, 0.18);
   background: linear-gradient(135deg, rgba(13, 24, 38, 0.94), rgba(9, 17, 28, 0.98));
+  overflow: hidden;
 }
 
-.flavor-main {
+.battle-briefing {
+  display: grid;
+  gap: var(--space-14);
+  padding: var(--space-16);
+}
+
+.battle-briefing.compact {
+  gap: var(--space-10);
+}
+
+.battle-briefing-header {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--space-14);
+}
+
+.battle-briefing-copy {
   display: grid;
   gap: var(--space-4);
+  max-width: 780px;
 }
 
-.flavor-main strong {
+.battle-briefing-copy strong {
   color: var(--text-strong);
-  font-size: 1.02rem;
+  font-size: 1.06rem;
 }
 
-.flavor-main span {
+.battle-briefing-copy span {
   color: var(--text-muted);
   font-size: 0.9rem;
+  line-height: 1.42;
 }
 
 .flavor-chips {
@@ -2072,6 +2103,77 @@ body.use-floating-stat-tooltip .stat-tooltip-pill::after {
   font-size: 0.76rem;
   font-weight: 800;
   letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.battle-briefing-chips {
+  max-width: 520px;
+}
+
+.battle-briefing-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-10);
+}
+
+.battle-briefing-metric {
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.battle-briefing-metric.is-cyan {
+  border-color: rgba(103, 215, 232, 0.22);
+  background: rgba(53, 191, 214, 0.08);
+}
+
+.battle-briefing-metric.is-gold {
+  border-color: rgba(245, 208, 113, 0.22);
+  background: rgba(245, 208, 113, 0.08);
+}
+
+.battle-briefing-metric.is-crimson {
+  border-color: rgba(255, 138, 159, 0.24);
+  background: rgba(216, 76, 102, 0.08);
+}
+
+.battle-briefing-metric.is-violet {
+  border-color: rgba(176, 133, 255, 0.24);
+  background: rgba(176, 133, 255, 0.08);
+}
+
+.battle-briefing-label {
+  color: rgba(160, 183, 206, 0.72);
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.battle-briefing-value {
+  color: var(--text-strong);
+  font-size: 0.9rem;
+  line-height: 1.3;
+}
+
+.battle-briefing-notes {
+  display: grid;
+  gap: var(--space-8);
+}
+
+.battle-briefing-notes p {
+  display: grid;
+  gap: 3px;
+}
+
+.battle-briefing-notes p span {
+  color: var(--gold-300);
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
@@ -2107,7 +2209,7 @@ body.use-floating-stat-tooltip .stat-tooltip-pill::after {
 
 .battle-scene {
   position: relative;
-  /*min-height: 620px;*/
+  min-height: 720px;
   overflow: hidden;
   border-radius: calc(var(--radius-xl) + 2px);
   border: 1px solid var(--line-base);
@@ -2699,16 +2801,60 @@ body.use-floating-stat-tooltip .stat-tooltip-pill::after {
 
 .tile-unit {
   top: 50%;
-  width: calc(var(--tile-size) - 12px);
-  padding: var(--space-4) var(--space-6) var(--space-6);
-  border-radius: 16px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  text-align: center;
+  width: calc(var(--tile-size) - 6px);
+  padding: 4px;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  text-align: left;
   color: #fff;
   transform: translate(-50%, -50%) rotate(var(--content-rotation));
   box-shadow:
-    0 10px 18px rgba(0, 0, 0, 0.24),
-    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    0 12px 24px rgba(0, 0, 0, 0.34),
+    0 0 0 2px rgba(7, 11, 19, 0.36),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+.tile-unit-ring,
+.tile-unit-core {
+  display: block;
+}
+
+.tile-unit-ring {
+  position: absolute;
+  inset: -4px;
+  border-radius: 20px;
+  background: radial-gradient(circle at center, rgba(255, 255, 255, 0.14), transparent 70%);
+  opacity: 0.7;
+}
+
+.tile-unit-core {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: calc(var(--tile-size) - 26px);
+  padding: 6px 7px 5px;
+  border-radius: 14px;
+  /*background: linear-gradient(180deg, rgba(10, 16, 26, 0.18), rgba(5, 10, 18, 0.3));*/
+}
+
+.tile-unit-marker {
+  position: absolute;
+  top: -7px;
+  right: -4px;
+  display: inline-flex;
+  align-items: center;
+  min-height: 16px;
+  padding: 0 5px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(8, 12, 20, 0.78);
+  font-size: 0.5rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
 }
 
 .battle-tile.has-attack-highlighted-unit .tile-unit {
@@ -2731,28 +2877,26 @@ body.use-floating-stat-tooltip .stat-tooltip-pill::after {
 
 .tile-unit-name {
   display: block;
+  max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 0.66rem;
+  text-align: center;
+  font-size: 0.62rem;
   font-weight: 900;
-}
-
-.tile-unit small {
-  display: block;
-  margin-top: var(--space-4);
-  font-size: 0.64rem;
-  font-weight: 800;
+  line-height: 1.05;
 }
 
 .tile-unit-bar {
   display: block;
   width: 100%;
-  height: 4px;
-  margin-top: var(--space-4);
+  height: 5px;
+  margin-top: 4px;
   overflow: hidden;
   border-radius: var(--radius-pill);
-  background: rgba(0, 0, 0, 0.28);
+  background: rgba(0, 0, 0, 0.36);
+  position: relative;
+  z-index: 1;
 }
 
 .tile-unit-bar > span {
@@ -2762,24 +2906,52 @@ body.use-floating-stat-tooltip .stat-tooltip-pill::after {
 }
 
 .tile-unit.acted {
-  opacity: 0.72;
-  filter: saturate(0.7);
+  opacity: 0.78;
+  filter: saturate(0.74) brightness(0.92);
 }
 
 .tile-unit.ally {
-  background: linear-gradient(180deg, rgba(96, 184, 255, 0.98), rgba(40, 112, 212, 0.94));
+  background: linear-gradient(180deg, rgba(112, 196, 255, 0.98), rgba(36, 102, 194, 0.96));
 }
 
 .tile-unit.enemy {
-  background: linear-gradient(180deg, rgba(255, 138, 134, 0.98), rgba(197, 71, 71, 0.94));
+  background: linear-gradient(180deg, rgba(255, 150, 144, 0.98), rgba(186, 58, 58, 0.96));
+}
+
+.tile-unit.ally .tile-unit-ring {
+  background: radial-gradient(circle at center, rgba(96, 184, 255, 0.3), transparent 72%);
+}
+
+.tile-unit.enemy .tile-unit-ring {
+  background: radial-gradient(circle at center, rgba(255, 138, 134, 0.28), transparent 72%);
 }
 
 .tile-unit.elite {
   border-color: rgba(245, 208, 113, 0.72);
+  box-shadow:
+    0 12px 24px rgba(0, 0, 0, 0.34),
+    0 0 0 2px rgba(7, 11, 19, 0.36),
+    0 0 18px rgba(245, 208, 113, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
 }
 
 .tile-unit.boss {
   border-color: rgba(255, 138, 159, 0.76);
+  box-shadow:
+    0 12px 24px rgba(0, 0, 0, 0.34),
+    0 0 0 2px rgba(7, 11, 19, 0.36),
+    0 0 20px rgba(216, 76, 102, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+.tile-unit.ally .tile-unit-marker {
+  color: #dff5ff;
+  border-color: rgba(96, 184, 255, 0.32);
+}
+
+.tile-unit.enemy .tile-unit-marker {
+  color: #ffe3e0;
+  border-color: rgba(255, 138, 134, 0.32);
 }
 
 .tile-unit.ghost {
@@ -4186,7 +4358,7 @@ body.use-floating-stat-tooltip .stat-tooltip-pill::after {
 @media (max-width: 1340px) {
   :root {
     --shell-width: min(100vw - 28px, 1420px);
-    --tile-size: 52px;
+    --tile-size: 56px;
   }
 
   .command-layout {
@@ -4204,7 +4376,7 @@ body.use-floating-stat-tooltip .stat-tooltip-pill::after {
 
 @media (max-width: 1120px) {
   :root {
-    --tile-size: 48px;
+    --tile-size: 52px;
     --tile-gap: 6px;
   }
 
@@ -4262,14 +4434,18 @@ body.use-floating-stat-tooltip .stat-tooltip-pill::after {
   }
 
   .battle-map-root {
-    min-height: 700px;
+    min-height: 760px;
+  }
+
+  .battle-briefing-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
 @media (max-width: 820px) {
   :root {
     --shell-width: min(100vw - 20px, 1280px);
-    --tile-size: 42px;
+    --tile-size: 46px;
     --tile-gap: 5px;
   }
 
@@ -4306,11 +4482,11 @@ body.use-floating-stat-tooltip .stat-tooltip-pill::after {
   }
 
   .battle-map-root {
-    min-height: 620px;
+    min-height: 680px;
   }
 
   .battle-scene {
-    min-height: 520px;
+    min-height: 580px;
   }
 
   .battle-toolbar {
@@ -4320,6 +4496,20 @@ body.use-floating-stat-tooltip .stat-tooltip-pill::after {
 
   .battle-toolbar-actions {
     justify-self: center;
+  }
+
+  .battle-briefing-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .battle-briefing-metrics {
+    grid-template-columns: 1fr;
+  }
+
+  .battle-briefing-chips {
+    max-width: none;
+    justify-content: flex-start;
   }
 }
 

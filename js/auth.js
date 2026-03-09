@@ -2644,6 +2644,7 @@
 
     host.querySelectorAll("[data-equipment-page]").forEach((button) => {
       button.addEventListener("click", () => {
+        appState.equipmentModal.hoveredItemId = null;
         appState.equipmentModal.page = button.dataset.equipmentPage === "next"
           ? Math.min(totalPages, currentPage + 1)
           : Math.max(1, currentPage - 1);

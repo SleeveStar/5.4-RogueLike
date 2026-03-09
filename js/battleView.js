@@ -659,6 +659,136 @@
     return "전투층";
   }
 
+  function getBattleBriefingContext(snapshot) {
+    const alliesAlive = snapshot.battle.units.filter((unit) => unit.team === "ally" && unit.alive).length;
+    const enemiesAlive = snapshot.battle.units.filter((unit) => unit.team === "enemy" && unit.alive).length;
+    const eliteUnits = snapshot.battle.units.filter((unit) => unit.team === "enemy" && unit.alive && unit.isElite);
+    const bossUnit = snapshot.battle.bossUnitId
+      ? snapshot.battle.units.find((unit) => unit.id === snapshot.battle.bossUnitId)
+      : null;
+    const relicCount = (snapshot.saveData && snapshot.saveData.endless && snapshot.saveData.endless.relicIds || []).length;
+    const endlessCurrentRun = snapshot.battle.stageId === "endless-rift" && snapshot.saveData
+      ? BattleService.getEndlessCurrentRunSummary(snapshot.saveData)
+      : null;
+    const activeChain = endlessCurrentRun && endlessCurrentRun.chainState ? endlessCurrentRun.chainState : null;
+    const leadCopy = snapshot.battle.specialRule
+      ? snapshot.battle.specialRule.description
+      : snapshot.battle.lastEventText || snapshot.battle.objective;
+
+    return {
+      alliesAlive,
+      enemiesAlive,
+      eliteUnits,
+      bossUnit,
+      relicCount,
+      endlessCurrentRun,
+      activeChain,
+      leadCopy
+    };
+  }
+
+  function buildBattleFlavorChips(snapshot, context) {
+    const chips = [`<span class="flavor-chip floor">${formatFloorType(snapshot.battle.floorType)}</span>`];
+
+    if (snapshot.battle.specialRule) {
+      chips.push(`<span class="flavor-chip rule">${snapshot.battle.specialRule.name}</span>`);
+    }
+
+    if (context.eliteUnits.length) {
+      chips.push(`<span class="flavor-chip elite">정예 ${context.eliteUnits.length}</span>`);
+    }
+
+    if (snapshot.battle.stageId === "endless-rift") {
+      chips.push(`<span class="flavor-chip relic">유물 ${context.relicCount}</span>`);
+
+      if (context.endlessCurrentRun) {
+        chips.push(`<span class="flavor-chip run">처치 ${context.endlessCurrentRun.enemiesDefeated}</span>`);
+      }
+
+      if (context.activeChain) {
+        chips.push(`<span class="flavor-chip chain">${context.activeChain.name}</span>`);
+      }
+    }
+
+    return chips;
+  }
+
+  function buildBattleBriefingMetric(label, value, toneClass) {
+    return [
+      `<div class="battle-briefing-metric${toneClass ? ` is-${toneClass}` : ""}">`,
+      `  <span class="battle-briefing-label">${label}</span>`,
+      `  <strong class="battle-briefing-value">${value}</strong>`,
+      "</div>"
+    ].join("");
+  }
+
+  function buildBattleBriefingMarkup(snapshot, options) {
+    const nextOptions = options || {};
+    const context = getBattleBriefingContext(snapshot);
+    const chips = buildBattleFlavorChips(snapshot, context);
+    const progressText = BattleService.getVictoryProgressText();
+    const bossText = context.bossUnit && context.bossUnit.alive
+      ? `${context.bossUnit.name} ${context.bossUnit.hp}/${context.bossUnit.maxHp}`
+      : "격파됨 또는 없음";
+    const currentRunText = context.endlessCurrentRun
+      ? `${context.endlessCurrentRun.floorsCleared}층 돌파 / 정예 ${context.endlessCurrentRun.eliteDefeated} / 피해 ${context.endlessCurrentRun.damageDealt}`
+      : "없음";
+
+    return [
+      `<article class="battle-briefing${nextOptions.compact ? " compact" : ""}">`,
+      '  <div class="battle-briefing-header">',
+      '    <div class="battle-briefing-copy">',
+      `      <strong>${snapshot.battle.stageName}</strong>`,
+      `      <span>${context.leadCopy}</span>`,
+      "    </div>",
+      `    <div class="flavor-chips battle-briefing-chips">${chips.join("")}</div>`,
+      "  </div>",
+      nextOptions.compact
+        ? ""
+        : [
+          '  <div class="battle-briefing-metrics">',
+          buildBattleBriefingMetric("목표", snapshot.battle.objective, "cyan"),
+          buildBattleBriefingMetric("진행", progressText, "gold"),
+          buildBattleBriefingMetric("생존", `아군 ${context.alliesAlive} / 적 ${context.enemiesAlive}`, "muted"),
+          buildBattleBriefingMetric("보스", bossText, context.bossUnit ? "crimson" : "muted"),
+          buildBattleBriefingMetric("보상", `${snapshot.battle.rewardGold || 0}G`, "gold"),
+          buildBattleBriefingMetric("현재 런", currentRunText, "violet"),
+          "  </div>",
+          '  <div class="battle-briefing-notes">',
+          `    <p><span>전장 규칙</span>${snapshot.battle.specialRule ? `${snapshot.battle.specialRule.name} - ${snapshot.battle.specialRule.description}` : "특수 규칙 없음"}</p>`,
+          `    <p><span>최근 연출</span>${snapshot.battle.lastEventText || "없음"}</p>`,
+          context.activeChain ? `    <p><span>연속 사건</span>${context.activeChain.name}</p>` : "",
+          "  </div>"
+        ].filter(Boolean).join(""),
+      "</article>"
+    ].join("");
+  }
+
+  function buildTileUnitMarkup(unit, options) {
+    const nextOptions = options || {};
+    const healthPercent = nextOptions.healthPercent != null
+      ? nextOptions.healthPercent
+      : Math.max(0, Math.min(100, (unit.hp / Math.max(1, unit.maxHp)) * 100));
+    const statusMarker = nextOptions.isGhost
+      ? "예상"
+      : unit.isBoss
+        ? "보스"
+        : unit.isElite
+          ? "정예"
+          : "";
+
+    return [
+      `  <span class="tile-unit ${unit.team}${unit.isBoss ? " boss" : ""}${unit.isElite ? " elite" : ""}${unit.acted ? " acted" : ""}${nextOptions.isGhost ? " ghost previewing" : ""}">`,
+      '    <span class="tile-unit-ring"></span>',
+      '    <span class="tile-unit-core">',
+      statusMarker ? `      <span class="tile-unit-marker">${statusMarker}</span>` : "",
+      `      <span class="tile-unit-name">${unit.name}</span>`,
+      "    </span>",
+      `    <span class="tile-unit-bar"><span style="width:${healthPercent}%"></span></span>`,
+      "  </span>"
+    ].join("");
+  }
+
   function renderToolbar(snapshot) {
     const endTurnButton = getElement("battle-end-turn-button");
     const turnCounter = getElement("battle-turn-counter");
@@ -668,6 +798,7 @@
     }
 
     turnCounter.textContent = snapshot && snapshot.battle ? `TURN ${snapshot.battle.turnNumber}` : "TURN -";
+    endTurnButton.classList.remove("turn-end-attention");
 
     if (snapshot && snapshot.battle && snapshot.battle.victoryCondition === "support_complete") {
       endTurnButton.textContent = snapshot.battle.pendingChoice ? "보상 선택 필요" : "다음 층 진행";
@@ -675,8 +806,15 @@
       return;
     }
 
+    const hasReadyAlly = !!(snapshot && snapshot.battle && snapshot.battle.units.some((unit) =>
+      unit.team === "ally" && unit.alive && !unit.acted
+    ));
+
     endTurnButton.textContent = "턴 종료";
     endTurnButton.disabled = !snapshot || !snapshot.battle || snapshot.battle.phase !== "player" || snapshot.battle.status !== "in_progress";
+    if (!endTurnButton.disabled && !hasReadyAlly) {
+      endTurnButton.classList.add("turn-end-attention");
+    }
   }
 
   function renderTurnInfo(snapshot) {
@@ -712,33 +850,7 @@
       return;
     }
 
-    const alliesAlive = snapshot.battle.units.filter((unit) => unit.team === "ally" && unit.alive).length;
-    const enemiesAlive = snapshot.battle.units.filter((unit) => unit.team === "enemy" && unit.alive).length;
-    const eliteCount = snapshot.battle.units.filter((unit) => unit.team === "enemy" && unit.alive && unit.isElite).length;
-    const bossUnit = snapshot.battle.bossUnitId
-      ? snapshot.battle.units.find((unit) => unit.id === snapshot.battle.bossUnitId)
-      : null;
-    const endlessCurrentRun = snapshot.battle.stageId === "endless-rift" && snapshot.saveData
-      ? BattleService.getEndlessCurrentRunSummary(snapshot.saveData)
-      : null;
-    const activeChain = endlessCurrentRun && endlessCurrentRun.chainState ? endlessCurrentRun.chainState : null;
-
-    showModal([
-      '<article class="modal-card battle-info-card">',
-      `  <h3>${snapshot.battle.stageName || snapshot.battle.stageId || "-"}</h3>`,
-      `  <p>층 유형: ${formatFloorType(snapshot.battle.floorType)}</p>`,
-      `  <p>목표: ${snapshot.battle.objective}</p>`,
-      `  <p>진행: ${BattleService.getVictoryProgressText()}</p>`,
-      `  <p>전장 규칙: ${snapshot.battle.specialRule ? `${snapshot.battle.specialRule.name} - ${snapshot.battle.specialRule.description}` : "없음"}</p>`,
-      `  <p>정예 반응: ${eliteCount > 0 ? `${eliteCount}체` : "없음"}</p>`,
-      `  <p>보스: ${bossUnit && bossUnit.alive ? `${bossUnit.name} (${bossUnit.hp}/${bossUnit.maxHp})` : "격파됨 또는 없음"}</p>`,
-      `  <p>클리어 보상: ${snapshot.battle.rewardGold || 0}G</p>`,
-      `  <p>생존: 아군 ${alliesAlive} / 적 ${enemiesAlive}</p>`,
-      `  <p>최근 연출: ${snapshot.battle.lastEventText || "없음"}</p>`,
-      activeChain ? `  <p>연속 사건: ${activeChain.name}</p>` : "",
-      endlessCurrentRun ? `  <p>현재 런: 처치 ${endlessCurrentRun.enemiesDefeated} / 정예 ${endlessCurrentRun.eliteDefeated} / 피해 ${endlessCurrentRun.damageDealt}</p>` : "",
-      "</article>"
-    ].filter(Boolean).join(""));
+    showModal(buildBattleBriefingMarkup(snapshot));
   }
 
   function getSelectedUnit(snapshot) {
@@ -1006,42 +1118,8 @@
       return;
     }
 
-    const eliteUnits = snapshot.battle.units.filter((unit) => unit.team === "enemy" && unit.alive && unit.isElite);
-    const relicCount = (snapshot.saveData && snapshot.saveData.endless && snapshot.saveData.endless.relicIds || []).length;
-    const endlessCurrentRun = snapshot.battle.stageId === "endless-rift" && snapshot.saveData
-      ? BattleService.getEndlessCurrentRunSummary(snapshot.saveData)
-      : null;
-    const activeChain = endlessCurrentRun && endlessCurrentRun.chainState ? endlessCurrentRun.chainState : null;
-    const chips = [`<span class="flavor-chip floor">${formatFloorType(snapshot.battle.floorType)}</span>`];
-
-    if (snapshot.battle.specialRule) {
-      chips.push(`<span class="flavor-chip rule">${snapshot.battle.specialRule.name}</span>`);
-    }
-
-    if (eliteUnits.length) {
-      chips.push(`<span class="flavor-chip elite">정예 ${eliteUnits.length}</span>`);
-    }
-
-    if (snapshot.battle.stageId === "endless-rift") {
-      chips.push(`<span class="flavor-chip relic">유물 ${relicCount}</span>`);
-
-      if (endlessCurrentRun) {
-        chips.push(`<span class="flavor-chip run">처치 ${endlessCurrentRun.enemiesDefeated}</span>`);
-      }
-
-      if (activeChain) {
-        chips.push(`<span class="flavor-chip chain">${activeChain.name}</span>`);
-      }
-    }
-
     target.classList.remove("hidden");
-    target.innerHTML = [
-      '<div class="flavor-main">',
-      `  <strong>${snapshot.battle.stageName}</strong>`,
-      `  <span>${snapshot.battle.specialRule ? snapshot.battle.specialRule.description : snapshot.battle.lastEventText || snapshot.battle.objective}</span>`,
-      "</div>",
-      `<div class="flavor-chips">${chips.join("")}</div>`
-    ].join("");
+    target.innerHTML = buildBattleBriefingMarkup(snapshot, { compact: true });
   }
 
   function renderLog(snapshot) {
@@ -1219,24 +1297,18 @@
           `  <span class="tile-top"></span>`,
           `  <span class="tile-overlay"></span>`,
           isReachable && reachableTile ? `  <span class="tile-cost">${reachableTile.cost}</span>` : "",
-          unit ? [
-            `  <span class="tile-unit ${unit.team}${unit.isBoss ? " boss" : ""}${unit.isElite ? " elite" : ""}${unit.acted ? " acted" : ""}">`,
-            `    <span class="tile-unit-name">${unit.name}${unit.isBoss ? "★" : unit.isElite ? "◆" : ""}</span>`,
-            `    <small>${unit.hp}</small>`,
-            `    <span class="tile-unit-bar"><span style="width:${Math.max(0, Math.min(100, (unit.hp / Math.max(1, unit.maxHp)) * 100))}%"></span></span>`,
-            "  </span>"
-          ].join("") : "",
+          unit ? buildTileUnitMarkup(unit) : "",
           !unit && isMovePreviewTarget && selectedUnit && movePreview && movePreview.unitId === selectedUnit.id ? [
-            '  <span class="tile-unit ally ghost previewing">',
-            `    <span class="tile-unit-name">${selectedUnit.name}</span>`,
-            `    <small>예상</small>`,
-            '    <span class="tile-unit-bar"><span style="width:100%"></span></span>',
-            "  </span>"
+            buildTileUnitMarkup(selectedUnit, {
+              isGhost: true,
+              healthPercent: 100,
+              tagText: "예상 이동"
+            })
           ].join("") : "",
           marker ? `  <span class="tile-marker tile-marker-${marker.type}">${marker.label}</span>` : "",
-          !marker && tileType === "forest" ? '  <span class="tile-deco">숲</span>' : "",
-          !marker && tileType === "hill" ? '  <span class="tile-deco">고지</span>' : "",
-          !marker && tileType === "wall" ? '  <span class="tile-deco">벽</span>' : "",
+          !unit && !isMovePreviewTarget && !marker && tileType === "forest" ? '  <span class="tile-deco">숲</span>' : "",
+          !unit && !isMovePreviewTarget && !marker && tileType === "hill" ? '  <span class="tile-deco">고지</span>' : "",
+          !unit && !isMovePreviewTarget && !marker && tileType === "wall" ? '  <span class="tile-deco">벽</span>' : "",
           "</button>"
         ].join(""));
       }

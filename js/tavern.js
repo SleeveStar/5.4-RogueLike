@@ -6,7 +6,7 @@
   const StatsService = global.StatsService;
   const SkillsService = global.SkillsService;
 
-  const REFRESH_INTERVAL_MS = 5 * 60 * 60 * 1000;
+  const REFRESH_INTERVAL_MS = 3 * 60 * 60 * 1000;
   const LINEUP_SIZE = 4;
   const MAX_SORTIE_SIZE = 5;
 
