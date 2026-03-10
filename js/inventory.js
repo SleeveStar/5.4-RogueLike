@@ -912,6 +912,7 @@
       type: "consumable",
       slot: "consumable",
       rarity: "rare",
+      availableInShop: false,
       price: 180,
       description: "수동으로 분배한 1차 스탯 포인트를 모두 회수해 다시 투자할 수 있게 한다.",
       effect: { kind: "reset_stats" }
@@ -3262,11 +3263,19 @@
     return item;
   }
 
+  function isAvailableInShop(product) {
+    return !!(product && product.availableInShop !== false);
+  }
+
   function purchaseItem(saveData, productId) {
     const product = SHOP_CATALOG.find((entry) => entry.id === productId);
 
     if (!product) {
       throw new Error("상품 정보를 찾을 수 없습니다.");
+    }
+
+    if (!isAvailableInShop(product)) {
+      throw new Error("이 상품은 상점에서 구매할 수 없습니다.");
     }
 
     if ((saveData.partyGold || 0) < product.price) {
@@ -3705,6 +3714,7 @@
     addItemToInventory,
     removeItemFromInventory,
     buildShopItem,
+    isAvailableInShop,
     purchaseItem,
     applyConsumableToUnit,
     sortInventory,

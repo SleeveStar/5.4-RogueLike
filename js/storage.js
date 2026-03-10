@@ -43,6 +43,11 @@
     tutorial: {
       prologueFieldIntroShown: false
     },
+    shop: {
+      refreshBlock: null,
+      nextRefreshAt: null,
+      lineupIds: []
+    },
     leaderUnitId: "hero-1",
     tavern: {
       refreshBlock: null,
@@ -327,6 +332,8 @@
     normalized.collection = Object.assign({}, cloneValue(DEFAULT_SAVE.collection), normalized.collection || {});
     normalized.collection.discoveredRewardIds = cloneValue(normalized.collection.discoveredRewardIds || []);
     normalized.tutorial = Object.assign({}, cloneValue(DEFAULT_SAVE.tutorial), normalized.tutorial || {});
+    normalized.shop = Object.assign({}, cloneValue(DEFAULT_SAVE.shop), normalized.shop || {});
+    normalized.shop.lineupIds = cloneValue(normalized.shop.lineupIds || []);
     normalized.tavern = Object.assign({}, cloneValue(DEFAULT_SAVE.tavern), normalized.tavern || {});
     normalized.tavern.lineup = cloneValue(normalized.tavern.lineup || []);
     normalized.inventory = cloneValue(normalized.inventory || []);

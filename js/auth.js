@@ -12,6 +12,9 @@
   const MAX_SORTIE_SIZE = 5;
   const ROSTER_PAGE_SIZE = 3;
   const SHOP_PAGE_SIZE = 9;
+  const SHOP_REFRESH_INTERVAL_MS = 3 * 60 * 60 * 1000;
+  const SHOP_CONSUMABLE_LINEUP_SIZE = 2;
+  const SHOP_EQUIPMENT_LINEUP_SIZE = 12;
   const INVENTORY_PAGE_SIZE = 8;
   const EQUIPMENT_MODAL_PAGE_SIZE = 8;
   const EQUIP_TARGET_MODAL_PAGE_SIZE = 10;
@@ -383,6 +386,86 @@
     }
 
     return syncResult ? syncResult.tavern : null;
+  }
+
+  function shuffleList(values) {
+    const shuffled = Array.isArray(values) ? values.slice() : [];
+
+    for (let index = shuffled.length - 1; index > 0; index -= 1) {
+      const swapIndex = Math.floor(Math.random() * (index + 1));
+      const temp = shuffled[index];
+      shuffled[index] = shuffled[swapIndex];
+      shuffled[swapIndex] = temp;
+    }
+
+    return shuffled;
+  }
+
+  function ensureShopStateShape() {
+    if (!appState.saveData) {
+      return null;
+    }
+
+    if (!appState.saveData.shop || typeof appState.saveData.shop !== "object") {
+      appState.saveData.shop = {
+        refreshBlock: null,
+        nextRefreshAt: null,
+        lineupIds: []
+      };
+    }
+
+    if (!Array.isArray(appState.saveData.shop.lineupIds)) {
+      appState.saveData.shop.lineupIds = [];
+    }
+
+    return appState.saveData.shop;
+  }
+
+  function buildSupplyShopLineupIds() {
+    const availableProducts = InventoryService.SHOP_CATALOG.filter((product) => InventoryService.isAvailableInShop(product));
+    const consumables = shuffleList(availableProducts.filter((product) => InventoryService.isConsumable(product)))
+      .slice(0, SHOP_CONSUMABLE_LINEUP_SIZE);
+    const equipment = shuffleList(availableProducts.filter((product) => InventoryService.isEquipment(product)))
+      .slice(0, SHOP_EQUIPMENT_LINEUP_SIZE);
+
+    return consumables.concat(equipment).map((product) => product.id);
+  }
+
+  function syncShopState(showRefreshToast) {
+    if (!appState.saveData || !appState.currentUserId) {
+      return null;
+    }
+
+    const shop = ensureShopStateShape();
+
+    if (!shop) {
+      return null;
+    }
+
+    const now = Date.now();
+    const refreshBlock = Math.floor(now / SHOP_REFRESH_INTERVAL_MS);
+    const nextRefreshAt = new Date((refreshBlock + 1) * SHOP_REFRESH_INTERVAL_MS).toISOString();
+    const needsRefresh = shop.refreshBlock !== refreshBlock
+      || !shop.nextRefreshAt
+      || !Array.isArray(shop.lineupIds)
+      || !shop.lineupIds.length;
+
+    if (!needsRefresh) {
+      shop.nextRefreshAt = nextRefreshAt;
+      return shop;
+    }
+
+    shop.refreshBlock = refreshBlock;
+    shop.nextRefreshAt = nextRefreshAt;
+    shop.lineupIds = buildSupplyShopLineupIds();
+    appState.shopView.page = 1;
+    appState.saveData = StorageService.setUserSave(appState.currentUserId, appState.saveData);
+
+    if (showRefreshToast) {
+      showToast("보급 상점 목록이 새로 갱신되었습니다.");
+    }
+
+    return shop;
   }
 
   function normalizeUserId(rawUserId) {
@@ -2379,8 +2462,11 @@
 
     if (type === "shop") {
       const product = InventoryService.SHOP_CATALOG.find((entry) => entry.id === id);
+      const shopLineupIds = appState.saveData && appState.saveData.shop && Array.isArray(appState.saveData.shop.lineupIds)
+        ? appState.saveData.shop.lineupIds
+        : [];
 
-      if (!product) {
+      if (!product || !InventoryService.isAvailableInShop(product) || !shopLineupIds.includes(product.id)) {
         return null;
       }
 
@@ -3896,11 +3982,20 @@
   function renderShopList() {
     const target = getElement("menu-shop-list");
     const statusTarget = getElement("menu-shop-status");
+    const shopState = syncShopState(false);
     const shopCategory = appState.shopView.category === "consumable" ? "consumable" : "equipment";
-    const filteredProducts = InventoryService.SHOP_CATALOG.filter((product) => (
-      shopCategory === "consumable"
-        ? InventoryService.isConsumable(product)
-        : InventoryService.isEquipment(product)
+    const lineupIds = shopState && Array.isArray(shopState.lineupIds)
+      ? shopState.lineupIds
+      : [];
+    const lineupProducts = lineupIds
+      .map((productId) => InventoryService.SHOP_CATALOG.find((product) => product.id === productId))
+      .filter((product) => product && InventoryService.isAvailableInShop(product));
+    const filteredProducts = lineupProducts.filter((product) => (
+      (
+        shopCategory === "consumable"
+          ? InventoryService.isConsumable(product)
+          : InventoryService.isEquipment(product)
+      )
     ));
     const totalProducts = filteredProducts.length;
     const totalPages = Math.max(1, Math.ceil(totalProducts / SHOP_PAGE_SIZE));
@@ -3912,11 +4007,15 @@
     syncShopCategoryTabs();
 
     if (statusTarget) {
+      const nextRefreshText = shopState && shopState.nextRefreshAt
+        ? `${new Date(shopState.nextRefreshAt).toLocaleString("ko-KR")} (${formatRemainingRefresh(shopState.nextRefreshAt)} 후)`
+        : "알 수 없음";
       statusTarget.innerHTML = [
         `<p class="status-line is-gold">보유 골드: ${appState.saveData ? appState.saveData.partyGold : 0}G</p>`,
         `<p class="status-line">인벤토리 수: ${appState.saveData && appState.saveData.inventory ? appState.saveData.inventory.length : 0}개</p>`,
         `<p class="status-line">소모품 수: ${appState.saveData && appState.saveData.inventory ? appState.saveData.inventory.filter((item) => InventoryService.isConsumable(item)).length : 0}개</p>`,
-        `<p class="status-line">상품 수: ${totalProducts}개 / 페이지 ${currentPage} / ${totalPages}</p>`
+        `<p class="status-line">상품 수: ${totalProducts}개 / 페이지 ${currentPage} / ${totalPages}</p>`,
+        `<p class="status-line">다음 갱신: ${nextRefreshText}</p>`
       ].join("");
     }
 
@@ -4345,6 +4444,7 @@
     StatsService.normalizeRosterProgression(appState.saveData);
     SkillsService.normalizeRosterLearnedSkills(appState.saveData);
     syncTavernState(false);
+    syncShopState(false);
     renderSortieQuickBar();
     renderPartyManagement();
     renderStageList();
@@ -4414,6 +4514,7 @@
     StatsService.normalizeRosterProgression(appState.saveData);
     SkillsService.normalizeRosterLearnedSkills(appState.saveData);
     syncTavernState(false);
+    syncShopState(false);
     ensureSelectedMenuUnit();
 
     if (!appState.menuClockTimer) {
@@ -4689,6 +4790,7 @@
     }
 
     syncTavernState(true);
+    syncShopState(true);
     renderMainMenu();
   }
 

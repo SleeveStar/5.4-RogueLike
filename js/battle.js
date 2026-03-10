@@ -2042,7 +2042,10 @@
   }
 
   function buildShopChoices(floor, random) {
-    return shuffleWithRandom(InventoryService.SHOP_CATALOG, random)
+    return shuffleWithRandom(
+      InventoryService.SHOP_CATALOG.filter((product) => InventoryService.isAvailableInShop(product)),
+      random
+    )
       .slice(0, 4)
       .map((product) => ({
         id: product.id,
