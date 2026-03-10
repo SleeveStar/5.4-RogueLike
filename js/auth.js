@@ -14,6 +14,7 @@
   const SHOP_PAGE_SIZE = 9;
   const INVENTORY_PAGE_SIZE = 8;
   const EQUIPMENT_MODAL_PAGE_SIZE = 8;
+  const EQUIP_TARGET_MODAL_PAGE_SIZE = 10;
   const SORTIE_MANAGER_PAGE_SIZE = 4;
   const PASSIVE_SKILL_MODAL_PAGE_SIZE = 8;
 
@@ -54,7 +55,8 @@
     },
     detailModal: {
       type: null,
-      id: null
+      id: null,
+      page: 1
     },
     pendingEquipAction: null,
     quickSwapSlotIndex: null,
@@ -772,6 +774,7 @@
 
     appState.detailModal.type = null;
     appState.detailModal.id = null;
+    appState.detailModal.page = 1;
     appState.pendingEquipAction = null;
     appState.quickSwapSlotIndex = null;
   }
@@ -1661,23 +1664,40 @@
 
   function buildEquipTargetPickerMarkup(item) {
     const roster = (appState.saveData && appState.saveData.roster) || [];
+    const selectedPartyIds = getSelectedPartyIds().slice(0, MAX_SORTIE_SIZE);
+    const selectedPartyMap = new Map(selectedPartyIds.map((unitId, index) => [unitId, index + 1]));
+    const sortedRoster = sortPartyRoster(roster, selectedPartyIds);
     const compatibleTypeLabel = InventoryService.getTypeLabel(item.type || item.slot);
+    const totalPages = Math.max(1, Math.ceil(sortedRoster.length / EQUIP_TARGET_MODAL_PAGE_SIZE));
+    const currentPage = Math.max(1, Math.min(totalPages, Number(appState.detailModal.page || 1)));
+    const pageStart = (currentPage - 1) * EQUIP_TARGET_MODAL_PAGE_SIZE;
+    const visibleRoster = sortedRoster.slice(pageStart, pageStart + EQUIP_TARGET_MODAL_PAGE_SIZE);
+
+    appState.detailModal.page = currentPage;
 
     return [
       `<div class="item-title-row"><strong class="card-title">${item.name}</strong><span class="card-subtitle">${compatibleTypeLabel}</span></div>`,
-      '  <div class="inventory-meta">',
-      `    <span class="meta-pill rarity-${item.rarity}">${InventoryService.getRarityMeta(item.rarity).label}</span>`,
-      `    <span class="meta-pill ${item.equippedBy ? "is-cyan" : "is-muted"}">${item.equippedBy ? `${getUnitNameById(item.equippedBy)} 장착 중` : "미장착"}</span>`,
+      '  <div class="equip-target-summary-row">',
+      '    <div class="inventory-meta">',
+      `      <span class="meta-pill rarity-${item.rarity}">${InventoryService.getRarityMeta(item.rarity).label}</span>`,
+      `      <span class="meta-pill ${item.equippedBy ? "is-cyan" : "is-muted"}">${item.equippedBy ? `${getUnitNameById(item.equippedBy)} 장착 중` : "미장착"}</span>`,
+      "    </div>",
+      '    <p class="equip-target-summary-copy">장착할 캐릭터를 고르면 해당 캐릭터의 장착 관리 창이 열립니다.</p>',
       "  </div>",
-      '  <p>장착할 캐릭터를 고르면 해당 캐릭터의 장착 관리 창이 열립니다.</p>',
-      ...roster.map((unit) => {
+      ...(visibleRoster.length ? visibleRoster : [null]).map((unit) => {
+        if (!unit) {
+          return '<div class="inventory-card">장착 가능한 모험가가 없습니다.</div>';
+        }
+
         const canEquip = InventoryService.canEquip(appState.saveData, unit, item);
         const isSelected = appState.selectedMenuUnitId === unit.id;
+        const currentSlot = selectedPartyMap.get(unit.id) || null;
+        const rankClass = `rank-${String(unit.guildRank || "D").toLowerCase().replace("+", "plus")}`;
         return [
-          `  <article class="inventory-card compact-card ${canEquip ? "" : "locked"}">`,
+          `  <article class="inventory-card compact-card equip-target-card ${currentSlot ? "is-in-party" : ""} ${canEquip ? "" : "locked"}">`,
           '    <div>',
           `      <div class="item-title-row"><strong class="card-title">${unit.name}</strong><span class="card-subtitle">${unit.className}</span></div>`,
-          `      <div class="inventory-meta"><span class="meta-pill">Lv.${unit.level}</span><span class="meta-pill ${isUnitSelectedForSortie(unit.id) ? "is-cyan" : "is-muted"}">${isUnitSelectedForSortie(unit.id) ? "출전 중" : "후방 대기"}</span><span class="meta-pill ${isSelected ? "is-gold" : "is-muted"}">${isSelected ? "현재 선택" : "선택 가능"}</span></div>`,
+          `      <div class="inventory-meta"><span class="meta-pill ${rankClass}">${formatRankBadge(unit.guildRank || "D")}</span><span class="meta-pill">Lv.${unit.level}</span><span class="meta-pill ${currentSlot ? "is-gold" : "is-muted"}">${currentSlot ? "편성 중" : "후방 대기"}</span><span class="meta-pill ${currentSlot ? "is-cyan" : "is-muted"}">${currentSlot ? `${currentSlot}번 슬롯` : "미편성"}</span><span class="meta-pill ${isSelected ? "is-gold" : "is-muted"}">${isSelected ? "현재 선택" : "선택 가능"}</span></div>`,
           "    </div>",
           '    <div class="button-row">',
           `      <button class="${canEquip ? "primary-button" : "ghost-button"} small-button" type="button" data-equip-now-unit="${unit.id}" ${canEquip ? "" : "disabled"}>${canEquip ? "바로 장착" : "장착 불가"}</button>`,
@@ -1685,7 +1705,16 @@
           "    </div>",
           "  </article>"
         ].join("");
-      })
+      }),
+      totalPages > 1
+        ? [
+            '  <div class="list-pagination equip-target-pagination">',
+            `    <button class="ghost-button small-button" type="button" data-equip-target-page="prev" ${currentPage <= 1 ? "disabled" : ""}>이전</button>`,
+            `    <span class="pagination-label">${currentPage} / ${totalPages}</span>`,
+            `    <button class="ghost-button small-button" type="button" data-equip-target-page="next" ${currentPage >= totalPages ? "disabled" : ""}>다음</button>`,
+            "  </div>"
+          ].join("")
+        : ""
     ].join("");
   }
 
@@ -2527,6 +2556,7 @@
     closeSkillModal();
     appState.detailModal.type = type;
     appState.detailModal.id = id;
+    appState.detailModal.page = 1;
     renderDetailModal();
   }
 
@@ -2697,10 +2727,24 @@
   }
 
   function handleEquipTargetModalInteraction(event, itemId) {
-    const button = event.target.closest("button[data-equip-target-unit], button[data-equip-now-unit]");
+    const button = event.target.closest("button");
     const item = InventoryService.getItemById(appState.saveData, itemId);
 
     if (!button || !item || !InventoryService.isEquipment(item)) {
+      return;
+    }
+
+    if (button.dataset.equipTargetPage) {
+      const roster = sortPartyRoster((appState.saveData && appState.saveData.roster) || [], getSelectedPartyIds());
+      const totalPages = Math.max(1, Math.ceil(roster.length / EQUIP_TARGET_MODAL_PAGE_SIZE));
+      appState.detailModal.page = button.dataset.equipTargetPage === "next"
+        ? Math.min(totalPages, Number(appState.detailModal.page || 1) + 1)
+        : Math.max(1, Number(appState.detailModal.page || 1) - 1);
+      renderDetailModal();
+      return;
+    }
+
+    if (!button.matches("[data-equip-target-unit], [data-equip-now-unit]")) {
       return;
     }
 

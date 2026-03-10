@@ -4584,6 +4584,52 @@ body.use-floating-stat-tooltip .stat-tooltip-pill::after {
   margin: 0;
 }
 
+.menu-detail-card > .equip-target-summary-row,
+.menu-detail-card > .equip-target-pagination {
+  grid-column: 1 / -1;
+}
+
+.equip-target-summary-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.equip-target-summary-copy {
+  flex: 1 1 280px;
+  text-align: right;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+}
+
+.equip-target-card {
+  position: relative;
+}
+
+.equip-target-card.is-in-party {
+  border-color: rgba(103, 215, 232, 0.24);
+  background:
+    radial-gradient(circle at top right, rgba(103, 215, 232, 0.16), transparent 36%),
+    linear-gradient(180deg, rgba(12, 24, 37, 0.96), rgba(8, 15, 24, 0.98));
+  box-shadow:
+    0 0 0 1px rgba(103, 215, 232, 0.12),
+    0 14px 28px rgba(7, 24, 38, 0.32);
+}
+
+.equip-target-card.is-in-party::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 6px;
+  background: linear-gradient(180deg, rgba(255, 214, 120, 0.96), rgba(103, 215, 232, 0.92));
+  box-shadow: 0 0 18px rgba(103, 215, 232, 0.3);
+}
+
+.equip-target-card.is-in-party .card-title {
+  color: #8fe6ff;
+}
+
 .detail-hero-meta {
   align-items: center;
 }
@@ -5158,6 +5204,16 @@ body.use-floating-stat-tooltip .stat-tooltip-pill::after {
     grid-template-columns: 1fr;
   }
 
+  .equip-target-card {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .equip-target-card .button-row {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
   .detail-hero-card {
     grid-template-columns: 1fr;
   }
@@ -5182,6 +5238,15 @@ body.use-floating-stat-tooltip .stat-tooltip-pill::after {
   justify-content: space-between;
   align-items: center;
   gap: var(--space-12);
+}
+
+.equip-target-card .inventory-meta {
+  gap: 6px;
+}
+
+.equip-target-card .button-row {
+  justify-content: flex-end;
+  flex-shrink: 0;
 }
 
 .progression-stat-buttons {
@@ -5254,6 +5319,15 @@ body.use-floating-stat-tooltip .stat-tooltip-pill::after {
 
   .progression-stat-actions {
     justify-content: flex-start;
+  }
+
+  .equip-target-summary-row {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .equip-target-summary-copy {
+    text-align: left;
   }
 }
 
