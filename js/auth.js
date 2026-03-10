@@ -3355,12 +3355,15 @@
             const equippedIndex = (unit.equippedActiveSkillIds || []).indexOf(skill.id);
 
             return [
-              `<article class="inventory-card skill-card ${equippedIndex >= 0 ? "is-equipped" : ""}" draggable="true" data-modal-skill="${skill.id}">`,
-              `  <div class="item-title-row"><strong class="card-title">${skill.name}</strong><span class="card-subtitle">Lv.${skill.skillLevel} / ${skill.maxSkillLevel}</span></div>`,
-              '  <div class="inventory-meta">',
-              `    <span class="meta-pill is-cyan">${equippedIndex >= 0 ? getSkillSlotLabel(equippedIndex) : "미장착"}</span>`,
-              `    <span class="meta-pill">재사용 ${skill.cooldown}턴</span>`,
-              `    <span class="meta-pill">${getSkillRangeLabel(skill)}</span>`,
+              `<article class="inventory-card skill-card skill-card-active ${equippedIndex >= 0 ? "is-equipped" : ""}" draggable="true" data-modal-skill="${skill.id}">`,
+              '  <div class="item-title-row skill-card-header">',
+              `    <strong class="card-title">${skill.name}</strong>`,
+              '    <div class="inventory-meta skill-card-inline-meta">',
+              `      <span class="meta-pill">Lv.${skill.skillLevel} / ${skill.maxSkillLevel}</span>`,
+              `      <span class="meta-pill is-cyan">${equippedIndex >= 0 ? getSkillSlotLabel(equippedIndex) : "미장착"}</span>`,
+              `      <span class="meta-pill">재사용 ${skill.cooldown}턴</span>`,
+              `      <span class="meta-pill">${getSkillRangeLabel(skill)}</span>`,
+              "    </div>",
               "  </div>",
               `  <p>${skill.description}</p>`,
               performance ? `  <p>${performance.currentSummary}</p>` : "",

@@ -4379,6 +4379,33 @@ body.use-floating-stat-tooltip .stat-tooltip-pill::after {
   gap: var(--space-10);
 }
 
+.skill-card-active {
+  gap: var(--space-8);
+}
+
+.skill-card-header {
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.skill-card-header > .card-title {
+  min-width: 0;
+}
+
+.skill-card-inline-meta {
+  flex: 1 1 280px;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-left: auto;
+}
+
+.skill-card-inline-meta .meta-pill {
+  min-height: 22px;
+  padding: 0 7px;
+  font-size: 0.72rem;
+}
+
 .skill-slot-card {
   align-content: start;
 }
@@ -5109,6 +5136,16 @@ body.use-floating-stat-tooltip .stat-tooltip-pill::after {
 
   .skill-catalog-list {
     max-height: none;
+  }
+
+  .skill-card-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .skill-card-inline-meta {
+    justify-content: flex-start;
+    margin-left: 0;
   }
 
   .menu-detail-modal-panel {
