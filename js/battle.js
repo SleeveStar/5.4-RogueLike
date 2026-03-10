@@ -2348,19 +2348,7 @@
     const normalizedFloor = Math.max(1, floor || 1);
     const seed = normalizedFloor * 7919 + 17;
     const random = createSeededRandom(seed);
-    const floorType = normalizedFloor % 10 === 0
-      ? "boss"
-      : normalizedFloor % 8 === 0
-        ? "shop"
-      : normalizedFloor % 7 === 0
-        ? "supply"
-      : normalizedFloor % 5 === 0
-        ? "rest"
-      : normalizedFloor % 4 === 0
-          ? "relic"
-          : normalizedFloor % 6 === 0
-            ? "event"
-          : "combat";
+    const floorType = chooseEndlessFloorType(normalizedFloor, random);
     const dungeonLayout = buildEndlessDungeonLayout(floorType, normalizedFloor, random);
     const mapTiles = dungeonLayout.tiles;
 
@@ -2393,7 +2381,7 @@
           : floorType === "relic"
             ? "유물을 선택하고 다음 층으로 이동"
             : floorType === "event"
-              ? "이벤트를 선택하고 다음 층으로 이동"
+              ? "적을 정리한 뒤 사건을 선택하고 다음 층으로 이동"
           : bossEnabled
             ? "보스 격파 또는 적 전멸"
             : "모든 적 격파",
@@ -2454,7 +2442,7 @@
         specialActiveSkillIds: [bossSkillByType[bossWeaponType][1]]
       } : null,
       victoryCondition: floorType === "rest" || floorType === "supply" || floorType === "shop"
-        || floorType === "relic" || floorType === "event"
+        || floorType === "relic"
         ? "support_complete"
         : bossEnabled
           ? "boss_or_route"
@@ -2486,7 +2474,8 @@
               title: "균열 상점",
               choices: buildShopChoices(normalizedFloor, random)
             }
-        : floorType === "event"
+          : null,
+      deferredChoice: floorType === "event"
           ? {
               type: "event",
               title: activeChain ? `연속 사건: ${activeChain.name}` : "균열 사건 선택",
@@ -2494,6 +2483,42 @@
             }
           : null
     };
+  }
+
+  function chooseEndlessFloorType(floor, random) {
+    const normalizedFloor = Math.max(1, floor || 1);
+
+    if (normalizedFloor % 10 === 0) {
+      return "boss";
+    }
+
+    const candidates = [
+      { type: "combat", weight: normalizedFloor <= 2 ? 60 : 42 },
+      { type: "event", weight: normalizedFloor <= 2 ? 18 : 14 },
+      { type: "rest", weight: normalizedFloor <= 2 ? 14 : 12 },
+      { type: "supply", weight: normalizedFloor <= 2 ? 8 : 12 }
+    ];
+
+    if (normalizedFloor >= 3) {
+      candidates.push({ type: "relic", weight: 12 });
+    }
+
+    if (normalizedFloor >= 5) {
+      candidates.push({ type: "shop", weight: 8 });
+    }
+
+    const totalWeight = candidates.reduce((sum, entry) => sum + entry.weight, 0);
+    let roll = random() * totalWeight;
+
+    for (let i = 0; i < candidates.length; i += 1) {
+      roll -= candidates[i].weight;
+
+      if (roll < 0) {
+        return candidates[i].type;
+      }
+    }
+
+    return candidates[0].type;
   }
 
   function getCurrentStageDefinition() {
@@ -2617,7 +2642,7 @@
   }
 
   function isSupportFloorType(floorType) {
-    return floorType === "rest" || floorType === "supply" || floorType === "shop" || floorType === "relic" || floorType === "event";
+    return floorType === "rest" || floorType === "supply" || floorType === "shop" || floorType === "relic";
   }
 
   function applySupportFloorBenefits(stageDefinition, battle) {
@@ -2661,10 +2686,6 @@
       return;
     }
 
-    if (stageDefinition.floorType === "event") {
-      battle.logs.push("이벤트층 효과: 하나의 사건을 선택해 즉시 혜택을 얻을 수 있다.");
-      battle.lastEventText = "불안정한 균열 사건이 발생했다.";
-    }
   }
 
   function getEncounterMarkerAt(x, y) {
@@ -3345,6 +3366,7 @@
       floorType: stageDefinition.floorType || "combat",
       specialRule: clone(stageDefinition.specialRule || null),
       pendingChoice: clone(stageDefinition.pendingChoice || null),
+      deferredChoice: clone(stageDefinition.deferredChoice || null),
       phase: "player",
       turnNumber: 1,
       map: createMap(stageDefinition),
@@ -4828,7 +4850,9 @@
     const defeatMet = state.battle.defeatCondition === "all_allies_down"
       ? allAlliesDead
       : (leaderUnit ? !leaderUnit.alive : allAlliesDead);
-    const victoryMet = state.battle.victoryCondition === "boss_defeat"
+    const victoryMet = state.battle.victoryCondition === "support_complete"
+      ? false
+      : state.battle.victoryCondition === "boss_defeat"
       ? bossDefeated
       : state.battle.victoryCondition === "boss_or_route"
         ? (bossDefeated || allEnemiesDead)
@@ -4846,6 +4870,18 @@
     }
 
     if (victoryMet) {
+      if (state.battle.floorType === "event" && state.battle.deferredChoice && !state.battle.pendingChoice) {
+        state.battle.victoryCondition = "support_complete";
+        state.battle.pendingChoice = clone(state.battle.deferredChoice);
+        state.battle.deferredChoice = null;
+        state.battle.phase = "player";
+        resetUiState();
+        addLog("적을 정리했습니다. 균열 사건을 선택하세요.");
+        state.battle.lastEventText = "전투가 끝난 뒤 균열 사건이 모습을 드러냈다.";
+        syncPersistentFromBattle({ keepBattleState: true });
+        return false;
+      }
+
       state.battle.status = "victory";
       state.saveData.battleState = null;
       resetUiState();
