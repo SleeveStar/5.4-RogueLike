@@ -44,6 +44,7 @@
       unitId: null,
       hoveredItemId: null,
       hoveredSlotKey: null,
+      previewSlotKey: null,
       dragItemId: null,
       page: 1
     },
@@ -176,15 +177,22 @@
 
   function showFloatingStatTooltip(trigger) {
     const tooltipText = trigger && trigger.dataset ? trigger.dataset.statTooltip : "";
+    const tooltipHtml = trigger && trigger.dataset ? trigger.dataset.tooltipHtml : "";
 
-    if (!tooltipText) {
+    if (!tooltipText && !tooltipHtml) {
       hideFloatingStatTooltip();
       return;
     }
 
     const tooltip = ensureFloatingStatTooltip();
     appState.floatingTooltip.trigger = trigger;
-    tooltip.textContent = tooltipText;
+    if (tooltipHtml) {
+      tooltip.innerHTML = tooltipHtml;
+      tooltip.classList.add("is-rich-tooltip");
+    } else {
+      tooltip.textContent = tooltipText;
+      tooltip.classList.remove("is-rich-tooltip");
+    }
     tooltip.classList.add("visible");
     tooltip.setAttribute("aria-hidden", "false");
     scheduleFloatingStatTooltipPosition(trigger);
@@ -198,13 +206,13 @@
       return;
     }
 
-    appState.floatingTooltip.element.classList.remove("visible", "is-above", "is-below");
+    appState.floatingTooltip.element.classList.remove("visible", "is-above", "is-below", "is-rich-tooltip");
     appState.floatingTooltip.element.setAttribute("aria-hidden", "true");
   }
 
   function getStatTooltipTrigger(target) {
     return target && target.closest
-      ? target.closest("[data-stat-tooltip]")
+      ? target.closest("[data-stat-tooltip], [data-tooltip-html]")
       : null;
   }
 
@@ -744,6 +752,7 @@
     appState.equipmentModal.unitId = null;
     appState.equipmentModal.hoveredItemId = null;
     appState.equipmentModal.hoveredSlotKey = null;
+    appState.equipmentModal.previewSlotKey = null;
     appState.equipmentModal.dragItemId = null;
     appState.equipmentModal.page = 1;
   }
@@ -1553,6 +1562,34 @@
       `  <span class="equipment-detail-info-label">${label}</span>`,
       `  <div class="equipment-detail-info-body">${bodyMarkup}</div>`,
       '</div>'
+    ].join("");
+  }
+
+  function buildEquipmentSlotTooltipMarkup(item, slotMeta) {
+    if (!item) {
+      return "";
+    }
+
+    const rarity = InventoryService.getRarityMeta(item.rarity);
+    const statSummary = InventoryService.formatStatBonusLine(item);
+    const statEntries = statSummary !== "추가 능력치 없음"
+      ? statSummary.split(" / ").map((entry) => ({ text: entry, className: "is-cyan" }))
+      : [];
+    const affixEntries = (item.affixes || []).map((affix) => ({
+      text: affix.label,
+      className: affix.isUnique ? "is-unique" : ""
+    }));
+
+    return [
+      '<div class="equipment-slot-tooltip">',
+      `  <div class="item-title-row"><strong class="card-title">${item.name}</strong><span class="card-subtitle">${slotMeta ? slotMeta.label : InventoryService.getSlotLabel(item.equippedSlotKey || item.slot)}</span></div>`,
+      '  <div class="inventory-meta">',
+      `    <span class="meta-pill rarity-${item.rarity}">${rarity.label}</span>`,
+      `    <span class="meta-pill is-cyan">${InventoryService.getTypeLabel(item.type || item.slot)}</span>`,
+      "  </div>",
+      `  ${buildCompactEquipmentInfoRow("능력치", buildCompactEquipmentBadgeList(statEntries, "추가 능력치 없음"))}`,
+      `  ${buildCompactEquipmentInfoRow("옵션", buildCompactEquipmentBadgeList(affixEntries, "추가 옵션 없음"))}`,
+      "</div>"
     ].join("");
   }
 
@@ -3052,6 +3089,8 @@
       return;
     }
 
+    hideFloatingStatTooltip();
+
     const loadout = InventoryService.getEquipmentLoadout(appState.saveData, unit.id);
     const selectedSlotKey = appState.equipmentModal.hoveredSlotKey || null;
     const selectedSlotMeta = selectedSlotKey ? InventoryService.getEquipSlotMeta(selectedSlotKey) : null;
@@ -3106,15 +3145,15 @@
       InventoryService.getEquipSlotLayout().map((slotMeta) => {
         const item = loadout[slotMeta.key];
         const rarity = item ? InventoryService.getRarityMeta(item.rarity) : null;
+        const isSelected = selectedSlotKey === slotMeta.key;
 
         return [
-          `<article class="inventory-card equipment-slot-card ${item ? `rarity-${item.rarity}` : "is-empty"}" data-equip-slot="${slotMeta.key}" data-slot-item-id="${item ? item.id : ""}">`,
+          `<article class="inventory-card equipment-slot-card ${isSelected ? "is-selected " : ""}${item ? `rarity-${item.rarity}` : "is-empty"}" data-equip-slot="${slotMeta.key}" data-slot-item-id="${item ? item.id : ""}" tabindex="0" ${item ? `data-tooltip-html="${escapeAttribute(buildEquipmentSlotTooltipMarkup(item, slotMeta))}"` : ""}>`,
           `  <div class="item-title-row"><strong class="card-title">${slotMeta.label}</strong><span class="card-subtitle">${item ? rarity.label : "EMPTY"}</span></div>`,
           `  <p>${item ? item.name : "장비 없음"}</p>`,
-          '  <div class="inventory-meta">',
-          `    <span class="meta-pill ${item ? "is-cyan" : "is-muted"}">${item ? InventoryService.getTypeLabel(item.type || item.slot) : "빈 슬롯"}</span>`,
-          item ? `    <span class="meta-pill">${InventoryService.formatStatBonusLine(item)}</span>` : `    <span class="meta-pill is-muted">${slotMeta.accepts.map((entry) => InventoryService.getSlotLabel(entry)).join(" / ")}</span>`,
-          "  </div>",
+          item
+            ? '  <p class="equipment-slot-hint">마우스를 올리면 능력치와 옵션을 확인할 수 있습니다.</p>'
+            : `  <p class="equipment-slot-hint is-muted">${slotMeta.accepts.map((entry) => InventoryService.getSlotLabel(entry)).join(" / ")}</p>`,
           item ? `  <button class="ghost-button small-button equipment-unequip-button" type="button" data-unequip-item="${item.id}">해제</button>` : "",
           "</article>"
         ].join("");
@@ -3321,6 +3360,7 @@
     appState.equipmentModal.unitId = unitId;
     appState.equipmentModal.hoveredItemId = nextOptions.initialItemId || null;
     appState.equipmentModal.hoveredSlotKey = null;
+    appState.equipmentModal.previewSlotKey = null;
     appState.equipmentModal.dragItemId = null;
     appState.equipmentModal.page = 1;
     renderEquipmentModal();
