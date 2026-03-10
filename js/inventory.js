@@ -3252,6 +3252,7 @@
     const item = Object.assign({}, clone(product), {
       id: `${product.id}-${Date.now()}-${Math.floor(Math.random() * 100000)}`,
       shopId: product.id,
+      level: Number(product.level || product.minLevel || getRarityIndex(product.rarity) + 1),
       equippedBy: null,
       equippedSlotKey: null
     });
@@ -3418,6 +3419,7 @@
       setItem.id = `${setTemplate.id}-${Date.now()}-${Math.floor(Math.random() * 100000)}`;
       setItem.baseName = setTemplate.name;
       setItem.name = setTemplate.name;
+      setItem.level = Number(enemyLevel || setTemplate.minLevel || 1);
       setItem.equippedBy = null;
       setItem.equippedSlotKey = null;
       setItem.setName = (getSetDefinition(setTemplate.setId) && getSetDefinition(setTemplate.setId).name) || "";
@@ -3438,6 +3440,7 @@
         slot: template.slot,
         type: template.type,
         rarity,
+        level: Number(enemyLevel || 1),
         equippedBy: null,
         equippedSlotKey: null,
         might: stats.might,
@@ -3458,6 +3461,7 @@
       slot: template.slot,
       type: template.type,
       rarity,
+      level: Number(enemyLevel || 1),
       equippedBy: null,
       equippedSlotKey: null
     };
@@ -3478,6 +3482,7 @@
 
     const item = Object.assign({}, clone(rewardDefinition), {
       id: `${rewardDefinition.idPrefix || rewardDefinition.type || rewardDefinition.slot}-${Date.now()}-${Math.floor(Math.random() * 100000)}`,
+      level: Number(rewardDefinition.level || rewardDefinition.minLevel || 1),
       equippedBy: null,
       equippedSlotKey: null
     });
@@ -3626,6 +3631,22 @@
     return parts.join(" / ") || "추가 능력치 없음";
   }
 
+  function getEquipmentItemLevel(item) {
+    if (!isEquipment(item)) {
+      return null;
+    }
+
+    if (Number.isFinite(Number(item.level))) {
+      return Math.max(1, Math.floor(Number(item.level)));
+    }
+
+    if (Number.isFinite(Number(item.minLevel))) {
+      return Math.max(1, Math.floor(Number(item.minLevel)));
+    }
+
+    return null;
+  }
+
   function describeItem(item) {
     if (!item) {
       return "없음";
@@ -3692,6 +3713,7 @@
     createRewardItem,
     describeItem,
     formatStatBonusLine,
+    getEquipmentItemLevel,
     getSetDefinition,
     getSetBonusEntries,
     syncEquippedItems,

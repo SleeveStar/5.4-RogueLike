@@ -3752,6 +3752,30 @@ body.use-floating-stat-tooltip .stat-tooltip-pill::after {
   text-transform: uppercase;
 }
 
+.turn-info-matchup-block {
+  display: grid;
+  gap: 4px;
+  font-size: 0.78rem;
+  line-height: 1.24;
+}
+
+.turn-info-matchup-block > span {
+  color: var(--gold-300);
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.turn-info-matchup-line {
+  color: var(--text-base);
+}
+
+.turn-info-matchup-line > strong {
+  color: var(--text-strong);
+  font-weight: 800;
+}
+
 .action-hint {
   padding: var(--space-8) var(--space-10);
   border-radius: var(--radius-sm);

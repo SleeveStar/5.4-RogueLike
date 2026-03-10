@@ -125,6 +125,22 @@
     ].filter(Boolean).join("");
   }
 
+  function getTileDisplayName(unit) {
+    if (!unit) {
+      return "";
+    }
+
+    const prefix = unit.variant && unit.variant.prefix
+      ? `${unit.variant.prefix} `
+      : "";
+
+    if (prefix && String(unit.name || "").startsWith(prefix)) {
+      return String(unit.name || "").slice(prefix.length);
+    }
+
+    return String(unit.name || "");
+  }
+
   function buildPrimaryStatMetaPill(statName, value, previewDelta) {
     const label = StatsService.PRIMARY_STAT_LABELS[statName];
     const draftValue = Number(previewDelta || 0);
@@ -240,6 +256,7 @@
     processSnapshotEffects(previousSnapshot, snapshot);
     render(snapshot);
     maybeShowCutscene(snapshot);
+    maybeShowPrologueTutorial(snapshot);
     maybeShowSupportChoice(snapshot);
     maybeAnnounceStatus(snapshot);
   }
@@ -418,6 +435,26 @@
     return classProfile && classProfile.matchup
       ? classProfile.matchup
       : "강약 병종 정보 없음";
+  }
+
+  function buildBattleMatchupMarkup(unit) {
+    const summary = getBattleMatchupSummary(unit);
+    const matched = String(summary || "").match(/강:\s*([^/]+?)(?:\s*\/\s*약:\s*(.+))?$/);
+
+    if (!matched) {
+      return `<p><span>상성</span>${summary}</p>`;
+    }
+
+    const strengths = String(matched[1] || "").trim();
+    const weaknesses = String(matched[2] || "").trim();
+
+    return [
+      '<div class="turn-info-matchup-block">',
+      '  <span>상성</span>',
+      strengths ? `  <div class="turn-info-matchup-line"><strong>강점 :</strong> ${strengths}</div>` : "",
+      weaknesses ? `  <div class="turn-info-matchup-line"><strong>약점 :</strong> ${weaknesses}</div>` : "",
+      "</div>"
+    ].filter(Boolean).join("");
   }
 
   function getBattleCautionSummary(unit) {
@@ -647,29 +684,34 @@
       return;
     }
 
+    if (isTextInputElement(event.target)) {
+      return;
+    }
+
     if (event.key === "Escape") {
       closeModal();
       return;
     }
 
-    if (event.code !== "Space" && event.key !== " ") {
-      return;
-    }
-
-    if (isTextInputElement(event.target)) {
-      return;
-    }
-
     if (viewState.modal) {
+      if (
+        (event.key === "a" || event.key === "A" || event.key === "s" || event.key === "S")
+        && event.target
+      ) {
+        event.preventDefault();
+      }
+
       if (
         viewState.modal.dataset.spaceConfirmAction === "wait-selected-unit"
         || viewState.modal.dataset.spaceConfirmAction === "end-player-turn"
       ) {
-        event.preventDefault();
-        const confirmButton = viewState.modal.querySelector("[data-space-confirm='true']");
+        if (event.code === "Space" || event.key === " ") {
+          event.preventDefault();
+          const confirmButton = viewState.modal.querySelector("[data-space-confirm='true']");
 
-        if (confirmButton) {
-          confirmButton.click();
+          if (confirmButton) {
+            confirmButton.click();
+          }
         }
       }
 
@@ -677,12 +719,6 @@
     }
 
     if (!viewState.snapshot) {
-      return;
-    }
-
-    if (shouldOfferSpaceEndTurn(viewState.snapshot)) {
-      event.preventDefault();
-      openEndTurnConfirmModal();
       return;
     }
 
@@ -699,6 +735,33 @@
       && viewState.snapshot.battle
       && viewState.snapshot.battle.phase === "player"
     );
+    const normalizedKey = String(event.key || "").toLowerCase();
+
+    if (normalizedKey === "a" || normalizedKey === "s") {
+      if (!canControlUnit || (movePreview && movePreview.unitId === selectedUnit.id)) {
+        return;
+      }
+
+      event.preventDefault();
+
+      if (normalizedKey === "a") {
+        handleUnitAction("attack");
+        return;
+      }
+
+      handleUnitAction("skill");
+      return;
+    }
+
+    if (event.code !== "Space" && event.key !== " ") {
+      return;
+    }
+
+    if (shouldOfferSpaceEndTurn(viewState.snapshot)) {
+      event.preventDefault();
+      openEndTurnConfirmModal();
+      return;
+    }
 
     if (!canControlUnit || viewState.snapshot.ui.pendingAttack || viewState.snapshot.ui.pendingSkillId) {
       return;
@@ -1071,7 +1134,7 @@
       '    <span class="tile-unit-ring"></span>',
       '    <span class="tile-unit-core">',
       statusMarker ? `      <span class="tile-unit-marker">${statusMarker}</span>` : "",
-      `      <span class="tile-unit-name">${unit.name}</span>`,
+      `      <span class="tile-unit-name">${getTileDisplayName(unit)}</span>`,
       "    </span>",
       `    <span class="tile-unit-bar"><span style="width:${healthPercent}%"></span></span>`,
       "  </span>"
@@ -1123,7 +1186,7 @@
         '  <div class="turn-info-class-card">',
         `    ${buildUnitIdentityMarkup(selectedUnit, selectedUnit.className)}`,
         `    <p><span>병종</span>${classProfile.role}</p>`,
-        `    <p><span>상성</span>${getBattleMatchupSummary(selectedUnit)}</p>`,
+        `    ${buildBattleMatchupMarkup(selectedUnit)}`,
         `    <p><span>운용 주의</span>${getBattleCautionSummary(selectedUnit)}</p>`,
         "  </div>"
       ].join("") : '  <p class="empty-copy">유닛을 선택하면 병종 요약이 표시됩니다.</p>',
@@ -1273,10 +1336,10 @@
 
           return [
             '<div class="unit-action-row">',
-            `  <button class="secondary-button small-button" type="button" data-action="attack" ${locked}>${snapshot.ui.pendingAttack ? "공격 취소" : "공격"}</button>`,
+            `  <button class="secondary-button small-button" type="button" data-action="attack" ${locked}>${snapshot.ui.pendingAttack ? "공격 취소 (A)" : "공격 (A)"}</button>`,
             `  <button class="primary-button attention-button small-button" type="button" data-action="wait" ${locked}>행동 확정</button>`,
             `  <button class="ghost-button attention-button small-button" type="button" data-action="undo" ${undoDisabled}>원위치 복귀</button>`,
-            `  <button class="ghost-button small-button" type="button" data-action="skill" ${locked}>스킬</button>`,
+            `  <button class="ghost-button small-button" type="button" data-action="skill" ${locked}>스킬 (S)</button>`,
             snapshot.ui.pendingSkillId ? '  <button class="ghost-button attention-button small-button" type="button" data-action="cancel-skill">스킬 취소</button>' : "",
             `  <button class="ghost-button small-button" type="button" data-action="item" ${locked}>소모품</button>`,
             '  <button class="ghost-button small-button" type="button" data-action="inventory">장착/인벤토리</button>',
@@ -2050,6 +2113,152 @@
       viewState.modal.dataset.locked = "false";
       closeModal();
     });
+  }
+
+  function buildPrologueTutorialPages(snapshot) {
+    const roster = snapshot && snapshot.saveData && Array.isArray(snapshot.saveData.roster)
+      ? snapshot.saveData.roster
+      : [];
+    const starterUnits = [
+      {
+        unit: roster.find((entry) => entry.id === "hero-1") || { name: "리아", className: "로드" },
+        summary: "균형형 전열 리더. 안정적인 근접전과 무난한 기동으로 첫 진입을 맡기 좋습니다."
+      },
+      {
+        unit: roster.find((entry) => entry.id === "ally-2") || { name: "도윤", className: "랜서" },
+        summary: "단단한 전열 유지형. 길목을 막고 적의 접근을 받아내는 역할에 강합니다."
+      },
+      {
+        unit: roster.find((entry) => entry.id === "ally-3") || { name: "세라", className: "아처" },
+        summary: "후열 원거리 견제형. 안전한 거리에서 적 체력을 깎아 전열을 지원합니다."
+      }
+    ];
+
+    return [
+      {
+        title: "프롤로그 전술 안내",
+        kicker: "1 / 2",
+        body: [
+          '<div class="modal-list">',
+          '<article class="modal-card cutscene-card">',
+          '  <p><strong>처음 지급되는 3명</strong></p>',
+          '  <p>첫 맵에서는 각자의 역할만 익혀도 전투 흐름을 바로 잡을 수 있습니다.</p>',
+          "</article>",
+          ...starterUnits.map(({ unit, summary }) => [
+            '<article class="modal-card cutscene-card">',
+            `  <div class="item-title-row"><strong>${unit.name}</strong><span>${unit.className}</span></div>`,
+            `  <p>${summary}</p>`,
+            "</article>"
+          ].join("")),
+          "</div>"
+        ].join("")
+      },
+      {
+        title: "기본 조작",
+        kicker: "2 / 2",
+        body: [
+          '<div class="modal-list">',
+          '<article class="modal-card cutscene-card">',
+          '  <p><strong>키보드 단축키</strong></p>',
+          '  <p><span class="meta-pill is-cyan">A</span> 선택한 아군의 공격을 바로 준비합니다.</p>',
+          '  <p><span class="meta-pill is-cyan">S</span> 선택한 아군의 스킬 목록을 엽니다.</p>',
+          '  <p><span class="meta-pill is-cyan">Space</span> 이동 확정, 행동 확정, 턴 진행에 사용합니다.</p>',
+          "</article>",
+          '<article class="modal-card cutscene-card">',
+          '  <p><strong>상세 보기</strong></p>',
+          '  <p>내 캐릭터나 적 캐릭터를 클릭하면 이름, 직업, 상성, 장비, 스킬 같은 상세 정보를 확인할 수 있습니다.</p>',
+          '  <p>전열은 버티고, 후열은 안전한 거리에서 공격하는 식으로 시작하면 첫 전투가 편합니다.</p>',
+          "</article>",
+          "</div>"
+        ].join("")
+      }
+    ];
+  }
+
+  function renderPrologueTutorialPage(snapshot, pageIndex) {
+    const pages = buildPrologueTutorialPages(snapshot);
+    const boundedPageIndex = Math.max(0, Math.min(pageIndex, pages.length - 1));
+    const page = pages[boundedPageIndex];
+    const titleNode = getElement("prologue-tutorial-title");
+    const kickerNode = getElement("prologue-tutorial-kicker");
+    const contentNode = getElement("prologue-tutorial-content");
+    const prevButton = getElement("prologue-tutorial-prev");
+    const nextButton = getElement("prologue-tutorial-next");
+
+    if (!titleNode || !kickerNode || !contentNode || !prevButton || !nextButton) {
+      return;
+    }
+
+    titleNode.textContent = page.title;
+    kickerNode.textContent = page.kicker;
+    contentNode.innerHTML = page.body;
+    prevButton.disabled = boundedPageIndex <= 0;
+    nextButton.textContent = boundedPageIndex >= pages.length - 1 ? "시작하기" : "다음";
+    nextButton.dataset.pageIndex = String(boundedPageIndex);
+    prevButton.dataset.pageIndex = String(boundedPageIndex);
+  }
+
+  function openPrologueTutorialModal(snapshot) {
+    const body = [
+      '<div class="battle-skill-modal">',
+      '  <section class="battle-result-hero battle-skill-hero">',
+      '    <div class="item-title-row">',
+      '      <strong id="prologue-tutorial-title">프롤로그 전술 안내</strong>',
+      '      <span id="prologue-tutorial-kicker">1 / 2</span>',
+      "    </div>",
+      '    <p>프롤로그 평원에서는 이 기본 조작만 익히면 바로 진행할 수 있습니다.</p>',
+      "  </section>",
+      '  <div id="prologue-tutorial-content"></div>',
+      '  <div class="button-row">',
+      '    <button id="prologue-tutorial-prev" class="ghost-button small-button" type="button">이전</button>',
+      '    <button id="prologue-tutorial-next" class="primary-button small-button" type="button">다음</button>',
+      "  </div>",
+      "</div>"
+    ].join("");
+
+    showModal(body, {
+      panelClass: "modal-panel-wide battle-skill-modal-panel",
+      bodyClass: "battle-skill-modal-body"
+    });
+
+    viewState.modal.dataset.locked = "true";
+    getElement("modal-close-button").classList.add("hidden");
+    renderPrologueTutorialPage(snapshot, 0);
+    BattleService.markTutorialSeen("prologueFieldIntroShown");
+
+    getElement("prologue-tutorial-prev").addEventListener("click", () => {
+      const currentPageIndex = Number(getElement("prologue-tutorial-prev").dataset.pageIndex || 0);
+      renderPrologueTutorialPage(viewState.snapshot || snapshot, currentPageIndex - 1);
+    });
+
+    getElement("prologue-tutorial-next").addEventListener("click", () => {
+      const pages = buildPrologueTutorialPages(viewState.snapshot || snapshot);
+      const currentPageIndex = Number(getElement("prologue-tutorial-next").dataset.pageIndex || 0);
+
+      if (currentPageIndex >= pages.length - 1) {
+        viewState.modal.dataset.locked = "false";
+        closeModal();
+        return;
+      }
+
+      renderPrologueTutorialPage(viewState.snapshot || snapshot, currentPageIndex + 1);
+    });
+  }
+
+  function maybeShowPrologueTutorial(snapshot) {
+    if (!snapshot || !snapshot.battle || snapshot.battle.status !== "in_progress") {
+      return;
+    }
+
+    if (snapshot.battle.stageId !== "prologue-field" || !snapshot.battle.cutsceneSeen || viewState.modal) {
+      return;
+    }
+
+    if (snapshot.saveData && snapshot.saveData.tutorial && snapshot.saveData.tutorial.prologueFieldIntroShown) {
+      return;
+    }
+
+    openPrologueTutorialModal(snapshot);
   }
 
   function maybeShowSupportChoice(snapshot) {

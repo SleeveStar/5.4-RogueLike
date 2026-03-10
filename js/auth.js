@@ -1614,6 +1614,7 @@
       : "미장착";
     const setDefinition = item.setId ? InventoryService.getSetDefinition(item.setId) : null;
     const statSummary = InventoryService.formatStatBonusLine(item);
+    const equipmentLevel = InventoryService.getEquipmentItemLevel(item);
 
     return [
       `<div class="item-title-row"><strong class="card-title">${item.name}</strong><span class="card-subtitle">${rarity.label}</span></div>`,
@@ -1629,9 +1630,10 @@
       `    <p>${item.description || (InventoryService.isConsumable(item) ? "즉시 사용하는 전투 소모품입니다." : "전투 빌드를 만드는 핵심 장비입니다.")}</p>`,
       "  </div>",
       `  <div class="detail-metric-grid">${buildItemMetricGrid(item, InventoryService.isEquipment(item) ? [
+        equipmentLevel ? { label: "장비 레벨", value: `Lv.${equipmentLevel}`, tone: "violet" } : null,
         { label: "희귀도", value: rarity.label, tone: "gold" },
         { label: "장착", value: ownerText, tone: item.equippedBy ? "cyan" : "muted" }
-      ] : [{ label: "희귀도", value: rarity.label, tone: "gold" }])}</div>`,
+      ].filter(Boolean) : [{ label: "희귀도", value: rarity.label, tone: "gold" }])}</div>`,
       "</section>",
       buildItemFeatureSection("기본 요약", `<p class="detail-summary-copy">${InventoryService.describeItem(item)}</p>`, "is-summary"),
       buildItemFeatureSection("능력치", statSummary !== "추가 능력치 없음"
@@ -1649,6 +1651,7 @@
       : "미장착";
     const setDefinition = item.setId ? InventoryService.getSetDefinition(item.setId) : null;
     const statSummary = InventoryService.formatStatBonusLine(item);
+    const equipmentLevel = InventoryService.getEquipmentItemLevel(item);
     const compatibleSlotLabel = InventoryService.getSlotLabel(item.equippedSlotKey || InventoryService.getCompatibleSlotKeys(item)[0] || item.slot);
     const combatEntries = InventoryService.isWeapon(item)
       ? [
@@ -1661,6 +1664,7 @@
           { text: `장비 부위 ${compatibleSlotLabel}`, className: "is-cyan" }
         ];
     const statusEntries = [
+      equipmentLevel ? { text: `장비 Lv.${equipmentLevel}`, className: "is-violet" } : null,
       { text: item.equippedBy ? "장착 중" : "미장착", className: item.equippedBy ? "is-cyan" : "is-muted" },
       item.equippedBy ? { text: ownerText } : null,
       setDefinition ? { text: setDefinition.name, className: "is-gold" } : null

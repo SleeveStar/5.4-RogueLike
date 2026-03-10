@@ -4139,6 +4139,27 @@
     return !!unit && unit.team === "ally" && unit.alive && !unit.acted && state.battle.phase === "player";
   }
 
+  function findNextControllableAlly(currentUnitId) {
+    if (!state.battle || !Array.isArray(state.battle.units) || !state.battle.units.length) {
+      return null;
+    }
+
+    const units = state.battle.units;
+    const currentIndex = units.findIndex((unit) => unit.id === currentUnitId);
+    const startIndex = currentIndex >= 0 ? currentIndex + 1 : 0;
+
+    for (let offset = 0; offset < units.length; offset += 1) {
+      const index = (startIndex + offset) % units.length;
+      const candidate = units[index];
+
+      if (canPlayerControl(candidate)) {
+        return candidate;
+      }
+    }
+
+    return null;
+  }
+
   function previewMoveSelection(x, y) {
     const unit = getUnitById(state.ui.selectedUnitId);
 
@@ -5358,6 +5379,13 @@
 
     addLog(`${unit.name} 대기`);
     finalizeUnitAction(unit);
+    const nextUnit = findNextControllableAlly(unit.id);
+
+    if (nextUnit) {
+      selectUnit(nextUnit.id);
+      return;
+    }
+
     notify();
   }
 
@@ -5626,55 +5654,74 @@
         moveUnit(enemy, action.moveTo);
       }
 
-      if (action.type === "skill" && action.skillId) {
-        const skill = getSkillById(enemy, action.skillId);
-        const target = getUnitById(action.targetId || enemy.id);
+      try {
+        if (action.type === "skill" && action.skillId) {
+          const skill = getSkillById(enemy, action.skillId);
+          const target = getUnitById(action.targetId || enemy.id);
 
-        if (skill && target) {
-          executeSkill(enemy, skill, target);
+          if (skill && target) {
+            executeSkill(enemy, skill, target);
+          } else {
+            addLog(`${enemy.name} 대기`);
+          }
+        } else if (action.targetId) {
+          const target = getUnitById(action.targetId);
+
+          if (!target) {
+            throw new Error("공격 대상을 찾을 수 없습니다.");
+          }
+
+          const result = CombatService.resolveAttack(enemy, target, {
+            attackerTileType: getTileType(enemy.x, enemy.y),
+            defenderTileType: getTileType(target.x, target.y),
+            attackerElevation: getTileElevation(enemy.x, enemy.y),
+            defenderElevation: getTileElevation(target.x, target.y)
+          });
+
+          if (result.didHit) {
+            addLog(`${enemy.name} -> ${target.name}: ${result.damageDealt} 피해${result.didCrit ? " / 치명타!" : ""}`);
+            applyOnHitAilments(enemy, target, `${enemy.name}의 공격`);
+            applyLifeSteal(enemy, result.damageDealt, "적 흡혈");
+            updateEndlessRunStat((currentRun) => {
+              currentRun.damageTaken += result.damageDealt;
+            });
+          } else {
+            addLog(`${enemy.name}의 공격이 빗나갔습니다.`);
+          }
+
+          if (result.preview.triggeredSkills && result.preview.triggeredSkills.length) {
+            addLog(`스킬 발동: ${result.preview.triggeredSkills.join(", ")}`);
+          }
+
+          if (result.preview.elevationNote) {
+            addLog(`지형 보정: ${result.preview.elevationNote}`);
+          }
+
+          if (result.targetDefeated) {
+            handleUnitDefeat(target);
+            applyOnKillRewards(target, enemy, "적 처치 보상");
+          } else {
+            tryCounterAttack(enemy, target);
+          }
+
+          evaluateStageEvents("boss_hp_half");
+        } else if (action.moveTo) {
+          addLog(`${enemy.name} 이동`);
         } else {
           addLog(`${enemy.name} 대기`);
         }
-      } else if (action.targetId) {
-        const target = getUnitById(action.targetId);
-        const result = CombatService.resolveAttack(enemy, target, {
-          attackerTileType: getTileType(enemy.x, enemy.y),
-          defenderTileType: getTileType(target.x, target.y),
-          attackerElevation: getTileElevation(enemy.x, enemy.y),
-          defenderElevation: getTileElevation(target.x, target.y)
-        });
-
-        if (result.didHit) {
-          addLog(`${enemy.name} -> ${target.name}: ${result.damageDealt} 피해${result.didCrit ? " / 치명타!" : ""}`);
-          applyOnHitAilments(enemy, target, `${enemy.name}의 공격`);
-          applyLifeSteal(enemy, result.damageDealt, "적 흡혈");
-          updateEndlessRunStat((currentRun) => {
-            currentRun.damageTaken += result.damageDealt;
-          });
-        } else {
-          addLog(`${enemy.name}의 공격이 빗나갔습니다.`);
-        }
-
-        if (result.preview.triggeredSkills && result.preview.triggeredSkills.length) {
-          addLog(`스킬 발동: ${result.preview.triggeredSkills.join(", ")}`);
-        }
-
-        if (result.preview.elevationNote) {
-          addLog(`지형 보정: ${result.preview.elevationNote}`);
-        }
-
-        if (result.targetDefeated) {
-          handleUnitDefeat(target);
-          applyOnKillRewards(target, enemy, "적 처치 보상");
-        } else {
-          tryCounterAttack(enemy, target);
-        }
-
-        evaluateStageEvents("boss_hp_half");
-      } else if (action.moveTo) {
-        addLog(`${enemy.name} 이동`);
-      } else {
-        addLog(`${enemy.name} 대기`);
+      } catch (error) {
+        addLog(`${enemy.name} 행동 오류: ${error.message || "대기 처리"}`);
+        state.ui.pendingMove = null;
+        state.ui.movePreview = null;
+        state.ui.pendingSkillId = null;
+        state.ui.pendingAttack = false;
+        state.ui.reachableTiles = [];
+        state.ui.attackTiles = [];
+        state.ui.attackableTargetIds = [];
+        state.ui.skillTiles = [];
+        state.ui.skillTargetIds = [];
+        state.ui.selectedUnitId = null;
       }
 
       enemy.acted = true;
@@ -5880,6 +5927,28 @@
 
     state.battle.cutsceneSeen = true;
     syncPersistentFromBattle({ keepBattleState: true });
+    notify();
+  }
+
+  function markTutorialSeen(tutorialKey) {
+    if (!state.saveData || !tutorialKey) {
+      return;
+    }
+
+    if (!state.saveData.tutorial || typeof state.saveData.tutorial !== "object") {
+      state.saveData.tutorial = {};
+    }
+
+    if (state.saveData.tutorial[tutorialKey]) {
+      return;
+    }
+
+    state.saveData.tutorial[tutorialKey] = true;
+
+    if (state.battle) {
+      syncPersistentFromBattle({ keepBattleState: true });
+    }
+
     notify();
   }
 
@@ -6161,6 +6230,7 @@
     applyProgressionDraft,
     allocateStat,
     markCutsceneSeen,
+    markTutorialSeen,
     chooseEndlessReward,
     purchaseEndlessShopItem,
     dismissEndlessChoice,

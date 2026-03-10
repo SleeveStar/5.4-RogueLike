@@ -40,6 +40,9 @@
     collection: {
       discoveredRewardIds: []
     },
+    tutorial: {
+      prologueFieldIntroShown: false
+    },
     leaderUnitId: "hero-1",
     tavern: {
       refreshBlock: null,
@@ -323,6 +326,7 @@
     normalized.endless.lastRun = cloneValue(normalized.endless.lastRun || null);
     normalized.collection = Object.assign({}, cloneValue(DEFAULT_SAVE.collection), normalized.collection || {});
     normalized.collection.discoveredRewardIds = cloneValue(normalized.collection.discoveredRewardIds || []);
+    normalized.tutorial = Object.assign({}, cloneValue(DEFAULT_SAVE.tutorial), normalized.tutorial || {});
     normalized.tavern = Object.assign({}, cloneValue(DEFAULT_SAVE.tavern), normalized.tavern || {});
     normalized.tavern.lineup = cloneValue(normalized.tavern.lineup || []);
     normalized.inventory = cloneValue(normalized.inventory || []);
