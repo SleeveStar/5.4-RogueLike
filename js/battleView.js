@@ -51,6 +51,80 @@
       .replace(/>/g, "&gt;");
   }
 
+  function getBaseClassName(className) {
+    const normalizedClassName = String(className || "").trim();
+
+    if (!normalizedClassName) {
+      return "";
+    }
+
+    const promotionTree = SkillsService.PROMOTION_TREE || {};
+    const reversePromotionMap = new Map();
+
+    Object.keys(promotionTree).forEach((sourceClassName) => {
+      (promotionTree[sourceClassName] || []).forEach((promotion) => {
+        if (promotion && promotion.className) {
+          reversePromotionMap.set(promotion.className, sourceClassName);
+        }
+      });
+    });
+
+    let currentClassName = normalizedClassName;
+    const visited = new Set();
+
+    while (reversePromotionMap.has(currentClassName) && !visited.has(currentClassName)) {
+      visited.add(currentClassName);
+      currentClassName = reversePromotionMap.get(currentClassName) || currentClassName;
+    }
+
+    return currentClassName;
+  }
+
+  function getClassIconPath(unit) {
+    const baseClassName = getBaseClassName(unit && unit.className);
+    const iconByBaseClass = {
+      로드: "/icons/lord.png",
+      검사: "/icons/swordman.png",
+      랜서: "/icons/lancer.png",
+      솔저: "/icons/soldier.png",
+      아처: "/icons/archer.png",
+      헌터: "/icons/hunter.png",
+      브리건드: "/icons/brigand.png",
+      클레릭: "/icons/cleric.png",
+      메이지: "/icons/magician.png"
+    };
+
+    return iconByBaseClass[baseClassName] || "";
+  }
+
+  function buildUnitIdentityMarkup(unit, subtitle) {
+    const iconPath = getClassIconPath(unit);
+    const unitName = `${unit.name}${unit.isBoss ? " ★" : unit.isElite ? " ◆" : ""}`;
+    const subtitleText = subtitle || "";
+
+    if (!iconPath) {
+      return [
+        '<div class="unit-identity-row">',
+        '  <div class="unit-identity-copy">',
+        `    <strong>${unitName}</strong>`,
+        subtitleText ? `    <div class="unit-identity-subtitle">${subtitleText}</div>` : "",
+        "  </div>",
+        "</div>"
+      ].filter(Boolean).join("");
+    }
+
+    const altText = `${getBaseClassName(unit.className)} 아이콘`;
+    return [
+      '<div class="unit-identity-row">',
+      '  <div class="unit-identity-copy">',
+      `    <strong>${unitName}</strong>`,
+      subtitleText ? `    <div class="unit-identity-subtitle">${subtitleText}</div>` : "",
+      "  </div>",
+      `  <img class="unit-class-icon" src="${iconPath}" alt="${escapeAttribute(altText)}">`,
+      "</div>"
+    ].filter(Boolean).join("");
+  }
+
   function buildPrimaryStatMetaPill(statName, value, previewDelta) {
     const label = StatsService.PRIMARY_STAT_LABELS[statName];
     const draftValue = Number(previewDelta || 0);
@@ -240,6 +314,18 @@
             : tileType === "wall"
               ? "벽"
               : "평지";
+  }
+
+  function shouldDisplayTileMarker(snapshot, marker) {
+    if (!snapshot || !snapshot.battle || !marker) {
+      return false;
+    }
+
+    if (!snapshot.battle.cutsceneSeen) {
+      return true;
+    }
+
+    return marker.type === "npc" || marker.type === "site";
   }
 
   function formatMoveCost(moveCost) {
@@ -1035,8 +1121,7 @@
       '<div class="turn-info-stack">',
       selectedUnit && classProfile ? [
         '  <div class="turn-info-class-card">',
-        `    <strong>${selectedUnit.name}</strong>`,
-        `    <div class="turn-info-class-line">${selectedUnit.className}</div>`,
+        `    ${buildUnitIdentityMarkup(selectedUnit, selectedUnit.className)}`,
         `    <p><span>병종</span>${classProfile.role}</p>`,
         `    <p><span>상성</span>${getBattleMatchupSummary(selectedUnit)}</p>`,
         `    <p><span>운용 주의</span>${getBattleCautionSummary(selectedUnit)}</p>`,
@@ -1203,7 +1288,7 @@
 
     target.innerHTML = [
       `<div class="unit-summary ${selectedUnit.team}">`,
-      `  <strong>${selectedUnit.name}${selectedUnit.isBoss ? " ★" : selectedUnit.isElite ? " ◆" : ""}</strong> <span>${selectedUnit.className}${selectedUnit.bossTitle ? ` / ${selectedUnit.bossTitle}` : selectedUnit.eliteTitle ? ` / ${selectedUnit.eliteTitle}` : ""}</span>`,
+      `  ${buildUnitIdentityMarkup(selectedUnit, `${selectedUnit.className}${selectedUnit.bossTitle ? ` / ${selectedUnit.bossTitle}` : selectedUnit.eliteTitle ? ` / ${selectedUnit.eliteTitle}` : ""}`)}`,
       `  <p>${badgeLine}</p>`,
       '  <div class="resource-stack">',
       `    <div class="resource-bar hp"><span class="bar-fill" style="width:${Math.max(0, Math.min(100, (selectedUnit.hp / Math.max(1, selectedUnit.maxHp)) * 100))}%"></span></div>`,
@@ -1464,6 +1549,7 @@
         const canPreviewAttack = !!(unit && unit.team === "enemy" && snapshot.ui.attackableTargetIds.includes(unit.id) && selectedUnit && selectedUnit.team === "ally");
         const counterPreview = canPreviewAttack ? BattleService.calculateCounterPreview(selectedUnit, unit) : null;
         const marker = snapshot.battle.map.markers.find((entry) => entry.x === x && entry.y === y) || null;
+        const visibleMarker = shouldDisplayTileMarker(snapshot, marker) ? marker : null;
         const tileStyle = [`--tile-level:${elevation}`].join(";");
         const isMovePreviewPath = previewPathKeys.has(`${x},${y}`);
         const isMovePreviewTarget = !!(movePreview && movePreview.x === x && movePreview.y === y);
@@ -1531,12 +1617,12 @@
               tagText: "예상 이동"
             })
           ].join("") : "",
-          marker ? `  <span class="tile-marker tile-marker-${marker.type}">${marker.label}</span>` : "",
-          !unit && !isMovePreviewTarget && !marker && tileType === "forest" ? '  <span class="tile-deco">숲</span>' : "",
-          !unit && !isMovePreviewTarget && !marker && tileType === "hill" ? '  <span class="tile-deco">고지</span>' : "",
-          !unit && !isMovePreviewTarget && !marker && tileType === "marsh" ? '  <span class="tile-deco">습지</span>' : "",
-          !unit && !isMovePreviewTarget && !marker && tileType === "ruin" ? '  <span class="tile-deco">폐허</span>' : "",
-          !unit && !isMovePreviewTarget && !marker && tileType === "wall" ? '  <span class="tile-deco">벽</span>' : "",
+          visibleMarker ? `  <span class="tile-marker tile-marker-${visibleMarker.type}">${visibleMarker.label}</span>` : "",
+          !unit && !isMovePreviewTarget && !visibleMarker && tileType === "forest" ? '  <span class="tile-deco">숲</span>' : "",
+          !unit && !isMovePreviewTarget && !visibleMarker && tileType === "hill" ? '  <span class="tile-deco">고지</span>' : "",
+          !unit && !isMovePreviewTarget && !visibleMarker && tileType === "marsh" ? '  <span class="tile-deco">습지</span>' : "",
+          !unit && !isMovePreviewTarget && !visibleMarker && tileType === "ruin" ? '  <span class="tile-deco">폐허</span>' : "",
+          !unit && !isMovePreviewTarget && !visibleMarker && tileType === "wall" ? '  <span class="tile-deco">벽</span>' : "",
           "</button>"
         ].join(""));
       }
@@ -1714,7 +1800,7 @@
       `<span>이동 비용 ${formatMoveCost(terrain.moveCost)} / 고도 ${elevation}</span>`
     ];
 
-    if (marker) {
+    if (shouldDisplayTileMarker(snapshot, marker)) {
       lines.push(`<span>표식: ${marker.label}</span>`);
     }
 

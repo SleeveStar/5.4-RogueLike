@@ -5724,6 +5724,10 @@
     }
 
     if (occupant && occupant.team === "ally") {
+      if (state.ui.pendingAttack) {
+        return;
+      }
+
       if (state.ui.pendingMove && state.ui.pendingMove.unitId !== occupant.id) {
         return;
       }
