@@ -15,6 +15,7 @@
   const INVENTORY_PAGE_SIZE = 8;
   const EQUIPMENT_MODAL_PAGE_SIZE = 8;
   const SORTIE_MANAGER_PAGE_SIZE = 4;
+  const PASSIVE_SKILL_MODAL_PAGE_SIZE = 8;
 
   const appState = {
     currentUserId: null,
@@ -48,7 +49,8 @@
     skillModal: {
       unitId: null,
       hoveredSkillId: null,
-      dragSkillId: null
+      dragSkillId: null,
+      passivePage: 1
     },
     detailModal: {
       type: null,
@@ -756,6 +758,7 @@
     appState.skillModal.unitId = null;
     appState.skillModal.hoveredSkillId = null;
     appState.skillModal.dragSkillId = null;
+    appState.skillModal.passivePage = 1;
   }
 
   function closeDetailModal() {
@@ -3307,6 +3310,12 @@
     const activeSkills = SkillsService.getActiveSkillsForUnit(unit).map((skill) => normalizeSkillForDetail(unit, skill));
     const passiveSkills = SkillsService.getSkillsForUnit(unit);
     const loadout = SkillsService.getActiveSkillLoadout(unit).map((skill) => normalizeSkillForDetail(unit, skill));
+    const passiveTotalPages = Math.max(1, Math.ceil(passiveSkills.length / PASSIVE_SKILL_MODAL_PAGE_SIZE));
+    const passiveCurrentPage = Math.max(1, Math.min(passiveTotalPages, Number(appState.skillModal.passivePage || 1)));
+    const passivePageStart = (passiveCurrentPage - 1) * PASSIVE_SKILL_MODAL_PAGE_SIZE;
+    const visiblePassiveSkills = passiveSkills.slice(passivePageStart, passivePageStart + PASSIVE_SKILL_MODAL_PAGE_SIZE);
+
+    appState.skillModal.passivePage = passiveCurrentPage;
 
     host.innerHTML = [
       '<div class="modal-backdrop menu-modal-backdrop">',
@@ -3363,11 +3372,19 @@
             ].filter(Boolean).join("");
           }).join("")}</div>`
         : '          <div class="inventory-card"><p>보유한 액티브 스킬이 없습니다.</p></div>',
-      '          <h3>패시브 스킬</h3>',
+      '          <div class="item-title-row">',
+      '            <h3>패시브 스킬</h3>',
+      `            <span class="meta-pill is-muted">${passiveCurrentPage} / ${passiveTotalPages}</span>`,
+      "          </div>",
       passiveSkills.length
-        ? `          <div class="skill-catalog-list">${passiveSkills.map((skill) => (
+        ? `          <div class="skill-catalog-list passive-skill-list">${visiblePassiveSkills.map((skill) => (
             `<article class="inventory-card skill-card is-passive" data-passive-skill="${skill.id}"><div class="item-title-row"><strong class="card-title">${skill.name}</strong><span class="card-subtitle">${skill.sourceClassName === "special" ? "SPECIAL" : "PASSIVE"}</span></div><p>${skill.description}</p></article>`
-          )).join("")}</div>`
+          )).join("")}</div>
+          <div class="list-pagination passive-skill-pagination">
+            <button class="ghost-button small-button" type="button" data-passive-page="prev" ${passiveCurrentPage <= 1 ? "disabled" : ""}>이전</button>
+            <span class="pagination-label">${passiveCurrentPage} / ${passiveTotalPages}</span>
+            <button class="ghost-button small-button" type="button" data-passive-page="next" ${passiveCurrentPage >= passiveTotalPages ? "disabled" : ""}>다음</button>
+          </div>`
         : '          <div class="inventory-card"><p>보유한 패시브 스킬이 없습니다.</p></div>',
       "        </section>",
       "      </div>",
@@ -3475,6 +3492,15 @@
       });
     });
 
+    host.querySelectorAll("[data-passive-page]").forEach((button) => {
+      button.addEventListener("click", () => {
+        appState.skillModal.passivePage = button.dataset.passivePage === "next"
+          ? Math.min(passiveTotalPages, passiveCurrentPage + 1)
+          : Math.max(1, passiveCurrentPage - 1);
+        renderSkillModal();
+      });
+    });
+
     host.querySelectorAll("[data-skill-equip]").forEach((button) => {
       button.addEventListener("click", () => {
         try {
@@ -3519,6 +3545,7 @@
     appState.skillModal.unitId = unitId;
     appState.skillModal.hoveredSkillId = null;
     appState.skillModal.dragSkillId = null;
+    appState.skillModal.passivePage = 1;
     renderSkillModal();
   }
 
