@@ -590,6 +590,47 @@
     return (appState.saveData && appState.saveData.selectedPartyIds) || [];
   }
 
+  function getGuildRankSortValue(rank, rankOrder) {
+    const order = Array.isArray(rankOrder) && rankOrder.length
+      ? rankOrder
+      : (TavernService.GUILD_RANK_ORDER || ["D", "C", "B", "A", "S", "SS", "SSS"]);
+    const rankIndex = order.indexOf(rank || "D");
+    return rankIndex >= 0 ? rankIndex : -1;
+  }
+
+  function sortPartyRoster(roster, selectedPartyIds) {
+    const sourceRoster = Array.isArray(roster) ? roster : [];
+    const partyIds = Array.isArray(selectedPartyIds) ? selectedPartyIds : [];
+    const selectedPartyMap = new Map(partyIds.map((unitId, index) => [unitId, index]));
+    const rosterIndexMap = new Map(sourceRoster.map((unit, index) => [unit.id, index]));
+    const rankOrder = TavernService.GUILD_RANK_ORDER || ["D", "C", "B", "A", "S", "SS", "SSS"];
+
+    return sourceRoster.slice().sort((left, right) => {
+      const leftSelected = selectedPartyMap.has(left.id);
+      const rightSelected = selectedPartyMap.has(right.id);
+
+      if (leftSelected !== rightSelected) {
+        return leftSelected ? -1 : 1;
+      }
+
+      const rankDiff = getGuildRankSortValue(right.guildRank, rankOrder) - getGuildRankSortValue(left.guildRank, rankOrder);
+      if (rankDiff !== 0) {
+        return rankDiff;
+      }
+
+      const levelDiff = Number(right.level || 0) - Number(left.level || 0);
+      if (levelDiff !== 0) {
+        return levelDiff;
+      }
+
+      if (leftSelected && rightSelected) {
+        return (selectedPartyMap.get(left.id) || 0) - (selectedPartyMap.get(right.id) || 0);
+      }
+
+      return (rosterIndexMap.get(left.id) || 0) - (rosterIndexMap.get(right.id) || 0);
+    });
+  }
+
   function formatConsumableUseMessage(unit, result) {
     if (!unit || !result) {
       return "소모품을 사용했습니다.";
@@ -854,17 +895,7 @@
     const selectedUnits = selectedPartyIds
       .map((unitId) => roster.find((entry) => entry.id === unitId))
       .filter(Boolean);
-    const rosterIndexMap = new Map(roster.map((unit, index) => [unit.id, index]));
-    const sortedRoster = roster.slice().sort((left, right) => {
-      const leftPartyIndex = selectedPartyMap.has(left.id) ? selectedPartyMap.get(left.id) : Number.POSITIVE_INFINITY;
-      const rightPartyIndex = selectedPartyMap.has(right.id) ? selectedPartyMap.get(right.id) : Number.POSITIVE_INFINITY;
-
-      if (leftPartyIndex !== rightPartyIndex) {
-        return leftPartyIndex - rightPartyIndex;
-      }
-
-      return (rosterIndexMap.get(left.id) || 0) - (rosterIndexMap.get(right.id) || 0);
-    });
+    const sortedRoster = sortPartyRoster(roster, selectedPartyIds);
     const leaderUnit = roster.find((entry) => entry.id === appState.saveData.leaderUnitId) || null;
     const emptySlotCount = Math.max(0, MAX_SORTIE_SIZE - selectedUnits.length);
     const averageLevel = selectedUnits.length
@@ -1071,6 +1102,16 @@
 
   function countDraftSkills(draft) {
     return Array.isArray(draft.skillIds) ? draft.skillIds.length : 0;
+  }
+
+  function hasAvailableStatDraftTarget(previewPrimaryStats, remainingStatPoints) {
+    if (Number(remainingStatPoints || 0) <= 0) {
+      return false;
+    }
+
+    return StatsService.PRIMARY_STATS.some((statName) => (
+      Number(previewPrimaryStats[statName] || 0) < Number(StatsService.STAT_LIMITS[statName] || 0)
+    ));
   }
 
   function toggleDraftSkill(unit, skillId) {
@@ -1369,6 +1410,23 @@
       '    <p>등급 승급 후에도 훈련 단계는 유지됩니다.</p>',
       '  </div>',
       '</details>'
+    ].join("");
+  }
+
+  function buildProgressionStatButtonsMarkup(unit, previewPrimaryStats, remainingStatPoints) {
+    if (!unit) {
+      return "";
+    }
+
+    const canSpendStats = hasAvailableStatDraftTarget(previewPrimaryStats, remainingStatPoints);
+
+    return [
+      `<div class="detail-stats progression-stat-buttons ${canSpendStats ? "is-available" : "is-empty"}">`,
+      StatsService.PRIMARY_STATS.map((statName) => {
+        const isLimited = Number(previewPrimaryStats[statName] || 0) >= Number(StatsService.STAT_LIMITS[statName] || 0);
+        return `<button class="ghost-button small-button progression-stat-button" type="button" data-menu-stat-draft="${statName}" ${!canSpendStats || isLimited ? "disabled" : ""}>+ ${StatsService.PRIMARY_STAT_LABELS[statName]}</button>`;
+      }).join(""),
+      "</div>"
     ].join("");
   }
 
@@ -1842,7 +1900,6 @@
           : "<p>길드 최고 등급에 도달했습니다.</p>",
         `<p>${canTrain ? `다음 훈련 비용 ${trainingCost}G` : "현재 잠재력 기준 훈련 한계에 도달했습니다."}</p>`
       ].join("");
-
     const equipmentSectionMarkup = isReadOnly && tavernCandidate
       ? [
         buildEquipmentLoadoutMarkup(unit.id, { loadout: tavernPreviewLoadout || {} }),
@@ -1873,7 +1930,12 @@
       `    <span class="meta-pill ${spentStats ? "is-preview-up" : "is-muted"}">예약 스탯 ${spentStats}</span>`,
       `    <span class="meta-pill ${spentSkills ? "is-preview-up" : "is-muted"}">예약 스킬 ${spentSkills}</span>`,
       "  </div>",
-      buildItemFeatureSection("성장 정보", growthSectionMarkup, "is-summary", isReadOnly ? "" : buildGrowthInfoHelpMarkup(unit)),
+      buildItemFeatureSection(
+        "성장 정보",
+        growthSectionMarkup,
+        "is-summary",
+        isReadOnly ? "" : buildGrowthInfoHelpMarkup(unit)
+      ),
       buildItemFeatureSection("병종 운용", [
         buildClassProfileMarkup(classProfile)
       ].join(""), "is-stats"),
@@ -1896,10 +1958,13 @@
       ].filter(Boolean).join(""), "is-affix"),
       buildItemFeatureSection("장비", equipmentSectionMarkup, "is-set"),
       !isReadOnly ? '  <div class="detail-footer-split">' : "",
-      !isReadOnly ? '    <div class="detail-stats progression-stat-buttons">' : "",
-      !isReadOnly ? StatsService.PRIMARY_STATS.map((statName) => (
-        `<button class="ghost-button small-button" type="button" data-menu-stat-draft="${statName}" ${remainingStatPoints <= 0 || previewPrimaryStats[statName] >= StatsService.STAT_LIMITS[statName] ? "disabled" : ""}>+ ${StatsService.PRIMARY_STAT_LABELS[statName]}</button>`
-      )).join("") : "",
+      !isReadOnly ? '    <div class="progression-stat-section">' : "",
+      !isReadOnly ? buildProgressionStatButtonsMarkup(unit, previewPrimaryStats, remainingStatPoints) : "",
+      !isReadOnly ? '      <div class="detail-actions progression-stat-actions">' : "",
+      !isReadOnly ? `        <span class="meta-pill ${remainingStatPoints > 0 ? "is-gold" : "is-muted"}">남은 스탯 ${remainingStatPoints}</span>` : "",
+      !isReadOnly ? `        <button class="primary-button small-button ${(spentStats || spentSkills) ? "" : "is-placeholder-action"}" type="button" data-progression-confirm="true" ${(spentStats || spentSkills) ? "" : "disabled aria-hidden=\"true\" tabindex=\"-1\""}>확정</button>` : "",
+      !isReadOnly ? `        <button class="ghost-button small-button ${(spentStats || spentSkills) ? "" : "is-placeholder-action"}" type="button" data-progression-cancel="true" ${(spentStats || spentSkills) ? "" : "disabled aria-hidden=\"true\" tabindex=\"-1\""}>되돌리기</button>` : "",
+      !isReadOnly ? "      </div>" : "",
       !isReadOnly ? "    </div>" : "",
       !isReadOnly ? '    <div class="detail-actions">' : "",
       !isReadOnly ? `      <button class="primary-button small-button" type="button" data-train-unit="true" ${canTrain ? "" : "disabled"}>${canTrain ? `훈련 ${trainingCost}G` : "훈련 한계"}</button>` : "",
@@ -1913,8 +1978,6 @@
       !isReadOnly ? promotionOptions.map((promotion) => (
         `<button class="secondary-button small-button" type="button" data-promote-class="${promotion.className}">${promotion.className} 전직</button>`
       )).join("") : "",
-      !isReadOnly && (spentStats || spentSkills) ? '      <button class="primary-button small-button" type="button" data-progression-confirm="true">성장 확정</button>' : "",
-      !isReadOnly && (spentStats || spentSkills) ? '      <button class="ghost-button small-button" type="button" data-progression-cancel="true">예약 취소</button>' : "",
       !isReadOnly ? "    </div>" : "",
       !isReadOnly ? "  </div>" : ""
     ].filter(Boolean).join("");
@@ -3471,12 +3534,13 @@
       return;
     }
 
-    const totalPages = Math.max(1, Math.ceil(roster.length / ROSTER_PAGE_SIZE));
+    const sortedRoster = sortPartyRoster(roster, getSelectedPartyIds().slice(0, MAX_SORTIE_SIZE));
+    const totalPages = Math.max(1, Math.ceil(sortedRoster.length / ROSTER_PAGE_SIZE));
     let currentPage = Math.max(1, Math.min(totalPages, Number(appState.rosterView.page || 1)));
 
     appState.rosterView.page = currentPage;
     const pageStart = (currentPage - 1) * ROSTER_PAGE_SIZE;
-    const visibleRoster = roster.slice(pageStart, pageStart + ROSTER_PAGE_SIZE);
+    const visibleRoster = sortedRoster.slice(pageStart, pageStart + ROSTER_PAGE_SIZE);
 
     rosterTarget.innerHTML = visibleRoster.map((unit) => {
       const weapon = InventoryService.getItemById(appState.saveData, unit.weapon);
