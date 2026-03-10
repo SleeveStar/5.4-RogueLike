@@ -51,6 +51,14 @@
       .replace(/>/g, "&gt;");
   }
 
+  function resolveStaticAssetPath(relativePath) {
+    try {
+      return new URL(relativePath, document.baseURI).toString();
+    } catch (error) {
+      return relativePath;
+    }
+  }
+
   function getBaseClassName(className) {
     const normalizedClassName = String(className || "").trim();
 
@@ -83,15 +91,15 @@
   function getClassIconPath(unit) {
     const baseClassName = getBaseClassName(unit && unit.className);
     const iconByBaseClass = {
-      로드: "/icons/lord.png",
-      검사: "/icons/swordman.png",
-      랜서: "/icons/lancer.png",
-      솔저: "/icons/soldier.png",
-      아처: "/icons/archer.png",
-      헌터: "/icons/hunter.png",
-      브리건드: "/icons/brigand.png",
-      클레릭: "/icons/cleric.png",
-      메이지: "/icons/magician.png"
+      로드: resolveStaticAssetPath("./icons/lord.png"),
+      검사: resolveStaticAssetPath("./icons/swordman.png"),
+      랜서: resolveStaticAssetPath("./icons/lancer.png"),
+      솔저: resolveStaticAssetPath("./icons/soldier.png"),
+      아처: resolveStaticAssetPath("./icons/archer.png"),
+      헌터: resolveStaticAssetPath("./icons/hunter.png"),
+      브리건드: resolveStaticAssetPath("./icons/brigand.png"),
+      클레릭: resolveStaticAssetPath("./icons/cleric.png"),
+      메이지: resolveStaticAssetPath("./icons/magician.png")
     };
 
     return iconByBaseClass[baseClassName] || "";

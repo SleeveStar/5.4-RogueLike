@@ -2123,6 +2123,50 @@
     }
   }
 
+  function carveHorizontalHallBand(mapTiles, x1, x2, y, thickness) {
+    const radius = Math.max(0, Math.floor((Math.max(1, thickness || 1) - 1) / 2));
+
+    for (let offset = -radius; offset <= radius; offset += 1) {
+      carveHorizontalHall(mapTiles, x1, x2, y + offset);
+    }
+
+    if (Math.max(1, thickness || 1) % 2 === 0) {
+      carveHorizontalHall(mapTiles, x1, x2, y + radius + 1);
+    }
+  }
+
+  function carveVerticalHallBand(mapTiles, y1, y2, x, thickness) {
+    const radius = Math.max(0, Math.floor((Math.max(1, thickness || 1) - 1) / 2));
+
+    for (let offset = -radius; offset <= radius; offset += 1) {
+      carveVerticalHall(mapTiles, y1, y2, x + offset);
+    }
+
+    if (Math.max(1, thickness || 1) % 2 === 0) {
+      carveVerticalHall(mapTiles, y1, y2, x + radius + 1);
+    }
+  }
+
+  function carveConnectorHall(mapTiles, start, end, thickness, random) {
+    if (random() > 0.5) {
+      carveHorizontalHallBand(mapTiles, start.x, end.x, start.y, thickness);
+      carveVerticalHallBand(mapTiles, start.y, end.y, end.x, thickness);
+    } else {
+      carveVerticalHallBand(mapTiles, start.y, end.y, start.x, thickness);
+      carveHorizontalHallBand(mapTiles, start.x, end.x, end.y, thickness);
+    }
+  }
+
+  function carveCrossroads(mapTiles, center, radius) {
+    const effectiveRadius = Math.max(0, Number(radius || 0));
+
+    for (let y = center.y - effectiveRadius; y <= center.y + effectiveRadius; y += 1) {
+      for (let x = center.x - effectiveRadius; x <= center.x + effectiveRadius; x += 1) {
+        setMapTile(mapTiles, x, y, "plain");
+      }
+    }
+  }
+
   function getRoomCenter(room) {
     return {
       x: room.x + Math.floor(room.w / 2),
@@ -2218,37 +2262,61 @@
     const entranceRoom = { x: 0, y: 4, w: 4, h: 3 };
     const bossRoom = { x: 8, y: 0, w: 4, h: 3 };
     const middleTemplates = [
-      { x: 4, y: 2, w: 3, h: 3 },
-      { x: 3, y: 2, w: 4, h: 3 },
-      { x: 5, y: 2, w: 3, h: 3 }
+      { x: 4, y: 2, w: 4, h: 3 },
+      { x: 3, y: 2, w: 5, h: 3 },
+      { x: 5, y: 2, w: 4, h: 3 },
+      { x: 4, y: 3, w: 4, h: 3 }
     ];
-    const sideTemplates = [
-      { x: 1, y: 1, w: 3, h: 2 },
-      { x: 6, y: 4, w: 3, h: 2 },
-      { x: 4, y: 0, w: 3, h: 2 }
+    const topFlankTemplates = [
+      { x: 2, y: 0, w: 3, h: 2 },
+      { x: 4, y: 0, w: 4, h: 2 },
+      { x: 6, y: 1, w: 3, h: 2 }
+    ];
+    const bottomFlankTemplates = [
+      { x: 4, y: 5, w: 4, h: 2 },
+      { x: 6, y: 5, w: 3, h: 2 },
+      { x: 8, y: 4, w: 3, h: 2 }
     ];
     const middleRoom = clone(middleTemplates[Math.floor(random() * middleTemplates.length)]);
-    const sideRoom = clone(sideTemplates[Math.floor(random() * sideTemplates.length)]);
-    const useSideRoom = floorType === "combat" || floorType === "boss" || floor % 3 === 0;
+    const topFlankRoom = clone(topFlankTemplates[Math.floor(random() * topFlankTemplates.length)]);
+    const bottomFlankRoom = clone(bottomFlankTemplates[Math.floor(random() * bottomFlankTemplates.length)]);
+    const useTopFlank = floorType === "combat" || floorType === "boss" || floor % 2 === 0;
+    const useBottomFlank = floorType === "combat" || floorType === "boss" || floor >= 4;
+    const mainHallThickness = floorType === "combat" || floorType === "boss" ? 2 : 1;
     const rooms = [entranceRoom, middleRoom, bossRoom];
 
-    if (useSideRoom) {
-      rooms.splice(2, 0, sideRoom);
+    rooms.forEach((room) => carveRoom(mapTiles, room, "plain"));
+
+    if (useTopFlank) {
+      carveRoom(mapTiles, topFlankRoom, "plain");
     }
 
-    rooms.forEach((room) => carveRoom(mapTiles, room, "plain"));
+    if (useBottomFlank) {
+      carveRoom(mapTiles, bottomFlankRoom, "plain");
+    }
 
     for (let index = 0; index < rooms.length - 1; index += 1) {
       const start = getRoomCenter(rooms[index]);
       const end = getRoomCenter(rooms[index + 1]);
+      carveConnectorHall(mapTiles, start, end, mainHallThickness, random);
+    }
 
-      if (random() > 0.5) {
-        carveHorizontalHall(mapTiles, start.x, end.x, start.y);
-        carveVerticalHall(mapTiles, start.y, end.y, end.x);
-      } else {
-        carveVerticalHall(mapTiles, start.y, end.y, start.x);
-        carveHorizontalHall(mapTiles, start.x, end.x, end.y);
-      }
+    const middleCenter = getRoomCenter(middleRoom);
+    carveCrossroads(mapTiles, middleCenter, floorType === "combat" || floorType === "boss" ? 1 : 0);
+    carveHorizontalHallBand(
+      mapTiles,
+      getRoomCenter(entranceRoom).x,
+      getRoomCenter(bossRoom).x,
+      middleCenter.y,
+      floorType === "combat" || floorType === "boss" ? 2 : 1
+    );
+
+    if (useTopFlank) {
+      carveConnectorHall(mapTiles, getRoomCenter(topFlankRoom), middleCenter, 1, random);
+    }
+
+    if (useBottomFlank) {
+      carveConnectorHall(mapTiles, getRoomCenter(bottomFlankRoom), middleCenter, 1, random);
     }
 
     const protectedTiles = new Set(
@@ -2256,8 +2324,8 @@
     );
     const wallBreakCandidates = shuffleWithRandom(collectWallBreachCandidates(mapTiles, protectedTiles), random);
     const breachCount = floorType === "combat" || floorType === "boss"
-      ? Math.min(8, 3 + Math.floor(floor / 3))
-      : Math.min(4, 2 + Math.floor(floor / 6));
+      ? Math.min(14, 6 + Math.floor(floor / 2))
+      : Math.min(7, 3 + Math.floor(floor / 5));
 
     wallBreakCandidates.slice(0, breachCount).forEach((tile, index) => {
       setMapTile(mapTiles, tile.x, tile.y, index % 3 === 0 ? "ruin" : "plain");
@@ -2265,18 +2333,18 @@
 
     const terrainCandidates = shuffleWithRandom(collectPassableTiles(mapTiles, protectedTiles), random);
     const forestCount = floorType === "combat" || floorType === "boss"
-      ? Math.min(6, 2 + Math.floor(floor / 4))
+      ? Math.min(8, 3 + Math.floor(floor / 3))
       : Math.min(4, 1 + Math.floor(floor / 6));
     const hillCount = floorType === "combat" || floorType === "boss"
-      ? Math.min(4, 1 + Math.floor(floor / 5))
+      ? Math.min(5, 2 + Math.floor(floor / 6))
       : 1;
     const marshCount = floorType === "combat"
-      ? Math.min(5, 1 + Math.floor(floor / 3))
+      ? Math.min(4, 1 + Math.floor(floor / 4))
       : floorType === "boss"
-        ? Math.min(3, 1 + Math.floor(floor / 5))
+        ? Math.min(3, 1 + Math.floor(floor / 6))
         : Math.min(2, 1 + Math.floor(floor / 8));
     const ruinCount = floorType === "combat" || floorType === "boss"
-      ? Math.min(6, 2 + Math.floor(floor / 4))
+      ? Math.min(7, 2 + Math.floor(floor / 3))
       : Math.min(3, 1 + Math.floor(floor / 7));
 
     terrainCandidates.slice(0, forestCount).forEach((tile) => {
@@ -4163,6 +4231,17 @@
     return null;
   }
 
+  function autoSelectNextControllableAlly(currentUnitId) {
+    const nextUnit = findNextControllableAlly(currentUnitId);
+
+    if (!nextUnit) {
+      return false;
+    }
+
+    selectUnit(nextUnit.id);
+    return true;
+  }
+
   function previewMoveSelection(x, y) {
     const unit = getUnitById(state.ui.selectedUnitId);
 
@@ -4839,6 +4918,10 @@
       return result;
     }
 
+    if (autoSelectNextControllableAlly(unit.id)) {
+      return result;
+    }
+
     notify();
     return result;
   }
@@ -5366,6 +5449,10 @@
       return;
     }
 
+    if (autoSelectNextControllableAlly(attacker.id)) {
+      return;
+    }
+
     notify();
   }
 
@@ -5382,10 +5469,7 @@
 
     addLog(`${unit.name} 대기`);
     finalizeUnitAction(unit);
-    const nextUnit = findNextControllableAlly(unit.id);
-
-    if (nextUnit) {
-      selectUnit(nextUnit.id);
+    if (autoSelectNextControllableAlly(unit.id)) {
       return;
     }
 
@@ -5413,6 +5497,9 @@
 
       finalizeUnitAction(unit);
       syncPersistentFromBattle({ keepBattleState: true });
+      if (autoSelectNextControllableAlly(unit.id)) {
+        return result;
+      }
       notify();
       return result;
     } catch (error) {
