@@ -202,7 +202,11 @@
       return null;
     }
 
-    saveData.dispatch = Object.assign({
+    const existingDispatch = saveData.dispatch && typeof saveData.dispatch === "object"
+      ? saveData.dispatch
+      : {};
+
+    saveData.dispatch = Object.assign(existingDispatch, {
       missionSeed: 1,
       availableMissions: [],
       activeMissions: [],

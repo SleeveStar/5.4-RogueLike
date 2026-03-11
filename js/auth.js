@@ -480,7 +480,8 @@
     }
 
     if (isDispatchPanel) {
-      const activeMissions = (((appState.saveData || {}).dispatch || {}).activeMissions || []);
+      const dispatchState = syncDispatchState(false) || ((appState.saveData || {}).dispatch || {});
+      const activeMissions = (dispatchState.activeMissions || []);
       const activeMissionsButton = getElement("dispatch-active-missions-button");
 
       if (activeMissionsButton) {
@@ -4830,15 +4831,15 @@
     ].join("");
   }
 
-  function buildDispatchCandidateCard(unit, isSelected, slotIndex) {
+  function buildDispatchCandidateCard(unit, isSelected, slotIndex, isLocked) {
     const power = DispatchService.calculateUnitDispatchPower(appState.saveData, unit);
     const potentialMeta = StatsService.getPotentialMeta(unit);
     const rankClass = getRankClassName(unit.guildRank || "D");
     return [
-      `<button class="inventory-card dispatch-candidate-card ${rankClass} ${isSelected ? "is-selected" : ""}" type="button" data-dispatch-assign-unit="${unit.id}" data-dispatch-target-slot="${slotIndex}">`,
+      `<button class="inventory-card dispatch-candidate-card ${rankClass} ${isSelected ? "is-selected" : ""} ${isLocked ? "is-locked" : ""}" type="button" data-dispatch-assign-unit="${unit.id}" data-dispatch-target-slot="${slotIndex}" ${isLocked ? "disabled" : ""}>`,
       `  <div class="item-title-row"><strong class="card-title">${unit.name}</strong><span class="card-subtitle">${unit.className}</span></div>`,
-      `  <div class="inventory-meta"><span class="meta-pill ${rankClass}">${formatRankBadge(unit.guildRank || "D")}</span><span class="meta-pill">Lv.${unit.level}</span><span class="meta-pill is-violet">잠재 ${potentialMeta.label}</span><span class="meta-pill is-gold">전력 ${power}</span></div>`,
-      `  <p>${isSelected ? "이미 다른 슬롯에 배치된 인원입니다. 클릭하면 이 슬롯으로 이동합니다." : "클릭하면 선택한 슬롯에 배치합니다."}</p>`,
+      `  <div class="inventory-meta"><span class="meta-pill ${rankClass}">${formatRankBadge(unit.guildRank || "D")}</span><span class="meta-pill">Lv.${unit.level}</span><span class="meta-pill is-violet">잠재 ${potentialMeta.label}</span><span class="meta-pill is-gold">전력 ${power}</span><span class="meta-pill ${isLocked ? "is-crimson" : isSelected ? "is-gold" : "is-muted"}">${isLocked ? "배치중" : isSelected ? "현재 슬롯" : "선택 가능"}</span></div>`,
+      `  <p>${isLocked ? "이미 다른 슬롯에 배치된 모험가라서 이 슬롯에는 선택할 수 없습니다." : isSelected ? "현재 이 슬롯에 배치된 인원입니다." : "클릭하면 선택한 슬롯에 배치합니다."}</p>`,
       "</button>"
     ].join("");
   }
@@ -4872,7 +4873,7 @@
       `      <div class="item-title-row equipment-modal-header"><strong class="card-title">${slotIndex + 1}번 슬롯 배치</strong><span class="card-subtitle">${currentUnit ? `${currentUnit.name} / ${currentRankText}` : "비어 있는 슬롯"}</span></div>`,
       `      <p class="dispatch-slot-picker-copy">가용 인원 ${availableUnits.length}명 중 한 명을 선택해 ${slotIndex + 1}번 슬롯에 배치합니다.</p>`,
       availableUnits.length
-        ? `      <div class="dispatch-slot-picker-list">${availableUnits.map((unit) => buildDispatchCandidateCard(unit, currentDraftSlots.includes(unit.id), slotIndex)).join("")}</div>`
+        ? `      <div class="dispatch-slot-picker-list">${availableUnits.map((unit) => buildDispatchCandidateCard(unit, currentUnitId === unit.id, slotIndex, !!currentDraftSlots.find((draftUnitId, draftIndex) => draftUnitId === unit.id && draftIndex !== slotIndex))).join("")}</div>`
         : '      <div class="inventory-card"><p>현재 파견 가능한 후방 인원이 없습니다.</p></div>',
       '    </div>',
       '  </div>',
@@ -5427,29 +5428,127 @@
     });
   }
 
-  function buildDispatchActiveMissionModalCard(mission) {
+  function createDispatchMetaPill(text, className) {
+    const pill = document.createElement("span");
+    pill.className = `meta-pill${className ? ` ${className}` : ""}`;
+    pill.textContent = text;
+    return pill;
+  }
+
+  function createDispatchStarRatingNode(starRating) {
+    const starCount = Math.max(1, Math.min(5, Number(starRating || 1)));
+    const wrapper = document.createElement("span");
+    wrapper.className = "meta-pill is-gold";
+
+    const stars = document.createElement("span");
+    stars.className = "dispatch-star-rating";
+    stars.setAttribute("aria-label", `${starCount}성`);
+    stars.textContent = "★".repeat(starCount);
+
+    wrapper.appendChild(stars);
+    return wrapper;
+  }
+
+  function createDispatchActiveMissionMetric(label, value, toneClass) {
+    const metric = document.createElement("div");
+    metric.className = `dispatch-active-metric${toneClass ? ` ${toneClass}` : ""}`;
+
+    const labelElement = document.createElement("span");
+    labelElement.className = "dispatch-active-metric-label";
+    labelElement.textContent = label;
+
+    const valueElement = document.createElement("strong");
+    valueElement.className = "dispatch-active-metric-value";
+    valueElement.textContent = value;
+
+    metric.append(labelElement, valueElement);
+    return metric;
+  }
+
+  function createDispatchActiveMissionInfoRow(label, value) {
+    const row = document.createElement("div");
+    row.className = "dispatch-active-info-row";
+
+    const labelElement = document.createElement("strong");
+    labelElement.className = "dispatch-active-info-label";
+    labelElement.textContent = label;
+
+    const valueElement = document.createElement("span");
+    valueElement.className = "dispatch-active-info-value";
+    valueElement.textContent = value;
+
+    row.append(labelElement, valueElement);
+    return row;
+  }
+
+  function createDispatchActiveMissionModalCardElement(mission) {
     const rewardPreview = DispatchService.buildRewardPreview(
       mission,
       mission.dispatchSnapshot,
       getDispatchResultBandForSnapshot(mission, mission.dispatchSnapshot)
     );
+    const article = document.createElement("article");
+    article.className = "modal-card dispatch-active-mission-modal-card";
 
-    return [
-      '<article class="modal-card dispatch-active-mission-modal-card">',
-      `  <div class="item-title-row"><strong class="card-title">${mission.missionName}</strong><span class="card-subtitle">${formatDurationHours(mission.durationHours)}</span></div>`,
-      `  <div class="inventory-meta"><span class="meta-pill is-gold">${buildDispatchStarRating(mission.starRating)}</span><span class="meta-pill is-crimson">파견중</span><span class="meta-pill">${formatRemainingDuration(mission.expectedReturnAt)}</span></div>`,
-      `  <p>${mission.summary}</p>`,
-      `  <p>파견대: ${formatDispatchMemberNames(mission.unitIds)}</p>`,
-      `  <p>예상 보상 범위: ${buildDispatchMissionRewardPreview(mission, rewardPreview)}</p>`,
-      `  <p>추가 전리품 체감: ${rewardPreview.guaranteedItemCount > 0 ? `잭팟 시 전리품 ${rewardPreview.guaranteedItemCount}개 보장 가능` : "재련석 / 소모품 / 장비 가능"}</p>`,
-      `  <p>복귀 예정: ${new Date(mission.expectedReturnAt).toLocaleString("ko-KR")} / 약 ${formatRemainingDuration(mission.expectedReturnAt)}</p>`,
-      '</article>'
-    ].join("");
+    const header = document.createElement("div");
+    header.className = "item-title-row dispatch-active-card-header";
+
+    const title = document.createElement("strong");
+    title.className = "card-title";
+    title.textContent = mission.missionName;
+
+    const subtitle = document.createElement("span");
+    subtitle.className = "card-subtitle";
+    subtitle.textContent = formatDurationHours(mission.durationHours);
+
+    header.append(title, subtitle);
+
+    const meta = document.createElement("div");
+    meta.className = "inventory-meta dispatch-active-card-meta";
+    meta.append(
+      createDispatchStarRatingNode(mission.starRating),
+      createDispatchMetaPill("파견중", "is-crimson"),
+      createDispatchMetaPill(formatRemainingDuration(mission.expectedReturnAt), "")
+    );
+
+    const summary = document.createElement("p");
+    summary.className = "dispatch-active-summary";
+    summary.textContent = mission.summary;
+
+    const metricGrid = document.createElement("div");
+    metricGrid.className = "dispatch-active-metric-grid";
+    metricGrid.append(
+      createDispatchActiveMissionMetric("파견 인원", `${(mission.unitIds || []).length}명`, "is-cyan"),
+      createDispatchActiveMissionMetric("파견 전력", `${Math.round(Number(mission.dispatchSnapshot && mission.dispatchSnapshot.partyDispatchPower || 0))}`, "is-gold"),
+      createDispatchActiveMissionMetric("예상 보상", `${rewardPreview.expRange[0]}~${rewardPreview.expRange[1]} EXP`, ""),
+      createDispatchActiveMissionMetric("복귀까지", formatRemainingDuration(mission.expectedReturnAt), "is-crimson")
+    );
+
+    const infoPanel = document.createElement("div");
+    infoPanel.className = "dispatch-active-info-panel";
+    infoPanel.append(
+      createDispatchActiveMissionInfoRow("파견대", formatDispatchMemberNames(mission.unitIds)),
+      createDispatchActiveMissionInfoRow("예상 보상 범위", buildDispatchMissionRewardPreview(mission, rewardPreview)),
+      createDispatchActiveMissionInfoRow(
+        "추가 전리품 체감",
+        rewardPreview.guaranteedItemCount > 0
+          ? `잭팟 시 전리품 ${rewardPreview.guaranteedItemCount}개 보장 가능`
+          : "재련석 / 소모품 / 장비 가능"
+      ),
+      createDispatchActiveMissionInfoRow(
+        "복귀 예정",
+        `${new Date(mission.expectedReturnAt).toLocaleString("ko-KR")} / 약 ${formatRemainingDuration(mission.expectedReturnAt)}`
+      )
+    );
+
+    article.append(header, meta, summary, metricGrid, infoPanel);
+    return article;
   }
 
   function openDispatchActiveMissionsModal() {
     const host = getEquipmentModalHost();
-    const activeMissions = (((appState.saveData || {}).dispatch || {}).activeMissions || []).slice();
+    const dispatchState = syncDispatchState(false) || ((appState.saveData || {}).dispatch || {});
+    const activeMissions = (dispatchState.activeMissions || []).slice();
 
     if (!host || !DispatchService) {
       return;
@@ -5470,7 +5569,7 @@
       '    <div class="modal-body menu-detail-modal-body">',
       '      <div class="item-title-row equipment-modal-header"><strong class="card-title">파견중 임무 상세</strong><span class="card-subtitle">현재 진행 중인 파견의 멤버, 예상 보상, 복귀 시각</span></div>',
       `      <p class="dispatch-slot-picker-copy">현재 ${activeMissions.length}개의 파견이 진행 중입니다. 완료 시각이 지나면 왼쪽 임무 보드에서 보상 수령 대기로 바뀝니다.</p>`,
-      `      <div class="dispatch-active-mission-list">${activeMissions.map((mission) => buildDispatchActiveMissionModalCard(mission)).join("")}</div>`,
+      '      <div id="dispatch-active-mission-list" class="dispatch-active-mission-list"></div>',
       '    </div>',
       '  </div>',
       '</div>'
@@ -5478,6 +5577,11 @@
 
     const backdrop = host.querySelector(".menu-modal-backdrop");
     const close = () => closeDetailModal();
+    const list = getElement("dispatch-active-mission-list");
+
+    activeMissions.forEach((mission) => {
+      list.appendChild(createDispatchActiveMissionModalCardElement(mission));
+    });
 
     getElement("dispatch-active-close-button").addEventListener("click", close);
     backdrop.addEventListener("click", (event) => {
@@ -6045,10 +6149,8 @@
     InventoryService.normalizeInventoryState(saveData);
     StatsService.normalizeRosterProgression(saveData);
     SkillsService.normalizeRosterLearnedSkills(saveData);
-    appState.saveData = saveData;
-    appState.settings = settings;
-    StorageService.setUserSave(appState.currentUserId, saveData);
-    StorageService.setUserSettings(appState.currentUserId, settings);
+    appState.saveData = StorageService.setUserSave(appState.currentUserId, saveData);
+    appState.settings = StorageService.setUserSettings(appState.currentUserId, settings);
 
     if (getElement("screen-main-menu").classList.contains("active")) {
       renderMainMenu();
