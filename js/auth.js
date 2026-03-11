@@ -440,6 +440,7 @@
     const inventoryTabs = getElement("inventory-header-tabs");
     const shopTabs = getElement("shop-header-tabs");
     const tavernActions = getElement("tavern-header-actions");
+    const blacksmithActions = getElement("blacksmith-header-actions");
 
     if (!headerActions) {
       return;
@@ -448,8 +449,9 @@
     const isInventoryPanel = appState.activeMainPanel === "inventory";
     const isShopPanel = appState.activeMainPanel === "shop";
     const isTavernPanel = appState.activeMainPanel === "tavern";
+    const isBlacksmithPanel = appState.activeMainPanel === "blacksmith";
 
-    headerActions.classList.toggle("hidden", !isInventoryPanel && !isShopPanel && !isTavernPanel);
+    headerActions.classList.toggle("hidden", !isInventoryPanel && !isShopPanel && !isTavernPanel && !isBlacksmithPanel);
 
     if (inventoryTabs) {
       inventoryTabs.classList.toggle("hidden", !isInventoryPanel);
@@ -461,6 +463,10 @@
 
     if (tavernActions) {
       tavernActions.classList.toggle("hidden", !isTavernPanel);
+    }
+
+    if (blacksmithActions) {
+      blacksmithActions.classList.toggle("hidden", !isBlacksmithPanel);
     }
 
     if (!isTavernPanel || !appState.saveData || !TavernService) {
@@ -5404,7 +5410,6 @@
     root.innerHTML = [
       '<div class="summary-card blacksmith-status-card">',
       `  <div class="inventory-status-grid"><p class="status-line is-gold">보유 골드: ${Math.max(0, Number(appState.saveData.partyGold || 0))}G</p><p class="status-line is-cyan">보유 재련석: ${refineStoneCount}개</p><p class="status-line">무기 ${weapons.length}개 / 즉시 강화 가능 ${affordableCount}개</p><p class="status-line">장착 중 무기 ${equippedCount}개 / 최대 강화 ${maxedCount}개</p><p class="status-line inventory-status-wide">${selectedWeapon ? `${InventoryService.getItemDisplayName(selectedWeapon, { forceShowReinforceLevel: true })} 선택 중` : "강화 가능한 무기 없음"}</p></div>`,
-      '  <div class="button-row blacksmith-status-actions"><button class="ghost-button small-button" type="button" data-open-blacksmith-tutorial="true">안내 다시보기</button></div>',
       '</div>',
       '<div class="blacksmith-layout">',
       '  <section class="inventory-card blacksmith-weapon-list-card">',
@@ -5435,8 +5440,7 @@
       '  </section>',
       '  <section class="inventory-card blacksmith-detail-card">',
       selectedWeapon && preview ? [
-        `    <div class="item-title-row"><strong class="card-title">${InventoryService.getItemDisplayName(selectedWeapon, { forceShowReinforceLevel: true })}</strong><span class="card-subtitle">${InventoryService.getRarityMeta(selectedWeapon.rarity).label}</span></div>`,
-        `    <div class="inventory-meta"><span class="meta-pill ${selectedWeapon.equippedBy ? "is-gold" : "is-muted"}">${selectedOwner}</span><span class="meta-pill is-cyan">현재 +${preview.reinforceLevel}</span><span class="meta-pill ${preview.maxLevelReached ? "is-gold" : "is-muted"}">${preview.maxLevelReached ? "최대 강화" : `다음 +${preview.cost ? preview.cost.targetLevel : preview.reinforceLevel}`}</span></div>`,
+        `    <div class="item-title-row blacksmith-detail-title-row"><strong class="card-title">${InventoryService.getItemDisplayName(selectedWeapon, { forceShowReinforceLevel: true })}</strong><div class="inventory-meta blacksmith-detail-inline-meta"><span class="meta-pill ${selectedWeapon.equippedBy ? "is-gold" : "is-muted"}">${selectedOwner}</span><span class="meta-pill is-cyan">현재 +${preview.reinforceLevel}</span><span class="meta-pill ${preview.maxLevelReached ? "is-gold" : "is-muted"}">${preview.maxLevelReached ? "최대 강화" : `다음 +${preview.cost ? preview.cost.targetLevel : preview.reinforceLevel}`}</span></div><span class="card-subtitle">${InventoryService.getRarityMeta(selectedWeapon.rarity).label}</span></div>`,
         `    <p class="blacksmith-section-copy">${selectedWeapon.description || "무기 재련으로 위력을 올릴 수 있습니다. 장착 중인 무기라도 바로 강화가 가능하며, 성공 시 즉시 성능에 반영됩니다."}</p>`,
         '    <div class="blacksmith-detail-grid">',
         `      <article class="summary-card blacksmith-metric-card"><span class="card-subtitle">현재 강화</span><strong class="card-title">+${preview.reinforceLevel} 강화</strong></article>`,
@@ -5494,11 +5498,6 @@
       });
     });
 
-    root.querySelectorAll("[data-open-blacksmith-tutorial]").forEach((button) => {
-      button.addEventListener("click", () => {
-        openBlacksmithTutorialModal();
-      });
-    });
   }
 
   function renderStageList() {
@@ -6091,6 +6090,9 @@
     });
     getElement("tavern-tutorial-button").addEventListener("click", () => {
       openTavernTutorialModal();
+    });
+    getElement("blacksmith-tutorial-button").addEventListener("click", () => {
+      openBlacksmithTutorialModal();
     });
     getElement("menu-inventory-sort").addEventListener("change", (event) => {
       appState.inventoryView.sort = event.target.value;

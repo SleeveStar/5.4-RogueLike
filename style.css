@@ -2737,17 +2737,6 @@ body.use-floating-stat-tooltip .stat-tooltip-pill::after {
   font-size: 0.84rem;
 }
 
-.blacksmith-status-actions {
-  margin-top: 6px;
-  justify-content: flex-end;
-}
-
-.blacksmith-status-actions .small-button {
-  min-height: 30px;
-  padding: 0 10px;
-  font-size: 0.78rem;
-}
-
 .blacksmith-weapon-list-card,
 .blacksmith-detail-card {
   display: grid;
@@ -2793,6 +2782,22 @@ body.use-floating-stat-tooltip .stat-tooltip-pill::after {
   gap: 6px;
 }
 
+.blacksmith-detail-title-row {
+  align-items: center;
+  gap: 8px;
+}
+
+.blacksmith-detail-inline-meta {
+  flex: 1 1 auto;
+  min-width: 0;
+  justify-content: center;
+  gap: 6px;
+}
+
+.blacksmith-detail-title-row .card-subtitle {
+  flex: 0 0 auto;
+}
+
 .blacksmith-detail-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -2816,7 +2821,8 @@ body.use-floating-stat-tooltip .stat-tooltip-pill::after {
 
 .blacksmith-resource-state {
   display: grid;
-  gap: 7px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 14px;
   padding: 12px 14px;
   border-radius: 16px;
   border: 1px solid rgba(255, 255, 255, 0.06);
@@ -2825,7 +2831,15 @@ body.use-floating-stat-tooltip .stat-tooltip-pill::after {
 
 .blacksmith-resource-state .status-line {
   margin: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
   font-size: 0.92rem;
+}
+
+.blacksmith-resource-state .status-line strong {
+  flex: 0 0 auto;
 }
 
 .blacksmith-detail-card .button-row {
