@@ -5232,6 +5232,12 @@
       .sort((left, right) => {
         const leftPreview = InventoryService.getReinforcePreview(appState.saveData, left);
         const rightPreview = InventoryService.getReinforcePreview(appState.saveData, right);
+        const rarityGap = InventoryService.RARITY_ORDER.indexOf(right.rarity) - InventoryService.RARITY_ORDER.indexOf(left.rarity);
+
+        if (rarityGap !== 0) {
+          return rarityGap;
+        }
+
         const leftEquipped = left.equippedBy ? 1 : 0;
         const rightEquipped = right.equippedBy ? 1 : 0;
 
@@ -5244,11 +5250,6 @@
 
         if (leftAffordable !== rightAffordable) {
           return rightAffordable - leftAffordable;
-        }
-
-        const rarityGap = InventoryService.RARITY_ORDER.indexOf(right.rarity) - InventoryService.RARITY_ORDER.indexOf(left.rarity);
-        if (rarityGap !== 0) {
-          return rarityGap;
         }
 
         const leftBaseName = String(left.baseName || left.name || "");
