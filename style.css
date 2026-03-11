@@ -1572,9 +1572,6 @@ body.use-floating-stat-tooltip .stat-tooltip-pill::after {
   box-shadow: var(--shadow-panel);
 }
 
-.dispatch-mission-section {
-  min-height: 560px;
-}
 
 .dispatch-section-header {
   align-items: center;
@@ -1600,6 +1597,10 @@ body.use-floating-stat-tooltip .stat-tooltip-pill::after {
   min-height: 0;
   overflow: visible;
   padding-right: 0;
+}
+
+.dispatch-board-pagination {
+  margin-top: 10px;
 }
 
 .dispatch-mission-group {
@@ -1781,7 +1782,7 @@ body.use-floating-stat-tooltip .stat-tooltip-pill::after {
 
 .dispatch-planner-section p {
   margin: 0;
-  font-size: 0.94rem;
+  font-size: 0.8rem;
   line-height: 1.5;
 }
 
@@ -1845,7 +1846,7 @@ body.use-floating-stat-tooltip .stat-tooltip-pill::after {
 }
 
 #menu-inventory-list {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   align-items: start;
 }
 
@@ -1932,12 +1933,9 @@ body.use-floating-stat-tooltip .stat-tooltip-pill::after {
 }
 
 .stage-card .item-title-row {
+  align-items: center;
   flex-wrap: wrap;
   row-gap: var(--space-8);
-}
-
-.stage-card.is-cleared .item-title-row {
-  padding-right: 72px;
 }
 
 .stage-card .item-title-row strong {
@@ -2021,14 +2019,11 @@ body.use-floating-stat-tooltip .stat-tooltip-pill::after {
 }
 
 .stage-clear-badge {
-  position: absolute;
-  top: 12px;
-  right: 12px;
-  z-index: 2;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   min-height: 24px;
-  padding: 0 10px;
+  padding: 0 9px;
   border-radius: 999px;
   border: 1px solid rgba(103, 215, 232, 0.28);
   background: rgba(103, 215, 232, 0.14);
@@ -2037,6 +2032,7 @@ body.use-floating-stat-tooltip .stat-tooltip-pill::after {
   font-weight: 900;
   letter-spacing: 0.12em;
   text-transform: uppercase;
+  flex: 0 0 auto;
 }
 
 .stage-card.locked,
@@ -2554,6 +2550,35 @@ body.use-floating-stat-tooltip .stat-tooltip-pill::after {
   gap: 10px;
 }
 
+.command-stage-panel .stage-list .stage-card {
+  min-height: 144px;
+  gap: 5px;
+  padding: 10px 12px;
+}
+
+.command-stage-panel .stage-list .stage-card .item-title-row {
+  row-gap: 4px;
+}
+
+.command-stage-panel .stage-list .stage-card .inventory-meta {
+  gap: 4px;
+}
+
+.command-stage-panel .stage-list .stage-card p {
+  font-size: 0.8rem;
+  line-height: 1.2;
+}
+
+.command-stage-panel .stage-list .stage-card .small-button {
+  min-height: 28px;
+  padding-inline: 8px;
+  font-size: 0.8rem;
+}
+
+.command-stage-panel .stage-list .stage-card-actions {
+  gap: 4px;
+}
+
 .command-detail-panel .tavern-list {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -2563,6 +2588,69 @@ body.use-floating-stat-tooltip .stat-tooltip-pill::after {
 #menu-panel-inventory .inventory-list {
   gap: var(--space-10);
   padding-top: 0;
+}
+
+#menu-panel-inventory .inventory-status-card,
+#menu-panel-shop .shop-status-card {
+  min-height: 96px;
+  padding: 10px 12px;
+}
+
+#menu-panel-inventory .inventory-status-grid,
+#menu-panel-shop .inventory-status-grid {
+  gap: 4px 14px;
+}
+
+#menu-panel-inventory .inventory-status-grid .status-line,
+#menu-panel-shop .inventory-status-grid .status-line {
+  font-size: 0.84rem;
+  line-height: 1.38;
+}
+
+#menu-panel-inventory .inventory-status-wide,
+#menu-panel-shop .inventory-status-wide {
+  font-size: 0.82rem;
+}
+
+#menu-panel-shop .shop-status-card .status-line {
+  font-size: 0.84rem;
+  line-height: 1.38;
+}
+
+#menu-panel-shop .shop-status-card .status-line + .status-line {
+  margin-top: 4px;
+}
+
+#menu-panel-inventory .inventory-toolbar {
+  gap: 8px;
+  padding: 8px;
+}
+
+#menu-panel-inventory .inventory-filter-field {
+  gap: 4px;
+  padding: 8px 10px 7px;
+}
+
+#menu-panel-inventory .inventory-filter-field span {
+  font-size: 0.62rem;
+  letter-spacing: 0.12em;
+}
+
+#menu-panel-inventory .inventory-filter-field select {
+  min-height: 38px;
+  font-size: 0.82rem;
+  padding: 0 30px 0 10px;
+}
+
+#menu-panel-inventory .inventory-filter-field::after {
+  right: 12px;
+  bottom: 15px;
+}
+
+#menu-inventory-list > .inventory-pagination,
+#menu-shop-list > .shop-pagination {
+  margin-top: 8px;
+  padding-top: 4px;
 }
 
 .blacksmith-root {

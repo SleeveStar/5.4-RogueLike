@@ -5,7 +5,7 @@
   const StatsService = global.StatsService;
   const SkillsService = global.SkillsService;
 
-  const AVAILABLE_MISSION_COUNT = 3;
+  const AVAILABLE_MISSION_COUNT = 6;
   const DAILY_REFRESH_LIMIT = 5;
   const MIN_DISPATCH_PARTY_SIZE = 2;
   const MAX_DISPATCH_PARTY_SIZE = 3;

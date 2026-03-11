@@ -50,7 +50,8 @@
     },
     dispatchView: {
       selectedMissionId: null,
-      draftUnitIds: []
+      draftUnitIds: [],
+      page: 1
     },
     progressionDrafts: {},
     equipmentModal: {
@@ -4639,6 +4640,17 @@
     ].join("");
   }
 
+  function getDispatchMissionRecordsForBoard(dispatch) {
+    if (!dispatch) {
+      return [];
+    }
+
+    return []
+      .concat((dispatch.completedMissions || []).map((mission) => ({ status: "completed", mission })))
+      .concat((dispatch.activeMissions || []).map((mission) => ({ status: "active", mission })))
+      .concat((dispatch.availableMissions || []).map((mission) => ({ status: "available", mission })));
+  }
+
   function buildDispatchMissionCard(record, isSelected) {
     const mission = record.mission;
     const statusLabel = record.status === "active"
@@ -4829,6 +4841,7 @@
 
   function renderDispatchPanel() {
     const root = getElement("menu-dispatch-root");
+    const missionPageSize = 3;
 
     if (!root || !appState.saveData || !DispatchService) {
       return;
@@ -4842,6 +4855,16 @@
     const availableMissions = dispatch.availableMissions || [];
     const activeMissions = dispatch.activeMissions || [];
     const completedMissions = dispatch.completedMissions || [];
+    const boardRecords = getDispatchMissionRecordsForBoard(dispatch);
+    const totalBoardPages = Math.max(1, Math.ceil(boardRecords.length / missionPageSize));
+    const currentBoardPage = Math.max(
+      1,
+      Math.min(
+        totalBoardPages,
+        Number(appState.dispatchView.page || 1)
+      )
+    );
+    const visibleBoardRecords = boardRecords.slice((currentBoardPage - 1) * missionPageSize, currentBoardPage * missionPageSize);
     const selectedMissionRecord = ensureDispatchMissionSelection();
     const selectedMission = selectedMissionRecord && selectedMissionRecord.status === "available"
       ? selectedMissionRecord.mission
@@ -4850,6 +4873,8 @@
     const preview = selectedMission
       ? DispatchService.getMissionOutcomePreview(appState.saveData, selectedMission, draftUnitIds)
       : null;
+
+    appState.dispatchView.page = currentBoardPage;
 
     root.innerHTML = [
       '<div class="summary-card dispatch-status-card">',
@@ -4863,17 +4888,22 @@
       '<div class="dispatch-layout">',
       '  <section class="panel dispatch-section dispatch-mission-section">',
       '    <div class="item-title-row dispatch-section-header"><strong class="card-title">임무 보드</strong>',
-      `      <div class="inventory-meta"><span class="meta-pill">가용 ${availableMissions.length}</span><span class="meta-pill is-cyan">진행 ${activeMissions.length}</span><span class="meta-pill is-gold">대기 ${completedMissions.length}</span><button class="secondary-button small-button inventory-meta-action" type="button" data-dispatch-refresh="true" ${refreshState.remaining <= 0 ? "disabled" : ""}>임무 갱신</button>${completedMissions.length ? '<button class="ghost-button small-button inventory-meta-action" type="button" data-dispatch-claim-all="true">전체 수령</button>' : ""}</div>`,
+      `      <div class="inventory-meta"><span class="meta-pill">가용 ${availableMissions.length}</span><span class="meta-pill is-cyan">진행 ${activeMissions.length}</span><span class="meta-pill is-gold">대기 ${completedMissions.length}</span><span class="meta-pill">${currentBoardPage} / ${totalBoardPages} 페이지</span><button class="secondary-button small-button inventory-meta-action" type="button" data-dispatch-refresh="true" ${refreshState.remaining <= 0 ? "disabled" : ""}>임무 갱신</button>${completedMissions.length ? '<button class="ghost-button small-button inventory-meta-action" type="button" data-dispatch-claim-all="true">전체 수령</button>' : ""}</div>`,
       '    </div>',
-      (availableMissions.length || activeMissions.length || completedMissions.length)
+      boardRecords.length
         ? [
             '    <div class="dispatch-mission-list">',
-            buildDispatchMissionGroup("완료 대기", "completed", completedMissions, appState.dispatchView.selectedMissionId),
-            buildDispatchMissionGroup("진행 중", "active", activeMissions, appState.dispatchView.selectedMissionId),
-            buildDispatchMissionGroup("가용 임무", "available", availableMissions, appState.dispatchView.selectedMissionId),
+            visibleBoardRecords.map((record) => buildDispatchMissionCard(record, record.mission.id === appState.dispatchView.selectedMissionId)).join(""),
             '    </div>'
           ].join("")
         : '    <div class="shop-card"><p>현재 배정 가능한 임무가 없습니다.</p></div>',
+      boardRecords.length > missionPageSize ? [
+        '    <div class="list-pagination dispatch-board-pagination">',
+        `      <button class="ghost-button small-button" type="button" data-dispatch-page="prev" ${currentBoardPage <= 1 ? "disabled" : ""}>이전</button>`,
+        `      <span class="pagination-label">${currentBoardPage} / ${totalBoardPages}</span>`,
+        `      <button class="ghost-button small-button" type="button" data-dispatch-page="next" ${currentBoardPage >= totalBoardPages ? "disabled" : ""}>다음</button>`,
+        '    </div>'
+      ].join("") : "",
       '  </section>',
       '  <section class="panel dispatch-section dispatch-planner-section">',
       buildDispatchSelectedDetail(selectedMissionRecord, preview, draftUnitIds, availableUnits),
@@ -4884,7 +4914,20 @@
     root.querySelectorAll("[data-dispatch-mission]").forEach((button) => {
       button.addEventListener("click", () => {
         appState.dispatchView.selectedMissionId = button.dataset.dispatchMission;
+        const clickedIndex = boardRecords.findIndex((record) => record.mission && record.mission.id === button.dataset.dispatchMission);
+        if (clickedIndex >= 0) {
+          appState.dispatchView.page = Math.floor(clickedIndex / missionPageSize) + 1;
+        }
         appState.dispatchView.draftUnitIds = [];
+        renderDispatchPanel();
+      });
+    });
+
+    root.querySelectorAll("[data-dispatch-page]").forEach((button) => {
+      button.addEventListener("click", () => {
+        appState.dispatchView.page = button.dataset.dispatchPage === "next"
+          ? Math.min(totalBoardPages, currentBoardPage + 1)
+          : Math.max(1, currentBoardPage - 1);
         renderDispatchPanel();
       });
     });
@@ -4923,6 +4966,7 @@
           const refreshResult = DispatchService.useRefresh(appState.saveData);
           appState.dispatchView.selectedMissionId = null;
           appState.dispatchView.draftUnitIds = [];
+          appState.dispatchView.page = 1;
           persistSession(appState.saveData, appState.settings);
           showToast(`파견 임무 목록을 갱신했습니다. (${refreshResult.refreshState.remaining}/${refreshResult.refreshState.limit})`);
         } catch (error) {
@@ -4941,6 +4985,7 @@
           const startedMission = DispatchService.startMission(appState.saveData, selectedMission.id, appState.dispatchView.draftUnitIds || []);
           appState.dispatchView.selectedMissionId = null;
           appState.dispatchView.draftUnitIds = [];
+          appState.dispatchView.page = 1;
           persistSession(appState.saveData, appState.settings);
           showToast(`${startedMission.missionName} 파견을 시작했습니다. ${formatDurationHours(startedMission.durationHours)} 후 복귀 예정입니다.`);
         } catch (error) {
@@ -5347,8 +5392,7 @@
 
       return [
         `<article class="${classes.join(" ")} interactive-summary-card" data-select-stage="${stage.id}">`,
-        stage.cleared ? '  <div class="stage-clear-badge">완료</div>' : "",
-        `  <div class="item-title-row"><strong>${stage.order}. ${stage.name}</strong><span>${stage.available ? "개방" : "잠김"}</span></div>`,
+        `  <div class="item-title-row"><strong>${stage.order}. ${stage.name}</strong>${stage.cleared ? '<span class="stage-clear-badge">완료</span>' : ""}<span>${stage.available ? "개방" : "잠김"}</span></div>`,
         '  <div class="inventory-meta">',
         `    <span class="meta-pill ${stage.category === "main" ? "is-gold" : "is-cyan"}">${stage.category === "main" ? "메인 콘텐츠" : "튜토리얼"}</span>`,
         `    <span class="meta-pill is-gold">${stage.rewardGold}G</span>`,
@@ -5591,6 +5635,7 @@
     appState.blacksmithView.page = 1;
     appState.dispatchView.selectedMissionId = null;
     appState.dispatchView.draftUnitIds = [];
+    appState.dispatchView.page = 1;
     InventoryService.normalizeInventoryState(appState.saveData);
     StatsService.normalizeRosterProgression(appState.saveData);
     SkillsService.normalizeRosterLearnedSkills(appState.saveData);
@@ -5717,6 +5762,7 @@
     appState.blacksmithView.page = 1;
     appState.dispatchView.selectedMissionId = null;
     appState.dispatchView.draftUnitIds = [];
+    appState.dispatchView.page = 1;
     renderSessionChrome();
     showScreen("screen-start");
     showToast("로그아웃되었습니다.");
