@@ -1383,16 +1383,17 @@
         const currentSlot = selectedPartyMap.has(unit.id) ? selectedPartyMap.get(unit.id) + 1 : null;
         const isTarget = appState.quickSwapSlotIndex !== null;
         const rankClass = `rank-${String(unit.guildRank || "D").toLowerCase().replace("+", "plus")}`;
+        const dispatchLocked = isUnitOnDispatch(unit.id);
         return [
-          `<article class="inventory-card sortie-candidate-card ${currentSlot ? "is-in-party" : ""}" draggable="true" data-sortie-drag-unit="${unit.id}">`,
+          `<article class="inventory-card sortie-candidate-card ${currentSlot ? "is-in-party" : ""} ${dispatchLocked ? "is-dispatch-locked" : ""}" draggable="${dispatchLocked ? "false" : "true"}" data-sortie-drag-unit="${unit.id}">`,
           '  <div>',
-          `    <div class="item-title-row"><strong class="card-title">${unit.name}</strong><div class="sortie-candidate-title-meta"><span class="card-subtitle">${unit.className}</span>${currentSlot ? `<span class="sortie-state-badge">편성 중</span>` : ""}</div></div>`,
-          `    <div class="inventory-meta"><span class="meta-pill ${rankClass}">${formatRankBadge(unit.guildRank || "D")}</span><span class="meta-pill">Lv.${unit.level}</span><span class="meta-pill ${currentSlot ? "is-gold" : "is-muted"}">${currentSlot ? "배치 중" : "후방 대기"}</span><span class="meta-pill ${currentSlot ? "is-cyan" : "is-muted"}">${currentSlot ? `${currentSlot}번 슬롯` : "미배치"}</span></div>`,
+          `    <div class="item-title-row"><strong class="card-title">${unit.name}</strong><div class="sortie-candidate-title-meta"><span class="card-subtitle">${unit.className}</span>${dispatchLocked ? '<span class="sortie-state-badge is-crimson">파견 중</span>' : currentSlot ? `<span class="sortie-state-badge">편성 중</span>` : ""}</div></div>`,
+          `    <div class="inventory-meta"><span class="meta-pill ${rankClass}">${formatRankBadge(unit.guildRank || "D")}</span><span class="meta-pill">Lv.${unit.level}</span><span class="meta-pill ${dispatchLocked ? "is-crimson" : currentSlot ? "is-gold" : "is-muted"}">${dispatchLocked ? "파견 중" : currentSlot ? "배치 중" : "후방 대기"}</span><span class="meta-pill ${dispatchLocked ? "is-crimson" : currentSlot ? "is-cyan" : "is-muted"}">${dispatchLocked ? "편성 불가" : currentSlot ? `${currentSlot}번 슬롯` : "미배치"}</span></div>`,
           "  </div>",
           '  <div class="button-row">',
           `    <button class="ghost-button small-button" type="button" data-sortie-focus="${unit.id}">상세</button>`,
-          `    <button class="ghost-button small-button" type="button" data-sortie-leader="${unit.id}" ${appState.saveData.leaderUnitId === unit.id ? "disabled" : ""}>${appState.saveData.leaderUnitId === unit.id ? "리더" : "리더 지정"}</button>`,
-          `    <button class="${isTarget ? "primary-button" : "secondary-button"} small-button" type="button" data-sortie-assign="${unit.id}" ${isTarget ? "" : "disabled"}>${isTarget ? "여기에 배치" : "슬롯 선택 필요"}</button>`,
+          `    <button class="ghost-button small-button" type="button" data-sortie-leader="${unit.id}" ${dispatchLocked || appState.saveData.leaderUnitId === unit.id ? "disabled" : ""}>${appState.saveData.leaderUnitId === unit.id ? "리더" : "리더 지정"}</button>`,
+          `    <button class="${isTarget ? "primary-button" : "secondary-button"} small-button" type="button" data-sortie-assign="${unit.id}" ${dispatchLocked || !isTarget ? "disabled" : ""}>${dispatchLocked ? "파견 중" : isTarget ? "여기에 배치" : "슬롯 선택 필요"}</button>`,
           "  </div>",
           "</article>"
         ].join("");
