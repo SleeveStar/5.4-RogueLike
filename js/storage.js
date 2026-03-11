@@ -42,7 +42,9 @@
     },
     tutorial: {
       prologueFieldIntroShown: false,
-      blacksmithIntroShown: false
+      blacksmithIntroShown: false,
+      partyIntroShown: false,
+      tavernIntroShown: false
     },
     shop: {
       refreshBlock: null,

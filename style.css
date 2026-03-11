@@ -1262,8 +1262,9 @@ body.use-floating-stat-tooltip .stat-tooltip-pill::after {
 }
 
 .tavern-status-card {
-  min-height: 88px;
-  padding: 10px 12px;
+  min-height: 74px;
+  padding: 8px 10px;
+  gap: 6px;
 }
 
 .tavern-status-grid,
@@ -1282,6 +1283,59 @@ body.use-floating-stat-tooltip .stat-tooltip-pill::after {
 .tavern-status-wide,
 .inventory-status-wide {
   grid-column: 1 / -1;
+}
+
+.tavern-status-header {
+  align-items: center;
+  gap: 10px;
+}
+
+.tavern-status-title-block {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.tavern-status-title-row {
+  align-items: center;
+  gap: 8px;
+}
+
+.tavern-status-title-block .card-title {
+  font-size: 0.98rem;
+}
+
+.tavern-status-title-block .card-subtitle {
+  font-size: 0.72rem;
+}
+
+.tavern-rotation-pill {
+  margin-left: auto;
+  white-space: nowrap;
+  font-size: 0.78rem;
+}
+
+.tavern-status-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 4px 12px;
+}
+
+.tavern-status-item {
+  min-width: 0;
+  display: grid;
+  gap: 1px;
+}
+
+.tavern-status-label {
+  color: var(--text-faint);
+  font-size: 0.7rem;
+}
+
+.tavern-status-value {
+  font-size: 0.88rem;
+  font-weight: 800;
+  line-height: 1.2;
 }
 
 .stage-focus-card {
@@ -2782,12 +2836,29 @@ body.use-floating-stat-tooltip .stat-tooltip-pill::after {
   width: min(920px, calc(100vw - 32px));
 }
 
+.party-tutorial-modal-panel,
+.tavern-tutorial-modal-panel {
+  width: min(920px, calc(100vw - 32px));
+}
+
 .blacksmith-tutorial-modal-panel .modal-close-button {
   top: 18px;
   right: 18px;
 }
 
+.party-tutorial-modal-panel .modal-close-button,
+.tavern-tutorial-modal-panel .modal-close-button {
+  top: 18px;
+  right: 18px;
+}
+
 .blacksmith-tutorial-modal-panel .equipment-modal-header {
+  margin-bottom: 30px;
+  padding-right: 128px;
+}
+
+.party-tutorial-modal-panel .equipment-modal-header,
+.tavern-tutorial-modal-panel .equipment-modal-header {
   margin-bottom: 30px;
   padding-right: 128px;
 }

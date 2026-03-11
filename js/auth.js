@@ -84,6 +84,7 @@
     cachedUnitDetailMarkup: "",
     toastTimer: null,
     menuClockTimer: null,
+    tavernCountdownTimer: null,
     floatingTooltip: {
       trigger: null,
       element: null,
@@ -312,16 +313,110 @@
     return `<span class="meta-pill is-violet">잠재 ${potentialMeta.label}</span>`;
   }
 
-  function formatRemainingRefresh(nextRefreshAt) {
+  function formatRemainingRefresh(nextRefreshAt, includeSeconds) {
     if (!nextRefreshAt) {
       return "갱신 정보 없음";
     }
 
     const remainingMs = Math.max(0, new Date(nextRefreshAt).getTime() - Date.now());
-    const totalMinutes = Math.floor(remainingMs / 60000);
-    const hours = Math.floor(totalMinutes / 60);
-    const minutes = totalMinutes % 60;
+    const totalSeconds = Math.floor(remainingMs / 1000);
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+
+    if (includeSeconds) {
+      const seconds = totalSeconds % 60;
+      return `${hours}시간 ${minutes}분 ${seconds}초`;
+    }
+
     return `${hours}시간 ${minutes}분`;
+  }
+
+  function stopTavernCountdownTimer() {
+    if (appState.tavernCountdownTimer) {
+      clearInterval(appState.tavernCountdownTimer);
+      appState.tavernCountdownTimer = null;
+    }
+  }
+
+  function updateTavernStatusCountdown() {
+    const statusTarget = getElement("menu-tavern-status");
+    const countdownTarget = statusTarget ? statusTarget.querySelector("[data-tavern-rotation-countdown]") : null;
+
+    if (!countdownTarget) {
+      return;
+    }
+
+    const nextRefreshAt = countdownTarget.dataset.tavernRotationCountdown;
+
+    if (!nextRefreshAt) {
+      countdownTarget.textContent = "교대 정보 없음";
+      return;
+    }
+
+    if (new Date(nextRefreshAt).getTime() <= Date.now()) {
+      syncTavernState(true);
+      renderTavern();
+      return;
+    }
+
+    countdownTarget.textContent = `교대까지 ${formatRemainingRefresh(nextRefreshAt, true)}`;
+  }
+
+  function syncTavernCountdownTimer() {
+    const isTavernPanel = appState.activeMainPanel === "tavern";
+    const isMenuActive = !!(getElement("screen-main-menu") && getElement("screen-main-menu").classList.contains("active"));
+
+    if (!isTavernPanel || !isMenuActive) {
+      stopTavernCountdownTimer();
+      return;
+    }
+
+    updateTavernStatusCountdown();
+
+    if (appState.tavernCountdownTimer) {
+      return;
+    }
+
+    appState.tavernCountdownTimer = setInterval(() => {
+      if (appState.activeMainPanel !== "tavern") {
+        stopTavernCountdownTimer();
+        return;
+      }
+
+      updateTavernStatusCountdown();
+    }, 1000);
+  }
+
+  function buildTavernStatusMarkup() {
+    const tavern = appState.saveData ? appState.saveData.tavern : null;
+    const lineup = (tavern && tavern.lineup) || [];
+    const availableCandidates = lineup.filter((candidate) => !candidate.recruitedAt);
+    const topRank = availableCandidates
+      .map((candidate) => candidate.guildRank || "D")
+      .sort((left, right) => getGuildRankSortValue(right) - getGuildRankSortValue(left))[0] || "없음";
+    const manualState = TavernService.getManualRefreshState(appState.saveData);
+    const nextRefreshAt = tavern && tavern.nextRefreshAt ? tavern.nextRefreshAt : "";
+    const leader = getLeaderUnit(appState.saveData);
+
+    return [
+      '<div class="item-title-row tavern-status-header">',
+      '  <div class="tavern-status-title-block">',
+      '    <div class="item-title-row tavern-status-title-row">',
+      '      <strong class="card-title">길드 대기 현황</strong>',
+      `      <span class="card-subtitle">교대 예정 ${nextRefreshAt ? new Date(nextRefreshAt).toLocaleString("ko-KR") : "알 수 없음"}</span>`,
+      "    </div>",
+      "  </div>",
+      `  <span class="meta-pill is-cyan tavern-rotation-pill" data-tavern-rotation-countdown="${nextRefreshAt}">교대까지 ${formatRemainingRefresh(nextRefreshAt, true)}</span>`,
+      "</div>",
+      '<div class="tavern-status-grid">',
+      `  <div class="tavern-status-item"><span class="tavern-status-label">보유 골드</span><strong class="tavern-status-value is-gold">${appState.saveData.partyGold}G</strong></div>`,
+      `  <div class="tavern-status-item"><span class="tavern-status-label">파티 리더</span><strong class="tavern-status-value">${leader ? leader.name : "없음"}</strong></div>`,
+      `  <div class="tavern-status-item"><span class="tavern-status-label">표시 명단</span><strong class="tavern-status-value">${Math.min(4, lineup.length)}명</strong></div>`,
+      `  <div class="tavern-status-item"><span class="tavern-status-label">대기열</span><strong class="tavern-status-value">${Math.min(4, availableCandidates.length)}명</strong></div>`,
+      `  <div class="tavern-status-item"><span class="tavern-status-label">무료 새로고침</span><strong class="tavern-status-value">${Math.max(0, manualState.remaining || 0)}회</strong></div>`,
+      `  <div class="tavern-status-item"><span class="tavern-status-label">현재 최고 등급</span><strong class="tavern-status-value">${topRank}</strong></div>`,
+      "</div>"
+    ].join("");
   }
 
   function formatRewardItemLabel(item) {
@@ -790,6 +885,9 @@
     }
 
     maybeShowBlacksmithTutorial();
+    maybeShowPartyTutorial();
+    maybeShowTavernTutorial();
+    syncTavernCountdownTimer();
   }
 
   function getSelectedMenuUnit() {
@@ -1299,6 +1397,7 @@
         : '<span class="meta-pill is-muted">아직 출전 파티가 비어 있습니다.</span>',
       `    <span class="meta-pill is-cyan">평균 Lv.${averageLevel}</span>`,
       `    <span class="meta-pill">${classSummary}</span>`,
+      '    <button class="ghost-button small-button inventory-meta-action" type="button" data-open-party-tutorial="true">안내 다시보기</button>',
       '    <button class="primary-button small-button inventory-meta-action" type="button" data-open-sortie-manager="true">편성 관리</button>',
       "  </div>",
       selectedUnits.length
@@ -1319,6 +1418,13 @@
       button.addEventListener("click", (event) => {
         event.stopPropagation();
         openDetailModal("sortie", "party");
+      });
+    });
+
+    target.querySelectorAll("[data-open-party-tutorial]").forEach((button) => {
+      button.addEventListener("click", (event) => {
+        event.stopPropagation();
+        openPartyTutorialModal();
       });
     });
 
@@ -4440,31 +4546,13 @@
     }
 
     const tavern = appState.saveData.tavern;
-    const manualState = TavernService.getManualRefreshState(appState.saveData);
-    const nextRefreshText = tavern && tavern.nextRefreshAt
-      ? `${new Date(tavern.nextRefreshAt).toLocaleString("ko-KR")} (${formatRemainingRefresh(tavern.nextRefreshAt)} 후)`
-      : "알 수 없음";
-
     if (statusTarget) {
-      const lineup = (tavern && tavern.lineup) || [];
-      const availableCandidates = lineup.filter((candidate) => !candidate.recruitedAt);
-      const topRank = availableCandidates
-        .map((candidate) => candidate.guildRank || "D")
-        .sort((left, right) => getGuildRankSortValue(right) - getGuildRankSortValue(left))[0] || "없음";
-      statusTarget.innerHTML = [
-        '<div class="tavern-status-grid">',
-        `  <p class="status-line is-gold">보유 골드: ${appState.saveData.partyGold}G</p>`,
-        `  <p class="status-line">파티 리더: ${getLeaderUnit(appState.saveData) ? getLeaderUnit(appState.saveData).name : "없음"}</p>`,
-        `  <p class="status-line">현재 명단: ${Math.min(4, lineup.length)}명</p>`,
-        `  <p class="status-line">길드 대기열: ${Math.min(4, availableCandidates.length)}명</p>`,
-        `  <p class="status-line">오늘 무료 새로고침: ${Math.max(0, manualState.remaining || 0)}회</p>`,
-        `  <p class="status-line">현재 최고 등급: ${topRank}</p>`,
-        `  <p class="status-line tavern-status-wide">다음 교대: ${nextRefreshText}</p>`,
-        '</div>'
-      ].join("");
+      statusTarget.innerHTML = buildTavernStatusMarkup();
     }
 
     renderDetailHeaderActions();
+
+    syncTavernCountdownTimer();
 
     const lineup = ((tavern && tavern.lineup) || []).slice(0, 4);
 
@@ -5135,6 +5223,102 @@
     });
   }
 
+  function openPartyTutorialModal() {
+    const host = getEquipmentModalHost();
+
+    if (!host) {
+      return;
+    }
+
+    closeMenuModals();
+    appState.detailModal.type = "party-tutorial";
+    appState.detailModal.id = "intro";
+    host.innerHTML = [
+      '<div class="modal-backdrop menu-modal-backdrop">',
+      '  <div class="modal-panel menu-detail-modal-panel party-tutorial-modal-panel">',
+      '    <button id="party-tutorial-close-button" class="ghost-button modal-close-button" type="button">닫기</button>',
+      '    <div class="modal-body menu-detail-modal-body">',
+      '      <div class="item-title-row equipment-modal-header"><strong class="card-title">파티 관리 안내</strong><span class="card-subtitle">이 안내는 처음 한 번만 표시됩니다</span></div>',
+      '      <section class="modal-card blacksmith-tutorial-card">',
+      '        <div class="item-title-row"><strong class="card-title">출전 파티 편성</strong><span class="card-subtitle">최대 5명</span></div>',
+      '        <p>파티 관리에서는 현재 출전할 모험가를 고릅니다. 출전 파티는 작전 지도 입장과 전투 시작에 바로 반영됩니다.</p>',
+      '        <div class="detail-token-list"><span class="detail-token is-gold">최대 5명 편성</span><span class="detail-token is-cyan">리더 지정 가능</span><span class="detail-token is-muted">후방 인원 별도 관리</span></div>',
+      '      </section>',
+      '      <section class="modal-card blacksmith-tutorial-card">',
+      '        <div class="item-title-row"><strong class="card-title">장비와 상세 확인</strong><span class="card-subtitle">카드 클릭 중심</span></div>',
+      '        <p>각 모험가 카드를 클릭하면 상세 창이 열리고, 장비 관리와 스킬 관리로 바로 이어질 수 있습니다. 파견 중인 유닛은 출전 파티에 넣을 수 없습니다.</p>',
+      '        <div class="detail-token-list"><span class="detail-token is-muted">상세 확인</span><span class="detail-token is-gold">장비 관리</span><span class="detail-token is-cyan">스킬 관리</span></div>',
+      '      </section>',
+      '      <section class="modal-card blacksmith-tutorial-card">',
+      '        <div class="item-title-row"><strong class="card-title">추천 흐름</strong><span class="card-subtitle">작전 준비</span></div>',
+      '        <p>파티를 먼저 편성하고, 장비와 스킬을 정리한 뒤 작전 지도로 이동하는 흐름이 가장 안정적입니다. 상단 출전 파티 요약 카드에서 현재 상태를 바로 볼 수 있습니다.</p>',
+      '      </section>',
+      '      <div class="detail-actions menu-detail-actions"><button id="party-tutorial-confirm-button" class="primary-button small-button" type="button">확인</button></div>',
+      '    </div>',
+      '  </div>',
+      '</div>'
+    ].join("");
+
+    const backdrop = host.querySelector(".menu-modal-backdrop");
+    const close = () => closeDetailModal();
+
+    getElement("party-tutorial-close-button").addEventListener("click", close);
+    getElement("party-tutorial-confirm-button").addEventListener("click", close);
+    backdrop.addEventListener("click", (event) => {
+      if (event.target === backdrop) {
+        close();
+      }
+    });
+  }
+
+  function openTavernTutorialModal() {
+    const host = getEquipmentModalHost();
+
+    if (!host) {
+      return;
+    }
+
+    closeMenuModals();
+    appState.detailModal.type = "tavern-tutorial";
+    appState.detailModal.id = "intro";
+    host.innerHTML = [
+      '<div class="modal-backdrop menu-modal-backdrop">',
+      '  <div class="modal-panel menu-detail-modal-panel tavern-tutorial-modal-panel">',
+      '    <button id="tavern-tutorial-close-button" class="ghost-button modal-close-button" type="button">닫기</button>',
+      '    <div class="modal-body menu-detail-modal-body">',
+      '      <div class="item-title-row equipment-modal-header"><strong class="card-title">주점 안내</strong><span class="card-subtitle">이 안내는 처음 한 번만 표시됩니다</span></div>',
+      '      <section class="modal-card blacksmith-tutorial-card">',
+      '        <div class="item-title-row"><strong class="card-title">모험가 영입</strong><span class="card-subtitle">카드 클릭 + 영입 버튼</span></div>',
+      '        <p>주점에서는 새 모험가를 확인하고 영입할 수 있습니다. 카드를 클릭하면 상세 정보를 보고, 우측 버튼으로 바로 영입할 수 있습니다.</p>',
+      '        <div class="detail-token-list"><span class="detail-token is-gold">길드 등급 확인</span><span class="detail-token is-cyan">전투 요약 확인</span><span class="detail-token is-muted">영입 비용 확인</span></div>',
+      '      </section>',
+      '      <section class="modal-card blacksmith-tutorial-card">',
+      '        <div class="item-title-row"><strong class="card-title">새로고침 규칙</strong><span class="card-subtitle">무료 + 유료</span></div>',
+      '        <p>주점 명단은 무료 새로고침과 골드 새로고침으로 교체할 수 있습니다. 상태 카드에서 남은 무료 횟수와 다음 교대 시각을 바로 볼 수 있습니다.</p>',
+      '        <div class="detail-token-list"><span class="detail-token is-muted">무료 새로고침</span><span class="detail-token is-gold">유료 새로고침</span><span class="detail-token is-cyan">다음 교대 시간</span></div>',
+      '      </section>',
+      '      <section class="modal-card blacksmith-tutorial-card">',
+      '        <div class="item-title-row"><strong class="card-title">추천 흐름</strong><span class="card-subtitle">명단 확인</span></div>',
+      '        <p>현재 출전 파티에 부족한 역할을 먼저 파악한 뒤, 주점에서 필요한 클래스와 등급의 모험가를 고르는 방식이 가장 효율적입니다.</p>',
+      '      </section>',
+      '      <div class="detail-actions menu-detail-actions"><button id="tavern-tutorial-confirm-button" class="primary-button small-button" type="button">확인</button></div>',
+      '    </div>',
+      '  </div>',
+      '</div>'
+    ].join("");
+
+    const backdrop = host.querySelector(".menu-modal-backdrop");
+    const close = () => closeDetailModal();
+
+    getElement("tavern-tutorial-close-button").addEventListener("click", close);
+    getElement("tavern-tutorial-confirm-button").addEventListener("click", close);
+    backdrop.addEventListener("click", (event) => {
+      if (event.target === backdrop) {
+        close();
+      }
+    });
+  }
+
   function maybeShowBlacksmithTutorial() {
     if (
       appState.activeMainPanel !== "blacksmith"
@@ -5150,6 +5334,40 @@
     });
     appState.saveData = StorageService.setUserSave(appState.currentUserId, appState.saveData);
     openBlacksmithTutorialModal();
+  }
+
+  function maybeShowPartyTutorial() {
+    if (
+      appState.activeMainPanel !== "party"
+      || !appState.saveData
+      || !appState.currentUserId
+      || (appState.saveData.tutorial && appState.saveData.tutorial.partyIntroShown)
+    ) {
+      return;
+    }
+
+    appState.saveData.tutorial = Object.assign({}, appState.saveData.tutorial, {
+      partyIntroShown: true
+    });
+    appState.saveData = StorageService.setUserSave(appState.currentUserId, appState.saveData);
+    openPartyTutorialModal();
+  }
+
+  function maybeShowTavernTutorial() {
+    if (
+      appState.activeMainPanel !== "tavern"
+      || !appState.saveData
+      || !appState.currentUserId
+      || (appState.saveData.tutorial && appState.saveData.tutorial.tavernIntroShown)
+    ) {
+      return;
+    }
+
+    appState.saveData.tutorial = Object.assign({}, appState.saveData.tutorial, {
+      tavernIntroShown: true
+    });
+    appState.saveData = StorageService.setUserSave(appState.currentUserId, appState.saveData);
+    openTavernTutorialModal();
   }
 
   function renderBlacksmithPanel() {
@@ -5741,6 +5959,7 @@
 
   function handleLogout() {
     closeMenuModals();
+    stopTavernCountdownTimer();
     StorageService.clearCurrentUser();
     appState.currentUserId = null;
     appState.saveData = null;
@@ -5869,6 +6088,9 @@
       } catch (error) {
         showToast(error.message, true);
       }
+    });
+    getElement("tavern-tutorial-button").addEventListener("click", () => {
+      openTavernTutorialModal();
     });
     getElement("menu-inventory-sort").addEventListener("change", (event) => {
       appState.inventoryView.sort = event.target.value;
