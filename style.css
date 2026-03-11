@@ -1213,6 +1213,197 @@ body.use-floating-stat-tooltip .stat-tooltip-pill::after {
   font-size: 0.72rem;
 }
 
+#menu-roster-list .sortie-candidate-list {
+  gap: 8px;
+}
+
+#menu-roster-list {
+  gap: 10px;
+}
+
+#menu-roster-list .roster-button {
+  display: grid;
+  gap: 10px;
+  min-height: 0;
+  padding: 10px 12px;
+}
+
+#menu-roster-list .roster-button .item-title-row {
+  align-items: center;
+  gap: 6px;
+}
+
+#menu-roster-list .roster-button .card-title {
+  font-size: 1.1rem;
+  line-height: 1.08;
+}
+
+#menu-roster-list .roster-button.rank-d .card-title {
+  color: #d6e0ef;
+}
+
+#menu-roster-list .roster-button.rank-c .card-title {
+  color: var(--cyan-300);
+}
+
+#menu-roster-list .roster-button.rank-b .card-title {
+  color: var(--rare);
+}
+
+#menu-roster-list .roster-button.rank-a .card-title {
+  color: var(--unique);
+}
+
+#menu-roster-list .roster-button.rank-s .card-title {
+  color: var(--legendary);
+}
+
+#menu-roster-list .roster-button.rank-splus .card-title {
+  color: var(--epic);
+}
+
+#menu-roster-list .roster-button.rank-ss .card-title {
+  color: #fff0b0;
+}
+
+#menu-roster-list .roster-button.rank-sss .card-title {
+  color: #f6fff4;
+}
+
+#menu-roster-list .roster-button .card-subtitle {
+  font-size: 0.63rem;
+  line-height: 1;
+}
+
+#menu-roster-list .roster-meta {
+  gap: 5px;
+}
+
+#menu-roster-list .roster-button .meta-pill {
+  min-height: 20px;
+  padding-inline: 7px;
+  font-size: 0.62rem;
+}
+
+#menu-roster-list .roster-button.rank-d {
+  border-color: rgba(161, 177, 198, 0.22);
+  background: linear-gradient(180deg, rgba(21, 28, 40, 0.94), rgba(11, 17, 28, 0.97));
+}
+
+#menu-roster-list .roster-button.rank-c {
+  border-color: rgba(103, 215, 232, 0.26);
+  background:
+    radial-gradient(circle at top right, rgba(103, 215, 232, 0.12), transparent 40%),
+    linear-gradient(180deg, rgba(14, 28, 37, 0.95), rgba(9, 18, 26, 0.97));
+}
+
+#menu-roster-list .roster-button.rank-b {
+  border-color: rgba(176, 133, 255, 0.26);
+  background:
+    radial-gradient(circle at top right, rgba(176, 133, 255, 0.12), transparent 40%),
+    linear-gradient(180deg, rgba(22, 21, 40, 0.95), rgba(11, 15, 27, 0.97));
+}
+
+#menu-roster-list .roster-button.rank-a {
+  border-color: rgba(255, 142, 201, 0.28);
+  background:
+    radial-gradient(circle at top right, rgba(255, 142, 201, 0.12), transparent 40%),
+    linear-gradient(180deg, rgba(34, 20, 35, 0.95), rgba(13, 15, 25, 0.97));
+}
+
+#menu-roster-list .roster-button.rank-s,
+#menu-roster-list .roster-button.rank-splus,
+#menu-roster-list .roster-button.rank-ss,
+#menu-roster-list .roster-button.rank-sss {
+  border-color: rgba(255, 205, 111, 0.3);
+}
+
+#menu-roster-list .roster-button.rank-s {
+  background:
+    radial-gradient(circle at top right, rgba(255, 174, 66, 0.14), transparent 40%),
+    linear-gradient(180deg, rgba(38, 27, 17, 0.95), rgba(16, 16, 24, 0.97));
+}
+
+#menu-roster-list .roster-button.rank-splus {
+  background:
+    radial-gradient(circle at top right, rgba(255, 227, 109, 0.16), transparent 42%),
+    linear-gradient(180deg, rgba(42, 33, 16, 0.95), rgba(17, 17, 24, 0.97));
+}
+
+#menu-roster-list .roster-button.rank-ss {
+  background:
+    radial-gradient(circle at top right, rgba(255, 235, 143, 0.18), transparent 42%),
+    linear-gradient(180deg, rgba(49, 38, 18, 0.96), rgba(18, 18, 24, 0.98));
+  box-shadow: 0 0 0 1px rgba(255, 235, 143, 0.08);
+}
+
+#menu-roster-list .roster-button.rank-sss {
+  background:
+    radial-gradient(circle at top left, rgba(255, 249, 200, 0.12), transparent 34%),
+    radial-gradient(circle at top right, rgba(183, 243, 255, 0.18), transparent 40%),
+    linear-gradient(180deg, rgba(28, 37, 48, 0.97), rgba(15, 20, 28, 0.99));
+}
+
+#menu-roster-list .roster-placeholder {
+  cursor: default;
+  border-style: dashed;
+  border-color: rgba(136, 160, 188, 0.14);
+  background: linear-gradient(180deg, rgba(16, 22, 33, 0.7), rgba(11, 16, 25, 0.82));
+  opacity: 0.72;
+}
+
+#menu-roster-list .roster-placeholder::after {
+  background: linear-gradient(180deg, rgba(136, 160, 188, 0.32), transparent 85%);
+}
+
+#menu-roster-list .roster-placeholder .card-title {
+  color: var(--text-faint);
+}
+
+#menu-roster-list .sortie-candidate-card {
+  gap: 6px;
+  padding: 8px 10px;
+}
+
+#menu-roster-list .sortie-candidate-card .item-title-row {
+  min-height: 22px;
+  gap: 4px;
+}
+
+#menu-roster-list .sortie-candidate-card .card-title {
+  font-size: 0.8rem;
+  line-height: 1.08;
+}
+
+#menu-roster-list .sortie-candidate-card .card-subtitle {
+  font-size: 0.62rem;
+}
+
+#menu-roster-list .sortie-candidate-title-meta {
+  gap: 4px;
+}
+
+#menu-roster-list .sortie-candidate-card .inventory-meta {
+  gap: 4px;
+}
+
+#menu-roster-list .sortie-candidate-card .meta-pill,
+#menu-roster-list .sortie-state-badge {
+  min-height: 18px;
+  padding-inline: 6px;
+  font-size: 0.58rem;
+}
+
+#menu-roster-list .sortie-candidate-card .button-row {
+  gap: 4px;
+}
+
+#menu-roster-list .sortie-candidate-card .small-button {
+  min-height: 25px;
+  padding-inline: 6px;
+  font-size: 0.66rem;
+}
+
 .sortie-candidate-card.is-in-party {
   border-color: rgba(103, 215, 232, 0.24);
   background:
@@ -2159,6 +2350,12 @@ body.use-floating-stat-tooltip .stat-tooltip-pill::after {
 .party-management {
   grid-template-columns: minmax(0, 1fr);
   align-items: start;
+}
+
+#menu-roster-list > .list-pagination {
+  margin-top: 4px;
+  padding-top: 4px;
+  padding-bottom: 0;
 }
 
 .command-detail-panel .roster-list {

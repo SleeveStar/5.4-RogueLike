@@ -4117,39 +4117,44 @@
     appState.rosterView.page = currentPage;
     const pageStart = (currentPage - 1) * ROSTER_PAGE_SIZE;
     const visibleRoster = sortedRoster.slice(pageStart, pageStart + ROSTER_PAGE_SIZE);
+    const visibleSlots = Array.from({ length: ROSTER_PAGE_SIZE }, (_, index) => visibleRoster[index] || null);
 
-    rosterTarget.innerHTML = visibleRoster.map((unit) => {
-      const weapon = InventoryService.getItemById(appState.saveData, unit.weapon);
-      const equippedCount = (unit.equippedItemIds || []).length;
+    rosterTarget.innerHTML = visibleSlots.map((unit) => {
+      if (!unit) {
+        return [
+          '<article class="roster-button roster-placeholder" aria-hidden="true">',
+          '  <div class="item-title-row"><strong class="card-title">빈 슬롯</strong><span class="card-subtitle">대기</span></div>',
+          '  <div class="roster-meta"><span class="meta-pill is-muted">모험가 없음</span></div>',
+          "</article>"
+        ].join("");
+      }
+
       const classes = ["roster-button"];
       const isLeader = appState.saveData.leaderUnitId === unit.id;
       const isDispatched = isUnitOnDispatch(unit.id);
-      const draft = getProgressionDraft(unit.id);
-      const pendingStats = countDraftStats(draft);
-      const pendingSkills = countDraftSkills(draft);
+      const currentSlotIndex = getSelectedPartyIds().slice(0, MAX_SORTIE_SIZE).indexOf(unit.id);
+      const currentStateLabel = isDispatched
+        ? "파견 중"
+        : currentSlotIndex >= 0
+          ? `${currentSlotIndex + 1}번 슬롯`
+          : "후방 대기";
+      const rankClass = `rank-${String(unit.guildRank || "D").toLowerCase().replace("+", "plus")}`;
 
       if (unit.id === appState.selectedMenuUnitId) {
         classes.push("active");
       }
 
+      classes.push(rankClass);
+
       return [
         `<button class="${classes.join(" ")} interactive-summary-card" type="button" data-menu-unit="${unit.id}">`,
         `  <div class="item-title-row"><strong class="card-title">${unit.name}</strong><span class="card-subtitle">${unit.className}</span></div>`,
         '  <div class="roster-meta">',
-        `    <span class="meta-pill rank-${String(unit.guildRank || "D").toLowerCase().replace("+", "plus")}">${unit.guildRank || "D"}</span>`,
+        `    <span class="meta-pill ${rankClass}">${unit.guildRank || "D"}</span>`,
         `    <span class="meta-pill">Lv.${unit.level}</span>`,
-        `    <span class="meta-pill">HP ${unit.maxHp}</span>`,
-        `    <span class="meta-pill">${unit.statPoints || 0} SP</span>`,
-        `    <span class="meta-pill">${unit.skillPoints || 0} KP</span>`,
-        pendingStats ? `    <span class="meta-pill is-preview-up">스탯 예약 ${pendingStats}</span>` : "",
-        pendingSkills ? `    <span class="meta-pill is-preview-up">스킬 예약 ${pendingSkills}</span>` : "",
-        `    <span class="meta-pill ${equippedCount ? "is-gold" : "is-muted"}">장비 ${equippedCount}</span>`,
+        `    <span class="meta-pill ${isDispatched ? "is-crimson" : currentSlotIndex >= 0 ? "is-cyan" : "is-muted"}">${currentStateLabel}</span>`,
         `    <span class="meta-pill ${isLeader ? "is-gold" : "is-muted"}">${isLeader ? "리더" : "일반"}</span>`,
-        `    <span class="meta-pill ${isUnitSelectedForSortie(unit.id) ? "is-cyan" : "is-muted"}">${isUnitSelectedForSortie(unit.id) ? "출전 중" : "후방 대기"}</span>`,
-        isDispatched ? '    <span class="meta-pill is-gold">파견 중</span>' : "",
-        `    <span class="meta-pill ${weapon ? "is-gold" : "is-muted"}">${weapon ? weapon.name : "무기 없음"}</span>`,
         "  </div>",
-        "  <p>클릭하면 중앙 상세 창이 열립니다.</p>",
         "</button>"
       ].filter(Boolean).join("");
     }).join("") + [
