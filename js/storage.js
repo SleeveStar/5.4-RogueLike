@@ -41,7 +41,8 @@
       discoveredRewardIds: []
     },
     tutorial: {
-      prologueFieldIntroShown: false
+      prologueFieldIntroShown: false,
+      blacksmithIntroShown: false
     },
     shop: {
       refreshBlock: null,
@@ -56,6 +57,17 @@
       manualRefreshDate: null,
       manualRefreshUsed: 0,
       lineup: []
+    },
+    dispatch: {
+      missionSeed: 1,
+      availableMissions: [],
+      activeMissions: [],
+      completedMissions: [],
+      reservedUnitIds: [],
+      lastGeneratedAt: null,
+      refreshCount: 0,
+      refreshDateKey: null,
+      recentDispatchLogs: []
     },
     selectedPartyIds: ["hero-1", "ally-2", "ally-3"],
     inventory: [
@@ -336,15 +348,23 @@
     normalized.shop.lineupIds = cloneValue(normalized.shop.lineupIds || []);
     normalized.tavern = Object.assign({}, cloneValue(DEFAULT_SAVE.tavern), normalized.tavern || {});
     normalized.tavern.lineup = cloneValue(normalized.tavern.lineup || []);
+    normalized.dispatch = Object.assign({}, cloneValue(DEFAULT_SAVE.dispatch), normalized.dispatch || {});
+    normalized.dispatch.availableMissions = cloneValue(normalized.dispatch.availableMissions || []);
+    normalized.dispatch.activeMissions = cloneValue(normalized.dispatch.activeMissions || []);
+    normalized.dispatch.completedMissions = cloneValue(normalized.dispatch.completedMissions || []);
+    normalized.dispatch.reservedUnitIds = cloneValue(normalized.dispatch.reservedUnitIds || []);
+    normalized.dispatch.recentDispatchLogs = cloneValue(normalized.dispatch.recentDispatchLogs || []);
     normalized.inventory = cloneValue(normalized.inventory || []);
     normalized.roster = cloneValue(normalized.roster || []);
     normalized.selectedPartyIds = cloneValue(normalized.selectedPartyIds || []);
 
     const rosterIds = normalized.roster.map((unit) => unit.id);
-    normalized.selectedPartyIds = normalized.selectedPartyIds.filter((unitId) => rosterIds.includes(unitId));
+    const reservedDispatchIds = normalized.dispatch.reservedUnitIds || [];
+    const availableSortieIds = rosterIds.filter((unitId) => !reservedDispatchIds.includes(unitId));
+    normalized.selectedPartyIds = normalized.selectedPartyIds.filter((unitId) => rosterIds.includes(unitId) && !reservedDispatchIds.includes(unitId));
 
     if (!normalized.selectedPartyIds.length) {
-      normalized.selectedPartyIds = rosterIds.slice(0, MAX_SORTIE_SIZE);
+      normalized.selectedPartyIds = availableSortieIds.slice(0, MAX_SORTIE_SIZE);
     }
 
     normalized.selectedPartyIds = normalized.selectedPartyIds.slice(0, MAX_SORTIE_SIZE);

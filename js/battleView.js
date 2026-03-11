@@ -59,6 +59,22 @@
     }
   }
 
+  function formatRewardItemLabel(item) {
+    if (!item) {
+      return "";
+    }
+
+    const displayName = InventoryService.getItemDisplayName(item, {
+      forceShowReinforceLevel: InventoryService.isWeapon(item)
+    });
+
+    if (InventoryService.isMisc(item)) {
+      return `${displayName} x${Math.max(0, Number(item.quantity || 0))}`;
+    }
+
+    return displayName;
+  }
+
   function getBaseClassName(className) {
     const normalizedClassName = String(className || "").trim();
 
@@ -1981,7 +1997,7 @@
     }
 
     banner.classList.add("hidden");
-    const rewardItems = ((snapshot.battle.rewardHistory || []).map((item) => item.name).join(", ")) || "없음";
+    const rewardItems = ((snapshot.battle.rewardHistory || []).map((item) => formatRewardItemLabel(item)).filter(Boolean).join(", ")) || "없음";
     const endlessSummary = snapshot.battle.stageId === "endless-rift" && snapshot.saveData
       ? BattleService.getEndlessRunSummary(snapshot.saveData)
       : null;

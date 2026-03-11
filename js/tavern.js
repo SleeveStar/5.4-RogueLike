@@ -772,19 +772,15 @@
     }
 
     const unit = clone(candidate.unit);
-    const weapon = clone(candidate.startingWeapon);
 
     StatsService.normalizeUnitProgression(unit);
     SkillsService.normalizeUnitLearnedSkills(unit);
     saveData.partyGold -= candidate.hireCost || 0;
     unit.hiredAt = new Date().toISOString();
-    unit.weapon = weapon.id;
-    unit.equippedItemIds = [weapon.id];
-    weapon.equippedBy = unit.id;
+    unit.weapon = null;
+    unit.equippedItemIds = [];
     saveData.roster = saveData.roster || [];
-    saveData.inventory = saveData.inventory || [];
     saveData.roster.push(unit);
-    InventoryService.addItemToInventory(saveData, weapon);
 
     if ((saveData.selectedPartyIds || []).length < MAX_SORTIE_SIZE) {
       saveData.selectedPartyIds.push(unit.id);
@@ -793,7 +789,6 @@
     candidate.recruitedAt = unit.hiredAt;
     return {
       unit,
-      weapon,
       candidate
     };
   }

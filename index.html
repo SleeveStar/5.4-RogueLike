@@ -115,7 +115,7 @@
       </section>
 
       <section id="screen-main-menu" class="screen">
-        <div class="command-layout">
+        <div id="main-menu-command-layout" class="command-layout">
           <aside class="panel command-sidebar">
             <div class="panel-header">
               <p class="eyebrow">Command Deck</p>
@@ -127,11 +127,13 @@
               <button id="refresh-save-button" class="ghost-button" type="button">세이브 새로고침</button>
             </div>
             <nav class="menu-sidebar-nav" aria-label="메인 메뉴 탭">
-              <button class="sidebar-tab active" type="button" data-menu-panel="party">파티 관리</button>
+              <button class="sidebar-tab active" type="button" data-menu-panel="operations">작전 지도 / 던전 진행</button>
+              <button class="sidebar-tab" type="button" data-menu-panel="party">파티 관리</button>
               <button class="sidebar-tab" type="button" data-menu-panel="tavern">주점</button>
+              <button class="sidebar-tab" type="button" data-menu-panel="dispatch">던전 파견</button>
               <button class="sidebar-tab" type="button" data-menu-panel="inventory">인벤토리</button>
               <button class="sidebar-tab" type="button" data-menu-panel="shop">보급 상점</button>
-              <button class="sidebar-tab" type="button" data-menu-panel="settings">전투 설정</button>
+              <button class="sidebar-tab" type="button" data-menu-panel="blacksmith">대장간</button>
               <button class="sidebar-tab" type="button" data-menu-panel="codex">보스 도감</button>
             </nav>
           </aside>
@@ -157,10 +159,12 @@
                 <div id="inventory-header-tabs" class="inventory-category-tabs" role="tablist" aria-label="인벤토리 분류">
                   <button class="inventory-category-tab active" type="button" data-inventory-tab="equipment">장비</button>
                   <button class="inventory-category-tab" type="button" data-inventory-tab="consumable">소모품</button>
+                  <button class="inventory-category-tab" type="button" data-inventory-tab="misc">기타</button>
                 </div>
                 <div id="shop-header-tabs" class="inventory-category-tabs shop-category-tabs hidden" role="tablist" aria-label="상점 분류">
                   <button class="inventory-category-tab active" type="button" data-shop-tab="equipment">장비</button>
                   <button class="inventory-category-tab" type="button" data-shop-tab="consumable">소모품</button>
+                  <button class="inventory-category-tab" type="button" data-shop-tab="inventory">인벤토리</button>
                 </div>
                 <div id="tavern-header-actions" class="tavern-header-actions hidden">
                   <button id="tavern-manual-refresh-button" class="secondary-button small-button" type="button">주점 새로고침</button>
@@ -174,7 +178,11 @@
             </div>
             <div id="menu-sortie-strip" class="menu-sortie-strip"></div>
 
-            <div id="menu-panel-party" class="menu-panel-view active">
+            <div id="menu-panel-operations" class="menu-panel-view active">
+              <div id="menu-operations-root" class="operations-root"></div>
+            </div>
+
+            <div id="menu-panel-party" class="menu-panel-view">
               <div class="party-management">
                 <div id="menu-roster-list" class="roster-list"></div>
               </div>
@@ -185,7 +193,12 @@
               <div id="menu-tavern-list" class="shop-list tavern-list"></div>
             </div>
 
+            <div id="menu-panel-dispatch" class="menu-panel-view">
+              <div id="menu-dispatch-root" class="dispatch-root"></div>
+            </div>
+
             <div id="menu-panel-inventory" class="menu-panel-view">
+              <div id="menu-inventory-status" class="summary-card inventory-status-card"></div>
               <div class="inventory-toolbar">
                 <label class="field compact-field inventory-filter-field">
                   <span>정렬</span>
@@ -213,6 +226,7 @@
                     <option value="ring">반지</option>
                     <option value="charm">부적</option>
                     <option value="consumable">소모품</option>
+                    <option value="misc">기타</option>
                   </select>
                 </label>
                 <label class="field compact-field inventory-filter-field">
@@ -245,8 +259,8 @@
               <div id="menu-shop-list" class="shop-list"></div>
             </div>
 
-            <div id="menu-panel-settings" class="menu-panel-view">
-              <div id="menu-settings-list" class="settings-list"></div>
+            <div id="menu-panel-blacksmith" class="menu-panel-view">
+              <div id="menu-blacksmith-root" class="blacksmith-root"></div>
             </div>
 
             <div id="menu-panel-codex" class="menu-panel-view">
@@ -307,6 +321,7 @@
   <script src="./js/stats.js"></script>
   <script src="./js/skills.js"></script>
   <script src="./js/tavern.js"></script>
+  <script src="./js/dispatch.js"></script>
   <script src="./js/combat.js"></script>
   <script src="./js/ai.js"></script>
   <script src="./js/battle.js"></script>

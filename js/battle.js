@@ -5024,12 +5024,52 @@
     state.saveData.turnNumber = 1;
   }
 
+  function formatRewardHistoryItemName(item) {
+    if (!item) {
+      return "";
+    }
+
+    if (InventoryService.isMisc(item)) {
+      return `${item.name} x${Math.max(0, Number(item.quantity || 0))}`;
+    }
+
+    return item.name;
+  }
+
+  function grantRefineStoneStageReward() {
+    const currentStage = getCurrentStageDefinition();
+    const isEndless = state.battle && state.battle.stageId === ENDLESS_STAGE_ID;
+    const baseChance = isEndless
+      ? 0.58
+      : currentStage && currentStage.boss
+        ? 0.46
+        : 0.28;
+
+    if (Math.random() > baseChance) {
+      return null;
+    }
+
+    const quantity = isEndless
+      ? (Math.random() < 0.28 ? 2 : 1)
+      : currentStage && currentStage.boss
+        ? (Math.random() < 0.22 ? 2 : 1)
+        : 1;
+    const item = InventoryService.createMiscItemStack("refine-stone-basic", quantity);
+
+    InventoryService.addItemToInventory(state.saveData, item);
+    state.battle.rewardHistory.push(item);
+    addLog(`전투 보상: 재련석 ${quantity}개 확보`);
+
+    return item;
+  }
+
   function applyStageRewards() {
     const campaign = ensureCampaignState();
     const endless = ensureEndlessState();
     const rewardGold = state.battle.rewardGold || 0;
     const rewardExp = grantStageClearExperience();
-    const rewardItems = (state.battle.rewardHistory || []).map((item) => item.name);
+    grantRefineStoneStageReward();
+    const rewardItems = (state.battle.rewardHistory || []).map((item) => formatRewardHistoryItemName(item));
     const recruitedUnits = grantRecruitRewards(state.battle.stageId);
 
     state.saveData.partyGold += rewardGold;
@@ -5271,7 +5311,7 @@
         .map((relicId) => ENDLESS_RELICS[relicId])
         .filter(Boolean)
         .map((relic) => relic.name),
-      rewardItems: (state.battle && state.battle.rewardHistory || []).map((item) => item.name),
+      rewardItems: (state.battle && state.battle.rewardHistory || []).map((item) => formatRewardHistoryItemName(item)),
       stats: {
         floorStart: currentRun.floorStart,
         highestFloor: Math.max(currentRun.highestFloor || endless.currentFloor, endless.currentFloor),

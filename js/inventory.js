@@ -27,6 +27,54 @@
     primordial: { label: "태초", colorVar: "--primordial", weight: 0.18 }
   };
 
+  const SHOP_PRICE_MULTIPLIER_BY_RARITY = {
+    common: 1.7,
+    uncommon: 2.1,
+    rare: 2.7,
+    unique: 3.5,
+    legendary: 4.6,
+    epic: 6,
+    mystic: 7.8,
+    primordial: 10
+  };
+
+  const MISC_ITEM_DEFINITIONS = {
+    "refine-stone-basic": {
+      id: "refine-stone-basic",
+      name: "재련석",
+      itemType: "misc",
+      slot: "misc",
+      type: "misc",
+      rarity: "common",
+      stackable: true,
+      description: "대장간에서 무기 재련에 사용하는 기본 재료"
+    }
+  };
+
+  const REINFORCE_MAX_LEVEL = 10;
+  const REINFORCE_BASE_COST_TABLE = [
+    { level: 0, gold: 150, stones: 1 },
+    { level: 1, gold: 220, stones: 1 },
+    { level: 2, gold: 320, stones: 2 },
+    { level: 3, gold: 450, stones: 2 },
+    { level: 4, gold: 650, stones: 3 },
+    { level: 5, gold: 900, stones: 4 },
+    { level: 6, gold: 1200, stones: 5 },
+    { level: 7, gold: 1600, stones: 6 },
+    { level: 8, gold: 2100, stones: 7 },
+    { level: 9, gold: 2800, stones: 9 }
+  ];
+  const REINFORCE_RARITY_MULTIPLIER = {
+    common: 1,
+    uncommon: 1.15,
+    rare: 1.3,
+    unique: 1.5,
+    legendary: 1.75,
+    epic: 2.05,
+    mystic: 2.4,
+    primordial: 2.85
+  };
+
   const EQUIP_SLOT_LAYOUT = [
     { key: "head", label: "머리", accepts: ["head"] },
     { key: "chest", label: "상의", accepts: ["chest", "shoulder"] },
@@ -83,7 +131,8 @@
     ring: "반지",
     charm: "부적",
     accessory: "장신구",
-    consumable: "소모품"
+    consumable: "소모품",
+    misc: "기타"
   };
 
   const STAT_LABELS = {
@@ -2400,6 +2449,36 @@
     return affix;
   }
 
+  function getAffixTemplateById(affixId, isUnique) {
+    const sourcePool = isUnique ? LEGENDARY_UNIQUE_AFFIXES : ITEM_AFFIXES;
+    return sourcePool.find((template) => template.id === affixId) || null;
+  }
+
+  function hydrateAffixForNaming(item, affix) {
+    if (!item || !affix || !affix.id) {
+      return affix;
+    }
+
+    const template = getAffixTemplateById(affix.id, affix.isUnique);
+
+    if (!template) {
+      return affix;
+    }
+
+    const rarityIndex = getRarityIndex(item.rarity);
+    const level = Number(item.level || rarityIndex + 1);
+    const scalingIndex = affix.isUnique ? rarityIndex + 1 : rarityIndex;
+
+    return Object.assign({}, affix, {
+      prefix: template.prefix || "",
+      suffix: template.suffix || "",
+      primaryStatBonus: scalePrimaryBonusMap(template.primaryStatBonus || {}, scalingIndex, level),
+      hiddenBonus: scaleHiddenBonusMap(template.hiddenBonus || {}, scalingIndex, level),
+      legacyStatBonus: scaleLegacyBonusMap(template.legacyStatBonus || {}, scalingIndex, level),
+      weaponBonus: scaleWeaponBonusMap(template.weaponBonus || {}, scalingIndex, level)
+    });
+  }
+
   function convertLegacyBonusToModern(statBonus) {
     const primaryStatBonus = createPrimaryBonusMap();
     const legacyStatBonus = createLegacyBonusMap();
@@ -2435,20 +2514,58 @@
     };
   }
 
+  function getAffixNameScore(affix) {
+    let score = 0;
+
+    Object.keys(affix.primaryStatBonus || {}).forEach((statName) => {
+      score += Math.abs(Number(affix.primaryStatBonus[statName] || 0));
+    });
+
+    Object.keys(affix.hiddenBonus || {}).forEach((statName) => {
+      const value = Math.abs(Number(affix.hiddenBonus[statName] || 0));
+      score += isPercentHiddenBonus(statName) ? value * 100 : value;
+    });
+
+    Object.keys(affix.legacyStatBonus || {}).forEach((statName) => {
+      score += Math.abs(Number(affix.legacyStatBonus[statName] || 0));
+    });
+
+    Object.keys(affix.weaponBonus || {}).forEach((statName) => {
+      score += Math.abs(Number(affix.weaponBonus[statName] || 0));
+    });
+
+    if (affix.isUnique) {
+      score += 0.25;
+    }
+
+    return score;
+  }
+
+  function getDominantNamingAffix(affixes) {
+    return (affixes || [])
+      .filter((affix) => affix && (affix.prefix || affix.suffix))
+      .reduce((bestAffix, currentAffix) => {
+        if (!bestAffix) {
+          return currentAffix;
+        }
+
+        return getAffixNameScore(currentAffix) > getAffixNameScore(bestAffix)
+          ? currentAffix
+          : bestAffix;
+      }, null);
+  }
+
   function buildAffixedItemName(baseName, affixes) {
-    const prefix = (affixes || []).find((affix) => affix.prefix);
-    const suffix = (affixes || []).find((affix) => affix.suffix);
+    const dominantAffix = getDominantNamingAffix(affixes);
     let name = baseName;
 
-    if (prefix) {
-      name = `${prefix.prefix} ${name}`;
+    if (!dominantAffix) {
+      return name;
     }
 
-    if (suffix) {
-      name = `${name} ${suffix.suffix}`;
-    }
-
-    return name;
+    return dominantAffix.prefix
+      ? `${dominantAffix.prefix} ${name}`
+      : `${name} ${dominantAffix.suffix}`;
   }
 
   function getSetDefinition(setId) {
@@ -2803,6 +2920,73 @@
     return ITEM_TYPE_META[type] || getSlotLabel(type);
   }
 
+  function getMiscItemDefinition(itemId) {
+    return itemId ? clone(MISC_ITEM_DEFINITIONS[itemId] || null) : null;
+  }
+
+  function isMisc(item) {
+    return !!item && (
+      item.itemType === "misc"
+      || item.slot === "misc"
+      || item.type === "misc"
+    );
+  }
+
+  function getReinforceLevel(item) {
+    return Math.max(0, Math.min(REINFORCE_MAX_LEVEL, Math.floor(Number(item && item.reinforceLevel || 0))));
+  }
+
+  function getReinforceFailStreak(item) {
+    return Math.max(0, Math.floor(Number(item && item.reinforceFailStreak || 0)));
+  }
+
+  function getDisplayBaseName(item) {
+    if (!item) {
+      return "이름 없는 아이템";
+    }
+
+    if (Array.isArray(item.affixes) && item.affixes.length && item.baseName) {
+      return buildAffixedItemName(
+        item.baseName,
+        item.affixes.map((affix) => hydrateAffixForNaming(item, affix))
+      );
+    }
+
+    return String(item.baseName || item.name || "이름 없는 아이템");
+  }
+
+  function getItemDisplayName(item, options) {
+    if (!item) {
+      return "이름 없는 아이템";
+    }
+
+    const nextOptions = options || {};
+    const baseName = getDisplayBaseName(item);
+
+    if (!isWeapon(item)) {
+      return baseName;
+    }
+
+    const reinforceLevel = getReinforceLevel(item);
+    if (!nextOptions.forceShowReinforceLevel && reinforceLevel <= 0) {
+      return baseName;
+    }
+
+    return `${baseName} +${reinforceLevel}`;
+  }
+
+  function syncWeaponReinforcementStats(item) {
+    if (!isWeapon(item)) {
+      return item;
+    }
+
+    item.baseMight = Math.max(0, Number(item.baseMight || item.might || 0));
+    item.reinforceLevel = getReinforceLevel(item);
+    item.reinforceFailStreak = getReinforceFailStreak(item);
+    item.might = item.baseMight + item.reinforceLevel;
+    return item;
+  }
+
   function getItemById(saveData, itemId) {
     return (saveData.inventory || []).find((item) => item.id === itemId) || null;
   }
@@ -2820,11 +3004,11 @@
   }
 
   function isEquipment(item) {
-    return !!item && !isConsumable(item);
+    return !!item && !isConsumable(item) && !isMisc(item);
   }
 
   function getCompatibleSlotKeys(item) {
-    if (!item || isConsumable(item)) {
+    if (!isEquipment(item)) {
       return [];
     }
 
@@ -2844,6 +3028,10 @@
   function getItemCategory(item) {
     if (!item) {
       return "all";
+    }
+
+    if (isMisc(item)) {
+      return "misc";
     }
 
     if (isConsumable(item)) {
@@ -2874,6 +3062,22 @@
       return item;
     }
 
+    if (isMisc(item)) {
+      const miscDefinition = getMiscItemDefinition(item.id) || {};
+      item.itemType = "misc";
+      item.slot = "misc";
+      item.type = "misc";
+      item.stackable = true;
+      item.quantity = Math.max(0, Math.floor(Number(item.quantity || 0)));
+      item.rarity = item.rarity || miscDefinition.rarity || "common";
+      item.baseName = item.baseName || miscDefinition.name || item.name || "기타 재화";
+      item.name = item.baseName;
+      item.description = item.description || miscDefinition.description || "기타 재화";
+      item.equippedBy = null;
+      item.equippedSlotKey = null;
+      return item;
+    }
+
     if (!item.slot && item.effect) {
       item.slot = "consumable";
     }
@@ -2889,7 +3093,12 @@
     if (isConsumable(item)) {
       item.equippedBy = null;
       item.equippedSlotKey = null;
+      item.baseName = item.baseName || item.name;
+      item.name = item.baseName;
+      return item;
     }
+
+    item.baseName = item.baseName || item.name;
 
     if (item.statBonus && !item.primaryStatBonus) {
       const converted = convertLegacyBonusToModern(item.statBonus);
@@ -2901,7 +3110,10 @@
     item.hiddenBonus = hasAnyBonus(item.hiddenBonus) ? item.hiddenBonus : null;
     item.weaponBonus = hasAnyBonus(item.weaponBonus) ? item.weaponBonus : null;
     item.affixes = Array.isArray(item.affixes) ? item.affixes : [];
+
     sanitizeItemRangeBonus(item);
+    syncWeaponReinforcementStats(item);
+    item.name = getItemDisplayName(item);
 
     return item;
   }
@@ -2910,7 +3122,7 @@
     const { saveData, unit, item, slotKey } = parseEquipArgs(arg1, arg2, arg3, arg4);
     const slotMeta = getEquipSlotMeta(slotKey);
 
-    if (!unit || !item || !slotMeta || isConsumable(item)) {
+    if (!unit || !item || !slotMeta || !isEquipment(item)) {
       return false;
     }
 
@@ -3035,7 +3247,7 @@
     });
 
     (saveData.inventory || []).forEach((item) => {
-      if (!item || !item.equippedBy || isConsumable(item)) {
+      if (!item || !item.equippedBy || !isEquipment(item)) {
         item.equippedSlotKey = null;
         return;
       }
@@ -3099,8 +3311,8 @@
       throw new Error("장착 대상 유닛 또는 아이템을 찾을 수 없습니다.");
     }
 
-    if (isConsumable(item)) {
-      throw new Error("소모품은 장착할 수 없습니다.");
+    if (!isEquipment(item)) {
+      throw new Error("장비만 장착할 수 있습니다.");
     }
 
     const targetSlotKey = preferredSlotKey || getFirstAvailableSlotKey(saveData, unitId, item);
@@ -3224,8 +3436,224 @@
     });
   }
 
+  function ensureMiscItemEntry(saveData, itemId) {
+    if (!saveData) {
+      return null;
+    }
+
+    const definition = getMiscItemDefinition(itemId);
+
+    if (!definition) {
+      throw new Error("정의되지 않은 기타 아이템입니다.");
+    }
+
+    saveData.inventory = saveData.inventory || [];
+    let entry = getItemById(saveData, itemId);
+
+    if (entry && !isMisc(entry)) {
+      throw new Error("동일한 id를 사용하는 비정상 아이템이 인벤토리에 있습니다.");
+    }
+
+    if (!entry) {
+      entry = clone(Object.assign({}, definition, {
+        quantity: 0
+      }));
+      saveData.inventory.push(entry);
+    }
+
+    normalizeLegacyItem(entry);
+    return entry;
+  }
+
+  function getMiscItemQuantity(saveData, itemId) {
+    const entry = saveData ? getItemById(saveData, itemId) : null;
+    return entry && isMisc(entry) ? Math.max(0, Math.floor(Number(entry.quantity || 0))) : 0;
+  }
+
+  function hasMiscItem(saveData, itemId, amount) {
+    return getMiscItemQuantity(saveData, itemId) >= Math.max(0, Math.floor(Number(amount || 0)));
+  }
+
+  function grantMiscItem(saveData, itemId, amount) {
+    const quantity = Math.max(0, Math.floor(Number(amount || 0)));
+
+    if (!quantity) {
+      return ensureMiscItemEntry(saveData, itemId);
+    }
+
+    const entry = ensureMiscItemEntry(saveData, itemId);
+    entry.quantity = Math.max(0, Math.floor(Number(entry.quantity || 0))) + quantity;
+    normalizeLegacyItem(entry);
+    return entry;
+  }
+
+  function consumeMiscItem(saveData, itemId, amount) {
+    const quantity = Math.max(0, Math.floor(Number(amount || 0)));
+    const entry = ensureMiscItemEntry(saveData, itemId);
+
+    if (Math.max(0, Math.floor(Number(entry.quantity || 0))) < quantity) {
+      throw new Error(`${entry.name}이 부족합니다.`);
+    }
+
+    entry.quantity = Math.max(0, Math.floor(Number(entry.quantity || 0))) - quantity;
+    normalizeLegacyItem(entry);
+    return entry;
+  }
+
+  function createMiscItemStack(itemId, quantity) {
+    const definition = getMiscItemDefinition(itemId);
+
+    if (!definition) {
+      throw new Error("정의되지 않은 기타 아이템입니다.");
+    }
+
+    const entry = clone(Object.assign({}, definition, {
+      quantity: Math.max(0, Math.floor(Number(quantity || 0)))
+    }));
+    normalizeLegacyItem(entry);
+    return entry;
+  }
+
+  function getReinforceBaseCost(level) {
+    return REINFORCE_BASE_COST_TABLE.find((entry) => entry.level === Math.max(0, Math.floor(Number(level || 0)))) || null;
+  }
+
+  function getReinforceSuccessRate(item) {
+    const reinforceLevel = getReinforceLevel(item);
+    const failStreak = getReinforceFailStreak(item);
+    let baseRate = 0.35;
+
+    if (reinforceLevel <= 3) {
+      baseRate = 1;
+    } else if (reinforceLevel <= 6) {
+      baseRate = 0.75;
+    } else if (reinforceLevel <= 8) {
+      baseRate = 0.55;
+    }
+
+    const pityBonus = failStreak >= 4
+      ? 0.2
+      : failStreak >= 2
+        ? 0.1
+        : 0;
+
+    return {
+      baseRate,
+      pityBonus,
+      rate: Math.min(1, baseRate + pityBonus)
+    };
+  }
+
+  function getReinforceCost(item) {
+    if (!isWeapon(item)) {
+      return null;
+    }
+
+    const reinforceLevel = getReinforceLevel(item);
+    const baseCost = getReinforceBaseCost(reinforceLevel);
+
+    if (!baseCost) {
+      return null;
+    }
+
+    const rarityMultiplier = REINFORCE_RARITY_MULTIPLIER[item.rarity] || REINFORCE_RARITY_MULTIPLIER.common;
+    return {
+      currentLevel: reinforceLevel,
+      targetLevel: reinforceLevel + 1,
+      gold: Math.max(1, Math.round(baseCost.gold * rarityMultiplier)),
+      stones: Math.max(1, Math.round(baseCost.stones)),
+      miscItemId: "refine-stone-basic"
+    };
+  }
+
+  function getReinforcePreview(saveData, item) {
+    if (!isWeapon(item)) {
+      return null;
+    }
+
+    const reinforceLevel = getReinforceLevel(item);
+    const currentMight = Math.max(0, Number(item.might || item.baseMight || 0));
+    const targetMight = Math.max(currentMight, Math.max(0, Number(item.baseMight || item.might || 0)) + Math.min(REINFORCE_MAX_LEVEL, reinforceLevel + 1));
+    const cost = getReinforceCost(item);
+    const success = getReinforceSuccessRate(item);
+    const goldOwned = Math.max(0, Number(saveData && saveData.partyGold || 0));
+    const stoneOwned = getMiscItemQuantity(saveData, "refine-stone-basic");
+
+    return {
+      reinforceLevel,
+      maxLevelReached: reinforceLevel >= REINFORCE_MAX_LEVEL || !cost,
+      currentMight,
+      targetMight,
+      cost,
+      success,
+      goldOwned,
+      stoneOwned,
+      canAffordGold: !!cost && goldOwned >= cost.gold,
+      canAffordStone: !!cost && stoneOwned >= cost.stones,
+      canReinforce: !!cost && goldOwned >= cost.gold && stoneOwned >= cost.stones
+    };
+  }
+
+  function reinforceWeapon(saveData, itemId) {
+    const item = getItemById(saveData, itemId);
+
+    if (!item || !isWeapon(item)) {
+      throw new Error("강화할 무기를 찾을 수 없습니다.");
+    }
+
+    syncWeaponReinforcementStats(item);
+
+    if (getReinforceLevel(item) >= REINFORCE_MAX_LEVEL) {
+      throw new Error("이미 최대 강화 단계입니다.");
+    }
+
+    const preview = getReinforcePreview(saveData, item);
+
+    if (!preview.cost) {
+      throw new Error("강화 비용 정보를 찾을 수 없습니다.");
+    }
+
+    if (!preview.canAffordGold) {
+      throw new Error("골드가 부족합니다.");
+    }
+
+    if (!preview.canAffordStone) {
+      throw new Error("재련석이 부족합니다.");
+    }
+
+    saveData.partyGold = Math.max(0, Number(saveData.partyGold || 0)) - preview.cost.gold;
+    consumeMiscItem(saveData, preview.cost.miscItemId, preview.cost.stones);
+
+    const success = Math.random() <= preview.success.rate;
+
+    if (success) {
+      item.reinforceLevel = Math.min(REINFORCE_MAX_LEVEL, getReinforceLevel(item) + 1);
+      item.reinforceFailStreak = 0;
+      syncWeaponReinforcementStats(item);
+      item.name = getItemDisplayName(item);
+    } else {
+      item.reinforceFailStreak = getReinforceFailStreak(item) + 1;
+    }
+
+    return {
+      item,
+      success,
+      previewBefore: preview,
+      previewAfter: getReinforcePreview(saveData, item)
+    };
+  }
+
   function addItemToInventory(saveData, item) {
     saveData.inventory = saveData.inventory || [];
+
+    if (isMisc(item)) {
+      const miscId = item.id;
+      const quantity = Math.max(0, Math.floor(Number(item.quantity || 0)));
+      const entry = grantMiscItem(saveData, miscId, quantity);
+      normalizeInventoryState(saveData);
+      return entry;
+    }
+
     saveData.inventory.push(clone(item));
     normalizeInventoryState(saveData);
     return item;
@@ -3234,6 +3662,11 @@
   function removeItemFromInventory(saveData, itemId) {
     const removedItem = getItemById(saveData, itemId);
     const previousOwnerId = removedItem ? removedItem.equippedBy : null;
+
+    if (removedItem && isMisc(removedItem)) {
+      saveData.inventory = (saveData.inventory || []).filter((item) => item.id !== itemId);
+      return;
+    }
 
     saveData.inventory = (saveData.inventory || []).filter((item) => item.id !== itemId);
 
@@ -3253,6 +3686,8 @@
     const item = Object.assign({}, clone(product), {
       id: `${product.id}-${Date.now()}-${Math.floor(Math.random() * 100000)}`,
       shopId: product.id,
+      basePrice: Number(product.price || 0),
+      price: getBuyPrice(product),
       level: Number(product.level || product.minLevel || getRarityIndex(product.rarity) + 1),
       equippedBy: null,
       equippedSlotKey: null
@@ -3269,6 +3704,7 @@
 
   function purchaseItem(saveData, productId) {
     const product = SHOP_CATALOG.find((entry) => entry.id === productId);
+    const buyPrice = getBuyPrice(product);
 
     if (!product) {
       throw new Error("상품 정보를 찾을 수 없습니다.");
@@ -3278,14 +3714,129 @@
       throw new Error("이 상품은 상점에서 구매할 수 없습니다.");
     }
 
-    if ((saveData.partyGold || 0) < product.price) {
+    if ((saveData.partyGold || 0) < buyPrice) {
       throw new Error("골드가 부족합니다.");
     }
 
     const item = buildShopItem(productId);
-    saveData.partyGold -= product.price;
+    saveData.partyGold -= buyPrice;
     addItemToInventory(saveData, item);
     return item;
+  }
+
+  function isShopCatalogEntry(item) {
+    return !!(item && !item.shopId && SHOP_CATALOG.some((entry) => entry.id === item.id));
+  }
+
+  function getItemBasePrice(item) {
+    if (!item) {
+      return 0;
+    }
+
+    if (isMisc(item)) {
+      return item.id === "refine-stone-basic" ? 30 : 24;
+    }
+
+    if (Number.isFinite(Number(item.basePrice)) && Number(item.basePrice) > 0) {
+      return Math.round(Number(item.basePrice));
+    }
+
+    if (Number.isFinite(Number(item.price)) && Number(item.price) > 0 && isShopCatalogEntry(item)) {
+      return Math.round(Number(item.price));
+    }
+
+    const rarityIndex = getRarityIndex(item.rarity);
+    const itemLevel = Math.max(1, Number(getEquipmentItemLevel(item) || item.level || 1));
+
+    if (isConsumable(item)) {
+      if (item.effect && item.effect.kind === "heal") {
+        return 25 + Math.max(0, Number(item.effect.amount || 0)) * 6 + rarityIndex * 14;
+      }
+
+      if (item.effect && item.effect.kind === "reset_stats") {
+        return 180;
+      }
+
+      return 40 + rarityIndex * 16;
+    }
+
+    if (isWeapon(item)) {
+      return Math.round(
+        70
+        + rarityIndex * 42
+        + itemLevel * 18
+        + Math.max(0, Number(item.might || 0)) * 9
+        + Math.max(0, Number(item.hit || 0)) * 0.4
+        + Math.max(0, Number((item.rangeMax || 0) - (item.rangeMin || 0))) * 18
+      );
+    }
+
+    const primaryBonusScore = Object.values(item.primaryStatBonus || {}).reduce(
+      (sum, value) => sum + Math.abs(Number(value || 0)),
+      0
+    );
+    const legacyBonusScore = Object.values(item.statBonus || {}).reduce(
+      (sum, value) => sum + Math.abs(Number(value || 0)),
+      0
+    );
+    const hiddenBonusScore = Object.values(item.hiddenBonus || {}).reduce(
+      (sum, value) => sum + Math.abs(Number(value || 0)),
+      0
+    );
+
+    return Math.round(
+      60
+      + rarityIndex * 38
+      + itemLevel * 17
+      + (primaryBonusScore + legacyBonusScore) * 12
+      + hiddenBonusScore * 4
+    );
+  }
+
+  function getBuyPrice(item) {
+    if (!item) {
+      return 0;
+    }
+
+    if (item.shopId && Number.isFinite(Number(item.price)) && Number(item.price) > 0) {
+      return Math.round(Number(item.price));
+    }
+
+    if (!isShopCatalogEntry(item) && Number.isFinite(Number(item.price)) && Number(item.price) > 0) {
+      return Math.round(Number(item.price));
+    }
+
+    const basePrice = getItemBasePrice(item);
+    const rarityMultiplier = SHOP_PRICE_MULTIPLIER_BY_RARITY[item.rarity] || SHOP_PRICE_MULTIPLIER_BY_RARITY.common;
+    return Math.max(1, Math.round(basePrice * rarityMultiplier));
+  }
+
+  function getSellPrice(item) {
+    return Math.max(1, Math.floor(getBuyPrice(item) * 0.8));
+  }
+
+  function sellItem(saveData, itemId) {
+    const item = getItemById(saveData, itemId);
+
+    if (!item) {
+      throw new Error("판매할 아이템을 찾을 수 없습니다.");
+    }
+
+    if (isMisc(item)) {
+      throw new Error("기타 재화는 상점에 판매할 수 없습니다.");
+    }
+
+    if (item.equippedBy) {
+      throw new Error("장착 중인 아이템은 먼저 해제해야 합니다.");
+    }
+
+    const sellPrice = getSellPrice(item);
+    removeItemFromInventory(saveData, itemId);
+    saveData.partyGold = Math.max(0, Number(saveData.partyGold || 0)) + sellPrice;
+    return {
+      item,
+      sellPrice
+    };
   }
 
   function applyConsumableToUnit(saveData, unit, itemId) {
@@ -3661,6 +4212,10 @@
       return "없음";
     }
 
+    if (isMisc(item)) {
+      return `${item.name} / 보유 수량 ${Math.max(0, Math.floor(Number(item.quantity || 0)))}개 / ${item.description || "기타 재화"}`;
+    }
+
     const rarityLabel = getRarityMeta(item.rarity).label;
 
     const setLabel = item.setId ? ` / ${buildSetSummaryLine(item.setId, 1)}` : "";
@@ -3682,6 +4237,10 @@
     EQUIP_SLOT_LAYOUT,
     EQUIP_SLOT_META,
     ITEM_TYPE_META,
+    MISC_ITEM_DEFINITIONS,
+    REINFORCE_MAX_LEVEL,
+    REINFORCE_BASE_COST_TABLE,
+    REINFORCE_RARITY_MULTIPLIER,
     STAT_LABELS,
     CLASS_WEAPONS,
     SHOP_CATALOG,
@@ -3695,6 +4254,7 @@
     getEquipSlotMeta,
     getSlotLabel,
     getTypeLabel,
+    getMiscItemDefinition,
     getItemById,
     getUnitById,
     getItemCategory,
@@ -3708,22 +4268,39 @@
     canEquip,
     isConsumable,
     isWeapon,
+    isMisc,
     isEquipment,
     equipItemToUnit,
     unequipItem,
+    ensureMiscItemEntry,
+    getMiscItemQuantity,
+    hasMiscItem,
+    grantMiscItem,
+    consumeMiscItem,
+    createMiscItemStack,
     addItemToInventory,
     removeItemFromInventory,
     buildShopItem,
     isAvailableInShop,
     purchaseItem,
+    getBuyPrice,
+    getSellPrice,
+    sellItem,
     applyConsumableToUnit,
     sortInventory,
     filterInventory,
     createLootDrop,
     createRewardItem,
     describeItem,
+    getItemDisplayName,
     formatStatBonusLine,
     getEquipmentItemLevel,
+    getReinforceLevel,
+    getReinforceFailStreak,
+    getReinforceCost,
+    getReinforceSuccessRate,
+    getReinforcePreview,
+    reinforceWeapon,
     getSetDefinition,
     getSetBonusEntries,
     syncEquippedItems,

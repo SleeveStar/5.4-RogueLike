@@ -9,13 +9,15 @@
   const SkillsService = global.SkillsService;
   const StatsService = global.StatsService;
   const TavernService = global.TavernService;
+  const DispatchService = global.DispatchService;
   const MAX_SORTIE_SIZE = 5;
-  const ROSTER_PAGE_SIZE = 3;
+  const ROSTER_PAGE_SIZE = 8;
   const SHOP_PAGE_SIZE = 9;
   const SHOP_REFRESH_INTERVAL_MS = 3 * 60 * 60 * 1000;
   const SHOP_CONSUMABLE_LINEUP_SIZE = 2;
   const SHOP_EQUIPMENT_LINEUP_SIZE = 12;
-  const INVENTORY_PAGE_SIZE = 8;
+  const INVENTORY_PAGE_SIZE = 12;
+  const BLACKSMITH_PAGE_SIZE = 4;
   const EQUIPMENT_MODAL_PAGE_SIZE = 8;
   const EQUIP_TARGET_MODAL_PAGE_SIZE = 10;
   const SORTIE_MANAGER_PAGE_SIZE = 4;
@@ -26,7 +28,7 @@
     saveData: null,
     settings: null,
     selectedMenuUnitId: null,
-    activeMainPanel: "party",
+    activeMainPanel: "operations",
     rosterView: {
       page: 1
     },
@@ -41,6 +43,14 @@
     shopView: {
       category: "equipment",
       page: 1
+    },
+    blacksmithView: {
+      selectedItemId: null,
+      page: 1
+    },
+    dispatchView: {
+      selectedMissionId: null,
+      draftUnitIds: []
     },
     progressionDrafts: {},
     equipmentModal: {
@@ -252,11 +262,13 @@
   }
 
   const MAIN_PANEL_META = {
+    operations: { eyebrow: "Operations", title: "작전 지도 / 던전 진행" },
     party: { eyebrow: "Party", title: "파티 관리" },
     tavern: { eyebrow: "Tavern", title: "주점 / 모험가 길드" },
+    dispatch: { eyebrow: "Dispatch", title: "던전 파견" },
     inventory: { eyebrow: "Inventory", title: "공유 인벤토리" },
     shop: { eyebrow: "Shop", title: "보급 상점" },
-    settings: { eyebrow: "Settings", title: "전투 설정" },
+    blacksmith: { eyebrow: "Blacksmith", title: "대장간 / 재련" },
     codex: { eyebrow: "Codex", title: "보스 드롭 도감" }
   };
 
@@ -309,6 +321,22 @@
     const hours = Math.floor(totalMinutes / 60);
     const minutes = totalMinutes % 60;
     return `${hours}시간 ${minutes}분`;
+  }
+
+  function formatRewardItemLabel(item) {
+    if (!item) {
+      return "";
+    }
+
+    const displayName = InventoryService.getItemDisplayName(item, {
+      forceShowReinforceLevel: InventoryService.isWeapon(item)
+    });
+
+    if (InventoryService.isMisc(item)) {
+      return `${displayName} x${Math.max(0, Number(item.quantity || 0))}`;
+    }
+
+    return displayName;
   }
 
   function renderDetailHeaderActions() {
@@ -468,6 +496,92 @@
     return shop;
   }
 
+  function syncDispatchState(showCompletionToast) {
+    if (!appState.saveData || !appState.currentUserId || !DispatchService) {
+      return null;
+    }
+
+    const syncResult = DispatchService.syncDispatch(appState.saveData);
+
+    if (syncResult && syncResult.changed) {
+      appState.saveData = StorageService.setUserSave(appState.currentUserId, appState.saveData);
+
+      if (showCompletionToast && syncResult.completedCount > 0) {
+        showToast(`던전 파견 ${syncResult.completedCount}건이 복귀했습니다.`);
+      }
+    }
+
+    return syncResult ? syncResult.dispatch : null;
+  }
+
+  function isUnitOnDispatch(unitId) {
+    return !!(appState.saveData && DispatchService && DispatchService.isUnitReserved(appState.saveData, unitId));
+  }
+
+  function getDispatchRefreshState() {
+    return appState.saveData && DispatchService
+      ? DispatchService.getRefreshState(appState.saveData)
+      : { limit: 5, used: 0, remaining: 5, resetAt: null };
+  }
+
+  function formatDurationHours(durationHours) {
+    const hours = Math.max(1, Number(durationHours || 1));
+    return `${hours}시간`;
+  }
+
+  function formatRemainingDuration(endAt) {
+    if (!endAt) {
+      return "복귀 시각 미정";
+    }
+
+    const remainingMs = Math.max(0, new Date(endAt).getTime() - Date.now());
+    const totalMinutes = Math.floor(remainingMs / 60000);
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+    return remainingMs <= 0 ? "복귀 가능" : `${hours}시간 ${minutes}분 남음`;
+  }
+
+  function ensureDispatchMissionSelection() {
+    if (!appState.saveData || !DispatchService) {
+      appState.dispatchView.selectedMissionId = null;
+      appState.dispatchView.draftUnitIds = [];
+      return null;
+    }
+
+    const dispatch = appState.saveData.dispatch || { availableMissions: [] };
+    const missionIds = [
+      ...(dispatch.completedMissions || []).map((mission) => mission.id),
+      ...(dispatch.activeMissions || []).map((mission) => mission.id),
+      ...(dispatch.availableMissions || []).map((mission) => mission.id)
+    ];
+
+    if (!missionIds.includes(appState.dispatchView.selectedMissionId)) {
+      appState.dispatchView.selectedMissionId = missionIds[0] || null;
+      appState.dispatchView.draftUnitIds = [];
+    }
+
+    appState.dispatchView.draftUnitIds = (appState.dispatchView.draftUnitIds || [])
+      .filter((unitId) => !isUnitSelectedForSortie(unitId) && !isUnitOnDispatch(unitId));
+
+    return getDispatchMissionRecord(dispatch, appState.dispatchView.selectedMissionId);
+  }
+
+  function getDispatchOutcomeTone(previewSummary) {
+    if (!previewSummary) {
+      return "is-muted";
+    }
+
+    if (previewSummary.includes("실패")) {
+      return "is-crimson";
+    }
+
+    if (previewSummary.includes("대성공")) {
+      return "is-gold";
+    }
+
+    return "is-cyan";
+  }
+
   function normalizeUserId(rawUserId) {
     return rawUserId.trim().toLowerCase();
   }
@@ -568,11 +682,7 @@
     }
 
     const statusText = stage.inProgress ? "진행 중" : stage.cleared ? "클리어" : "준비";
-    const stageFlavor = stage.id === "endless-rift"
-      ? "층마다 지형과 적 구성이 재편되는 장기전."
-      : stage.category === "main"
-        ? "편성과 장비 조정이 중요한 메인 전장."
-        : "전투 흐름을 익히기 좋은 프롤로그.";
+    const stageFlavor = getStageFlavorText(stage);
 
     return [
       `<div class="stage-focus-body ${stage.category === "main" ? "is-main" : "is-tutorial"} ${stage.id === "endless-rift" ? "is-endless" : ""}">`,
@@ -594,6 +704,22 @@
       `  <p class="stage-focus-copy">${stageFlavor}</p>`,
       "</div>"
     ].join("");
+  }
+
+  function getStageFlavorText(stage) {
+    if (!stage) {
+      return "좌측 작전 지도에서 스테이지를 선택하면 던전 진행 정보가 갱신됩니다.";
+    }
+
+    if (stage.description) {
+      return stage.description;
+    }
+
+    return stage.id === "endless-rift"
+      ? "층마다 지형과 적 구성이 재편되는 장기전."
+      : stage.category === "main"
+        ? "편성과 장비 조정이 중요한 메인 전장."
+        : "전투 흐름을 익히기 좋은 프롤로그.";
   }
 
   function formatShopStatus(saveData) {
@@ -634,7 +760,7 @@
       closeDetailModal();
     }
 
-    appState.activeMainPanel = MAIN_PANEL_META[panelKey] ? panelKey : "party";
+    appState.activeMainPanel = MAIN_PANEL_META[panelKey] ? panelKey : "operations";
 
     Object.keys(MAIN_PANEL_META).forEach((key) => {
       const panel = getElement(`menu-panel-${key}`);
@@ -652,10 +778,17 @@
     getElement("menu-detail-title").textContent = meta.title;
     renderDetailHeaderActions();
 
+    const commandLayout = getElement("main-menu-command-layout");
+    if (commandLayout) {
+      commandLayout.classList.toggle("is-stage-hidden", appState.activeMainPanel !== "operations");
+    }
+
     const sortieStrip = getElement("menu-sortie-strip");
     if (sortieStrip) {
       sortieStrip.classList.toggle("hidden", appState.activeMainPanel !== "party");
     }
+
+    maybeShowBlacksmithTutorial();
   }
 
   function getSelectedMenuUnit() {
@@ -749,10 +882,17 @@
   function toggleSortieUnit(unitId) {
     const selectedPartyIds = getSelectedPartyIds().slice();
     const isSelected = selectedPartyIds.includes(unitId);
+    const unit = appState.saveData && appState.saveData.roster
+      ? appState.saveData.roster.find((entry) => entry.id === unitId)
+      : null;
 
     if (isSelected) {
       appState.saveData.selectedPartyIds = selectedPartyIds.filter((id) => id !== unitId);
       return false;
+    }
+
+    if (isUnitOnDispatch(unitId)) {
+      throw new Error(`${unit ? unit.name : "해당 모험가"}은(는) 현재 던전 파견 중이라 출전 편성에 넣을 수 없습니다.`);
     }
 
     if (selectedPartyIds.length >= MAX_SORTIE_SIZE) {
@@ -791,6 +931,10 @@
 
     if (!unit) {
       throw new Error("배치할 캐릭터를 찾을 수 없습니다.");
+    }
+
+    if (isUnitOnDispatch(unitId)) {
+      throw new Error(`${unit.name}은(는) 현재 던전 파견 중이라 출전 편성에 넣을 수 없습니다.`);
     }
 
     const selectedPartyIds = getSelectedPartyIds().slice();
@@ -1128,6 +1272,19 @@
     const selectedUnits = selectedPartyIds
       .map((unitId) => roster.find((entry) => entry.id === unitId))
       .filter(Boolean);
+    const averageLevel = selectedUnits.length
+      ? (selectedUnits.reduce((sum, unit) => sum + Math.max(1, Number(unit.level || 1)), 0) / selectedUnits.length).toFixed(1)
+      : "0.0";
+    const averageMove = selectedUnits.length
+      ? (selectedUnits.reduce((sum, unit) => sum + Math.max(0, Number(unit.mov || 0)), 0) / selectedUnits.length).toFixed(1)
+      : "0.0";
+    const classSummary = selectedUnits.length
+      ? Array.from(new Set(selectedUnits.map((unit) => unit.className))).slice(0, 3).join(" / ")
+      : "편성 필요";
+    const partyPower = selectedUnits.reduce((sum, unit) => sum + DispatchService.calculateUnitDispatchPower(appState.saveData, unit), 0);
+    const highestLevel = selectedUnits.reduce((maxLevel, unit) => Math.max(maxLevel, Math.max(1, Number(unit.level || 1))), 0);
+    const equippedCount = selectedUnits.reduce((sum, unit) => sum + ((unit.equippedItemIds || []).length), 0);
+    const selectedStage = getSelectedStageMeta();
 
     target.innerHTML = [
       '<div class="summary-card sortie-strip-card interactive-summary-card" data-open-sortie-manager="true">',
@@ -1139,9 +1296,21 @@
       selectedUnits.length
         ? selectedUnits.map((unit, index) => `<span class="meta-pill ${appState.selectedMenuUnitId === unit.id ? "is-gold" : ""}">${index + 1}. ${unit.name}</span>`).join("")
         : '<span class="meta-pill is-muted">아직 출전 파티가 비어 있습니다.</span>',
+      `    <span class="meta-pill is-cyan">평균 Lv.${averageLevel}</span>`,
+      `    <span class="meta-pill">${classSummary}</span>`,
       '    <button class="primary-button small-button inventory-meta-action" type="button" data-open-sortie-manager="true">편성 관리</button>',
       "  </div>",
-      '  <p class="sortie-strip-helper">상단 바는 요약만 보여주고, 편성 교체는 중앙 모달에서 진행합니다.</p>',
+      selectedUnits.length
+        ? [
+            '  <div class="sortie-strip-grid">',
+            `    <div class="sortie-strip-metric"><strong>${partyPower}</strong><span>총 전력</span></div>`,
+            `    <div class="sortie-strip-metric"><strong>Lv.${highestLevel}</strong><span>최고 레벨</span></div>`,
+            `    <div class="sortie-strip-metric"><strong>${equippedCount}</strong><span>장착 장비</span></div>`,
+            `    <div class="sortie-strip-metric"><strong>${averageMove}</strong><span>평균 이동</span></div>`,
+            '  </div>'
+          ].join("")
+        : "",
+      `  <p class="sortie-strip-helper">${selectedUnits.length ? `편성 ${selectedUnits.length}명 / 리더 ${getLeaderUnit(appState.saveData) ? getLeaderUnit(appState.saveData).name : "없음"} / 현재 작전 ${selectedStage ? selectedStage.name : "선택 없음"}` : "출전 파티를 편성하면 이곳에 핵심 요약이 표시됩니다."}</p>`,
       "</div>"
     ].join("");
 
@@ -1692,6 +1861,9 @@
 
   function buildInventoryItemDetailMarkup(item) {
     const rarity = InventoryService.getRarityMeta(item.rarity);
+    const displayName = InventoryService.getItemDisplayName(item, {
+      forceShowReinforceLevel: InventoryService.isWeapon(item)
+    });
     const ownerText = item.equippedBy
       ? `${getUnitNameById(item.equippedBy)} / ${InventoryService.getSlotLabel(item.equippedSlotKey || InventoryService.getCompatibleSlotKeys(item)[0] || item.slot)}`
       : "미장착";
@@ -1700,23 +1872,27 @@
     const equipmentLevel = InventoryService.getEquipmentItemLevel(item);
 
     return [
-      `<div class="item-title-row"><strong class="card-title">${item.name}</strong><span class="card-subtitle">${rarity.label}</span></div>`,
+      `<div class="item-title-row"><strong class="card-title">${displayName}</strong><span class="card-subtitle">${rarity.label}</span></div>`,
       '  <div class="inventory-meta detail-hero-meta">',
       `    <span class="meta-pill">${InventoryService.getTypeLabel(item.type || item.slot)}</span>`,
       `    <span class="meta-pill ${item.equippedBy ? "is-cyan" : "is-muted"}">${ownerText}</span>`,
+      InventoryService.isMisc(item) ? `    <span class="meta-pill is-gold">보유 ${Math.max(0, Number(item.quantity || 0))}개</span>` : "",
       setDefinition ? `    <span class="meta-pill is-gold">${setDefinition.name}</span>` : "",
       "  </div>",
       `<section class="detail-hero-card rarity-${item.rarity}">`,
       `  <div class="detail-hero-copy">`,
       `    <div class="detail-hero-label">ITEM PROFILE</div>`,
-      `    <h3>${item.baseName || item.name}</h3>`,
-      `    <p>${item.description || (InventoryService.isConsumable(item) ? "즉시 사용하는 전투 소모품입니다." : "전투 빌드를 만드는 핵심 장비입니다.")}</p>`,
+      `    <h3>${displayName}</h3>`,
+      `    <p>${item.description || (InventoryService.isConsumable(item) ? "즉시 사용하는 전투 소모품입니다." : InventoryService.isMisc(item) ? "강화와 제작에 쓰는 스택형 재화입니다." : "전투 빌드를 만드는 핵심 장비입니다.")}</p>`,
       "  </div>",
       `  <div class="detail-metric-grid">${buildItemMetricGrid(item, InventoryService.isEquipment(item) ? [
         equipmentLevel ? { label: "장비 레벨", value: `Lv.${equipmentLevel}`, tone: "violet" } : null,
         { label: "희귀도", value: rarity.label, tone: "gold" },
         { label: "장착", value: ownerText, tone: item.equippedBy ? "cyan" : "muted" }
-      ].filter(Boolean) : [{ label: "희귀도", value: rarity.label, tone: "gold" }])}</div>`,
+      ].filter(Boolean) : [
+        { label: "희귀도", value: rarity.label, tone: "gold" },
+        InventoryService.isMisc(item) ? { label: "보유 수량", value: `${Math.max(0, Number(item.quantity || 0))}개`, tone: "cyan" } : null
+      ].filter(Boolean))}</div>`,
       "</section>",
       buildItemFeatureSection("기본 요약", `<p class="detail-summary-copy">${InventoryService.describeItem(item)}</p>`, "is-summary"),
       buildItemFeatureSection("능력치", statSummary !== "추가 능력치 없음"
@@ -1860,14 +2036,15 @@
 
   function buildShopProductDetailMarkup(product) {
     const rarity = InventoryService.getRarityMeta(product.rarity);
+    const buyPrice = InventoryService.getBuyPrice(product);
     const statSummary = InventoryService.formatStatBonusLine(product);
 
     return [
       `<div class="item-title-row"><strong class="card-title">${product.name}</strong><span class="card-subtitle">${rarity.label}</span></div>`,
       '  <div class="inventory-meta detail-hero-meta">',
       `    <span class="meta-pill">${InventoryService.getTypeLabel(product.type || product.slot)}</span>`,
-      `    <span class="meta-pill is-gold">${product.price}G</span>`,
-      `    <span class="meta-pill ${appState.saveData && (appState.saveData.partyGold || 0) >= product.price ? "is-cyan" : "is-muted"}">${appState.saveData && (appState.saveData.partyGold || 0) >= product.price ? "구매 가능" : "골드 부족"}</span>`,
+      `    <span class="meta-pill is-gold">${buyPrice}G</span>`,
+      `    <span class="meta-pill ${appState.saveData && (appState.saveData.partyGold || 0) >= buyPrice ? "is-cyan" : "is-muted"}">${appState.saveData && (appState.saveData.partyGold || 0) >= buyPrice ? "구매 가능" : "골드 부족"}</span>`,
       "  </div>",
       `<section class="detail-hero-card rarity-${product.rarity}">`,
       `  <div class="detail-hero-copy">`,
@@ -1877,8 +2054,8 @@
       "  </div>",
       `  <div class="detail-metric-grid">${buildItemMetricGrid(product, [
         { label: "희귀도", value: rarity.label, tone: "gold" },
-        { label: "가격", value: `${product.price}G`, tone: "gold" },
-        { label: "상태", value: appState.saveData && (appState.saveData.partyGold || 0) >= product.price ? "구매 가능" : "골드 부족", tone: appState.saveData && (appState.saveData.partyGold || 0) >= product.price ? "cyan" : "muted" }
+        { label: "가격", value: `${buyPrice}G`, tone: "gold" },
+        { label: "상태", value: appState.saveData && (appState.saveData.partyGold || 0) >= buyPrice ? "구매 가능" : "골드 부족", tone: appState.saveData && (appState.saveData.partyGold || 0) >= buyPrice ? "cyan" : "muted" }
       ])}</div>`,
       "</section>",
       buildItemFeatureSection("기본 요약", `<p class="detail-summary-copy">${InventoryService.describeItem(product)}</p>`, "is-summary"),
@@ -1888,15 +2065,30 @@
     ].filter(Boolean).join("");
   }
 
+  function buildShopOwnedItemDetailMarkup(item) {
+    const sellPrice = InventoryService.getSellPrice(item);
+    const statusText = item.equippedBy
+      ? `${getUnitNameById(item.equippedBy)} 장착 중`
+      : "판매 가능";
+
+    return [
+      buildInventoryItemDetailMarkup(item),
+      buildItemFeatureSection("상점 매각", [
+        '<div class="detail-metric-grid">',
+        buildDetailKeyValue("매각가", `${sellPrice}G`, "gold"),
+        buildDetailKeyValue("상태", statusText, item.equippedBy ? "muted" : "cyan"),
+        '</div>',
+        `<p>${item.equippedBy ? "장착 중인 아이템은 해제한 뒤 판매할 수 있습니다." : "보급 상점에서 즉시 판매 가능한 아이템입니다."}</p>`
+      ].join(""), "is-summary")
+    ].join("");
+  }
+
   function buildTavernCandidateDetailMarkup(candidate) {
     const unit = candidate.unit;
     const rankClass = `rank-${String(candidate.guildRank || "D").toLowerCase().replace("+", "plus")}`;
     const classProfile = SkillsService.getClassProfile(unit);
     const signaturePassives = getSignaturePassiveDefinitions(unit, candidate);
     const potentialMeta = StatsService.getPotentialMeta(unit);
-    const startingWeaponLabel = candidate.startingWeapon
-      ? candidate.startingWeapon.name
-      : "없음";
 
     return [
       `<div class="item-title-row"><strong class="card-title">${unit.name}</strong><span class="card-subtitle">${unit.className}</span></div>`,
@@ -1915,7 +2107,7 @@
         buildDetailKeyValue("잠재력", potentialMeta.label, "violet"),
         buildDetailKeyValue("훈련 상한", `${StatsService.getTrainingCap(unit)}단계`, "cyan"),
         buildDetailKeyValue("고유 패시브", `${signaturePassives.length}개`, signaturePassives.length ? "gold" : "muted"),
-        buildDetailKeyValue("시작 장비", startingWeaponLabel, "gold"),
+        buildDetailKeyValue("합류 상태", "초기 장비 없음", "muted"),
         "</div>"
       ].join(""), "is-summary"),
       buildItemFeatureSection("병종 운용", [
@@ -1972,23 +2164,16 @@
     const guildPromotion = TavernService.getRankPromotionRequirement(unit);
     const promotionOptions = SkillsService.getPromotionOptions(unit);
     const lockedPromotions = SkillsService.PROMOTION_TREE[unit.className] || [];
-    const tavernPreviewLoadout = (() => {
-      if (!isReadOnly || !tavernCandidate || !tavernCandidate.startingWeapon) {
-        return null;
-      }
-
-      const previewLoadout = {};
-      const compatibleSlots = InventoryService.getCompatibleSlotKeys(tavernCandidate.startingWeapon);
-      const baseSlotKey = compatibleSlots[0] || tavernCandidate.startingWeapon.slot || "weapon";
-      previewLoadout[baseSlotKey] = tavernCandidate.startingWeapon;
-      return previewLoadout;
-    })();
-    const dismissDisabledReason = (appState.saveData.roster || []).length <= 1
+    const dispatchLocked = isUnitOnDispatch(unit.id);
+    const dismissDisabledReason = dispatchLocked
+      ? "던전 파견 중인 모험가는 복귀 전까지 방출할 수 없습니다."
+      : (appState.saveData.roster || []).length <= 1
       ? "파티에 마지막 1명만 남아 있으면 방출할 수 없습니다."
       : (appState.saveData.stageStatus === "in_progress" && appState.saveData.battleState
         ? "진행 중인 전투가 있을 때는 캐릭터를 방출할 수 없습니다."
         : "");
-    const dismissDisabled = (appState.saveData.roster || []).length <= 1
+    const dismissDisabled = dispatchLocked
+      || (appState.saveData.roster || []).length <= 1
       || (appState.saveData.stageStatus === "in_progress" && !!appState.saveData.battleState);
     const dismissButtonMarkup = wrapMarkupWithTooltip(
       `<button class="ghost-button small-button" type="button" data-dismiss-unit="true" ${dismissDisabled ? "disabled" : ""}>방출</button>`,
@@ -2017,7 +2202,7 @@
         `    <span class="meta-pill ${signaturePassives.length ? "is-cyan" : "is-muted"}">고유 ${signaturePassives.length}</span>`,
         `    <span class="meta-pill is-gold">${tavernCandidate.hireCost || 0}G</span>`,
         tavernCandidate.recruitedAt ? '    <span class="meta-pill is-cyan">영입 완료</span>' : '    <span class="meta-pill is-muted">주점 대기</span>',
-        tavernCandidate.startingWeapon ? `    <span class="meta-pill is-cyan">${tavernCandidate.startingWeapon.name}</span>` : ""
+        '    <span class="meta-pill is-muted">초기 장비 없음</span>'
       ].filter(Boolean).join("")
       : [
         `    <span class="meta-pill rank-${String(unit.guildRank || "D").toLowerCase().replace("+", "plus")}">${formatRankBadge(unit.guildRank || "D")}</span>`,
@@ -2039,9 +2224,7 @@
         buildDetailKeyValue("영입 비용", `${tavernCandidate.hireCost || 0}G`, "gold"),
         buildDetailKeyValue("고유 패시브", `${signaturePassives.length}개`, signaturePassives.length ? "gold" : "muted"),
         "</div>",
-        tavernCandidate.startingWeapon
-          ? `<p>시작 장비: ${tavernCandidate.startingWeapon.name} / ${InventoryService.describeItem(tavernCandidate.startingWeapon)}</p>`
-          : "<p>시작 장비 정보가 없습니다.</p>",
+        "<p>영입 시 장비 없이 합류합니다. 장비는 파티 인벤토리에서 따로 지급해야 합니다.</p>",
         `<p>${tavernCandidate.recruitedAt ? "이미 영입된 후보입니다." : "주점에서 바로 영입 가능한 대기 후보입니다."}</p>`
       ].join("")
       : [
@@ -2058,8 +2241,8 @@
       ].join("");
     const equipmentSectionMarkup = isReadOnly && tavernCandidate
       ? [
-        buildEquipmentLoadoutMarkup(unit.id, { loadout: tavernPreviewLoadout || {} }),
-        `  <p>${tavernCandidate.startingWeapon ? InventoryService.describeItem(tavernCandidate.startingWeapon) : "주점 후보는 아직 파티 장비를 장착하지 않은 상태입니다."}</p>`
+        buildEquipmentLoadoutMarkup(unit.id, { loadout: {} }),
+        "  <p>주점 후보는 영입 전에도, 영입 후에도 초기 장비 없이 합류합니다.</p>"
       ].join("")
       : [
         buildEquipmentLoadoutMarkup(unit.id),
@@ -2129,7 +2312,7 @@
       !isReadOnly ? '      <button class="primary-button small-button" type="button" data-open-skill-modal="true">스킬 관리</button>' : "",
       !isReadOnly ? `      <button class="secondary-button small-button" type="button" data-set-leader="true" ${appState.saveData.leaderUnitId === unit.id ? "disabled" : ""}>리더 지정</button>` : "",
       !isReadOnly ? '      <button class="secondary-button small-button" type="button" data-unequip-all="true">전체 해제</button>' : "",
-      !isReadOnly ? `      <button class="secondary-button small-button" type="button" data-toggle-sortie="true">${isUnitSelectedForSortie(unit.id) ? "후방 대기" : "출전 등록"}</button>` : "",
+      !isReadOnly ? `      <button class="secondary-button small-button" type="button" data-toggle-sortie="true" ${dispatchLocked ? "disabled" : ""}>${dispatchLocked ? "파견 중" : isUnitSelectedForSortie(unit.id) ? "후방 대기" : "출전 등록"}</button>` : "",
       !isReadOnly ? `      ${dismissButtonMarkup}` : "",
       !isReadOnly ? promotionOptions.map((promotion) => (
         `<button class="secondary-button small-button" type="button" data-promote-class="${promotion.className}">${promotion.className} 전직</button>`
@@ -2478,12 +2661,39 @@
             id: "buy",
             label: "구매",
             className: "primary-button",
-            disabled: !appState.saveData || (appState.saveData.partyGold || 0) < product.price,
+            disabled: !appState.saveData || (appState.saveData.partyGold || 0) < InventoryService.getBuyPrice(product),
             onClick() {
               const purchasedItem = InventoryService.purchaseItem(appState.saveData, product.id);
               persistSession(appState.saveData, appState.settings);
               closeDetailModal();
               showToast(`${purchasedItem.name} 구매 완료`);
+            }
+          }
+        ]
+      };
+    }
+
+    if (type === "shop-sell") {
+      const item = InventoryService.getItemById(appState.saveData, id);
+
+      if (!item) {
+        return null;
+      }
+
+      return {
+        title: "판매 아이템 상세",
+        bodyMarkup: buildShopOwnedItemDetailMarkup(item),
+        actions: [
+          {
+            id: "sell",
+            label: "판매",
+            className: "primary-button",
+            disabled: !!item.equippedBy,
+            onClick() {
+              const result = InventoryService.sellItem(appState.saveData, item.id);
+              persistSession(appState.saveData, appState.settings);
+              closeDetailModal();
+              showToast(`${result.item.name} 판매 +${result.sellPrice}G`);
             }
           }
         ]
@@ -2833,6 +3043,11 @@
     }
 
     if (button.dataset.dismissUnit === "true") {
+      if (isUnitOnDispatch(unit.id)) {
+        showToast("던전 파견 중인 모험가는 복귀 전까지 방출할 수 없습니다.", true);
+        return;
+      }
+
       if (!global.confirm(`${unit.name}을(를) 파티에서 방출하시겠습니까? 장착 중인 장비는 모두 해제됩니다.`)) {
         return;
       }
@@ -3539,7 +3754,7 @@
               `      <span class="meta-pill">${getSkillRangeLabel(skill)}</span>`,
               "    </div>",
               "  </div>",
-              `  <p>${skill.description}</p>`,
+              `  <p class="skill-card-description">${skill.description}</p>`,
               performance ? `  <p>${performance.currentSummary}</p>` : "",
               '  <div class="button-row">',
               `    <button class="secondary-button small-button" type="button" data-skill-equip="${skill.id}">${equippedIndex >= 0 ? "재배치" : "장착"}</button>`,
@@ -3751,6 +3966,7 @@
       const equippedCount = (unit.equippedItemIds || []).length;
       const classes = ["roster-button"];
       const isLeader = appState.saveData.leaderUnitId === unit.id;
+      const isDispatched = isUnitOnDispatch(unit.id);
       const draft = getProgressionDraft(unit.id);
       const pendingStats = countDraftStats(draft);
       const pendingSkills = countDraftSkills(draft);
@@ -3773,6 +3989,7 @@
         `    <span class="meta-pill ${equippedCount ? "is-gold" : "is-muted"}">장비 ${equippedCount}</span>`,
         `    <span class="meta-pill ${isLeader ? "is-gold" : "is-muted"}">${isLeader ? "리더" : "일반"}</span>`,
         `    <span class="meta-pill ${isUnitSelectedForSortie(unit.id) ? "is-cyan" : "is-muted"}">${isUnitSelectedForSortie(unit.id) ? "출전 중" : "후방 대기"}</span>`,
+        isDispatched ? '    <span class="meta-pill is-gold">파견 중</span>' : "",
         `    <span class="meta-pill ${weapon ? "is-gold" : "is-muted"}">${weapon ? weapon.name : "무기 없음"}</span>`,
         "  </div>",
         "  <p>클릭하면 중앙 상세 창이 열립니다.</p>",
@@ -3811,8 +4028,20 @@
     });
   }
 
+  function getInventoryCategoryKey() {
+    if (appState.inventoryView.category === "consumable") {
+      return "consumable";
+    }
+
+    if (appState.inventoryView.category === "misc") {
+      return "misc";
+    }
+
+    return "equipment";
+  }
+
   function syncInventoryToolbarState() {
-    const currentCategory = appState.inventoryView.category === "consumable" ? "consumable" : "equipment";
+    const currentCategory = getInventoryCategoryKey();
     const typeFilter = getElement("menu-inventory-type-filter");
     const equippedFilter = getElement("menu-inventory-equipped-filter");
 
@@ -3821,23 +4050,34 @@
     });
 
     if (typeFilter) {
-      typeFilter.disabled = currentCategory === "consumable";
-      typeFilter.value = currentCategory === "consumable" ? "consumable" : appState.inventoryView.type;
+      typeFilter.disabled = currentCategory !== "equipment";
+      typeFilter.value = currentCategory === "consumable"
+        ? "consumable"
+        : currentCategory === "misc"
+          ? "misc"
+          : appState.inventoryView.type;
     }
 
     if (equippedFilter) {
-      equippedFilter.disabled = currentCategory === "consumable";
-      equippedFilter.value = appState.inventoryView.equipped;
+      equippedFilter.disabled = currentCategory !== "equipment";
+      equippedFilter.value = currentCategory === "equipment" ? appState.inventoryView.equipped : "all";
     }
   }
 
   function setInventoryCategory(category) {
-    appState.inventoryView.category = category === "consumable" ? "consumable" : "equipment";
+    appState.inventoryView.category = category === "consumable"
+      ? "consumable"
+      : category === "misc"
+        ? "misc"
+        : "equipment";
 
     if (appState.inventoryView.category === "consumable") {
       appState.inventoryView.type = "consumable";
       appState.inventoryView.equipped = "all";
-    } else if (appState.inventoryView.type === "consumable") {
+    } else if (appState.inventoryView.category === "misc") {
+      appState.inventoryView.type = "misc";
+      appState.inventoryView.equipped = "all";
+    } else if (["consumable", "misc"].includes(appState.inventoryView.type)) {
       appState.inventoryView.type = "all";
     }
 
@@ -3846,7 +4086,11 @@
   }
 
   function syncShopCategoryTabs() {
-    const currentCategory = appState.shopView.category === "consumable" ? "consumable" : "equipment";
+    const currentCategory = appState.shopView.category === "consumable"
+      ? "consumable"
+      : appState.shopView.category === "inventory"
+        ? "inventory"
+        : "equipment";
 
     document.querySelectorAll("[data-shop-tab]").forEach((button) => {
       button.classList.toggle("active", button.dataset.shopTab === currentCategory);
@@ -3854,26 +4098,33 @@
   }
 
   function setShopCategory(category) {
-    appState.shopView.category = category === "consumable" ? "consumable" : "equipment";
+    appState.shopView.category = category === "consumable"
+      ? "consumable"
+      : category === "inventory"
+        ? "inventory"
+        : "equipment";
     appState.shopView.page = 1;
     syncShopCategoryTabs();
   }
 
   function renderInventoryList() {
     const target = getElement("menu-inventory-list");
+    const statusTarget = getElement("menu-inventory-status");
     const selectedUnit = ensureSelectedMenuUnit();
     const inventory = appState.saveData ? appState.saveData.inventory || [] : [];
-    const inventoryCategory = appState.inventoryView.category === "consumable" ? "consumable" : "equipment";
+    const inventoryCategory = getInventoryCategoryKey();
     const categoryFilteredItems = inventory.filter((item) => (
       inventoryCategory === "consumable"
         ? InventoryService.isConsumable(item)
-        : InventoryService.isEquipment(item)
+        : inventoryCategory === "misc"
+          ? InventoryService.isMisc(item)
+          : InventoryService.isEquipment(item)
     ));
     const filteredItems = InventoryService.sortInventory(
       InventoryService.filterInventory(categoryFilteredItems, {
-        type: inventoryCategory === "consumable" ? "consumable" : appState.inventoryView.type,
+        type: inventoryCategory === "equipment" ? appState.inventoryView.type : inventoryCategory,
         rarity: appState.inventoryView.rarity,
-        equipped: appState.inventoryView.equipped
+        equipped: inventoryCategory === "equipment" ? appState.inventoryView.equipped : "all"
       }),
       appState.inventoryView.sort
     );
@@ -3885,12 +4136,33 @@
     appState.inventoryView.page = currentPage;
     syncInventoryToolbarState();
 
+    if (statusTarget) {
+      const equippedCount = inventory.filter((item) => !!item.equippedBy).length;
+      const consumableCount = inventory.filter((item) => InventoryService.isConsumable(item)).length;
+      const equipmentCount = inventory.filter((item) => InventoryService.isEquipment(item)).length;
+      const miscCount = inventory.filter((item) => InventoryService.isMisc(item)).length;
+      const refineStoneCount = InventoryService.getMiscItemQuantity(appState.saveData, "refine-stone-basic");
+      statusTarget.innerHTML = [
+        '<div class="inventory-status-grid">',
+        `  <p class="status-line is-gold">보유 골드: ${appState.saveData ? appState.saveData.partyGold : 0}G</p>`,
+        `  <p class="status-line">전체 보관: ${inventory.length}개</p>`,
+        `  <p class="status-line">장비: ${equipmentCount}개 / 소모품: ${consumableCount}개 / 기타: ${miscCount}종</p>`,
+        `  <p class="status-line">장착 중: ${equippedCount}개 / 미장착: ${Math.max(0, equipmentCount - equippedCount)}개</p>`,
+        `  <p class="status-line">보유 재련석: ${refineStoneCount}개</p>`,
+        `  <p class="status-line inventory-status-wide">현재 기준 유닛: ${selectedUnit ? `${selectedUnit.name} / ${selectedUnit.className}` : "선택 없음"} / ${inventoryCategory === "misc" ? "기타 재화" : inventoryCategory === "consumable" ? "소모품" : "장비"} 필터 결과 ${filteredItems.length}개</p>`,
+        '</div>'
+      ].join("");
+    }
+
     if (!filteredItems.length) {
-      target.innerHTML = '<div class="inventory-card"><p>조건에 맞는 아이템이 없습니다.</p></div>';
+      target.innerHTML = `<div class="inventory-card"><p>${inventoryCategory === "misc" ? "보유한 기타 재화가 없습니다." : "조건에 맞는 아이템이 없습니다."}</p></div>`;
       return;
     }
 
     target.innerHTML = visibleItems.map((item) => {
+      const displayName = InventoryService.getItemDisplayName(item, {
+        forceShowReinforceLevel: InventoryService.isWeapon(item)
+      });
       const rarity = InventoryService.getRarityMeta(item.rarity);
       const equipDisabled = InventoryService.isEquipment(item) && !item.equippedBy ? "" : "disabled";
       const unequipDisabled = item.equippedBy ? "" : "disabled";
@@ -3899,10 +4171,28 @@
         ? `${getUnitNameById(item.equippedBy)} / ${InventoryService.getSlotLabel(item.equippedSlotKey || InventoryService.getCompatibleSlotKeys(item)[0] || item.slot)}`
         : "미장착";
 
+      if (InventoryService.isMisc(item)) {
+        return [
+          `<article class="inventory-card compact-inventory-card misc-inventory-card interactive-summary-card" data-open-detail="inventory" data-detail-id="${item.id}">`,
+          '  <div class="compact-inventory-card-top">',
+          `    <div class="item-title-row"><strong class="card-title">${displayName}</strong><span class="card-subtitle">보유 ${Math.max(0, Number(item.quantity || 0))}개</span></div>`,
+          [
+            '    <div class="inventory-meta inventory-inline-meta">',
+            '      <span class="meta-pill">기타 재화</span>',
+            `      <span class="meta-pill is-gold">수량 ${Math.max(0, Number(item.quantity || 0))}</span>`,
+            `      <span class="meta-pill is-cyan">${rarity.label}</span>`,
+            "    </div>",
+            "  </div>"
+          ].join(""),
+          `  <p>${item.description || "제작과 강화에 쓰는 재화입니다."}</p>`,
+          "</article>"
+        ].join("");
+      }
+
       return [
         `<article class="inventory-card compact-inventory-card rarity-${item.rarity} interactive-summary-card" data-open-detail="inventory" data-detail-id="${item.id}">`,
         '  <div class="compact-inventory-card-top">',
-        `    <div class="item-title-row"><strong class="card-title">${item.name}</strong><span class="card-subtitle">${rarity.label}</span></div>`,
+        `    <div class="item-title-row"><strong class="card-title">${displayName}</strong><span class="card-subtitle">${rarity.label}</span></div>`,
         [
           '    <div class="inventory-meta inventory-inline-meta">',
           `    <span class="meta-pill">${InventoryService.getTypeLabel(item.type || item.slot)}</span>`,
@@ -3957,7 +4247,7 @@
         try {
           const item = InventoryService.unequipItem(appState.saveData, button.dataset.menuUnequip);
           persistSession(appState.saveData, appState.settings);
-          showToast(`${item.name} 해제`);
+          showToast(`${InventoryService.getItemDisplayName(item, { forceShowReinforceLevel: InventoryService.isWeapon(item) })} 해제`);
         } catch (error) {
           showToast(error.message, true);
         }
@@ -3983,7 +4273,11 @@
     const target = getElement("menu-shop-list");
     const statusTarget = getElement("menu-shop-status");
     const shopState = syncShopState(false);
-    const shopCategory = appState.shopView.category === "consumable" ? "consumable" : "equipment";
+    const shopCategory = appState.shopView.category === "consumable"
+      ? "consumable"
+      : appState.shopView.category === "inventory"
+        ? "inventory"
+        : "equipment";
     const lineupIds = shopState && Array.isArray(shopState.lineupIds)
       ? shopState.lineupIds
       : [];
@@ -3991,22 +4285,28 @@
       .map((productId) => InventoryService.SHOP_CATALOG.find((product) => product.id === productId))
       .filter((product) => product && InventoryService.isAvailableInShop(product));
     const filteredProducts = lineupProducts.filter((product) => (
-      (
-        shopCategory === "consumable"
-          ? InventoryService.isConsumable(product)
-          : InventoryService.isEquipment(product)
-      )
+      shopCategory === "consumable"
+        ? InventoryService.isConsumable(product)
+        : InventoryService.isEquipment(product)
     ));
-    const totalProducts = filteredProducts.length;
+    const ownedItems = InventoryService.sortInventory(
+      (appState.saveData && appState.saveData.inventory ? appState.saveData.inventory : []).filter((item) => !InventoryService.isMisc(item)).slice(),
+      "rarity"
+    );
+    const visibleEntries = shopCategory === "inventory" ? ownedItems : filteredProducts;
+    const totalProducts = visibleEntries.length;
     const totalPages = Math.max(1, Math.ceil(totalProducts / SHOP_PAGE_SIZE));
     const currentPage = Math.max(1, Math.min(totalPages, Number(appState.shopView.page || 1)));
     const pageStart = (currentPage - 1) * SHOP_PAGE_SIZE;
-    const visibleProducts = filteredProducts.slice(pageStart, pageStart + SHOP_PAGE_SIZE);
+    const visibleProducts = visibleEntries.slice(pageStart, pageStart + SHOP_PAGE_SIZE);
 
     appState.shopView.page = currentPage;
     syncShopCategoryTabs();
 
     if (statusTarget) {
+      const affordableCount = visibleEntries.filter((entry) => (
+        shopCategory === "inventory" || InventoryService.getBuyPrice(entry) <= (appState.saveData ? appState.saveData.partyGold : 0)
+      )).length;
       const nextRefreshText = shopState && shopState.nextRefreshAt
         ? `${new Date(shopState.nextRefreshAt).toLocaleString("ko-KR")} (${formatRemainingRefresh(shopState.nextRefreshAt)} 후)`
         : "알 수 없음";
@@ -4015,24 +4315,48 @@
         `<p class="status-line">인벤토리 수: ${appState.saveData && appState.saveData.inventory ? appState.saveData.inventory.length : 0}개</p>`,
         `<p class="status-line">소모품 수: ${appState.saveData && appState.saveData.inventory ? appState.saveData.inventory.filter((item) => InventoryService.isConsumable(item)).length : 0}개</p>`,
         `<p class="status-line">상품 수: ${totalProducts}개 / 페이지 ${currentPage} / ${totalPages}</p>`,
-        `<p class="status-line">다음 갱신: ${nextRefreshText}</p>`
+        `<p class="status-line">${shopCategory === "inventory" ? "판매 정리" : "현재 분류"}: ${shopCategory === "inventory" ? "내 인벤토리 판매" : shopCategory === "consumable" ? "소모품 보급" : "장비 보급"} / 즉시 이용 ${affordableCount}개</p>`,
+        shopCategory === "inventory"
+          ? `<p class="status-line">판매 가능: ${ownedItems.filter((item) => !item.equippedBy).length}개 / 장착 중 ${ownedItems.filter((item) => !!item.equippedBy).length}개</p>`
+          : `<p class="status-line">다음 갱신: ${nextRefreshText}</p>`
       ].join("");
     }
 
-    if (!filteredProducts.length) {
-      target.innerHTML = '<article class="shop-card"><p>선택한 분류의 상품이 없습니다.</p></article>';
+    if (!visibleEntries.length) {
+      target.innerHTML = `<article class="shop-card"><p>${shopCategory === "inventory" ? "판매할 수 있는 아이템이 없습니다." : "선택한 분류의 상품이 없습니다."}</p></article>`;
       return;
     }
 
-    target.innerHTML = visibleProducts.map((product) => {
+    target.innerHTML = visibleProducts.map((entry) => {
+      if (shopCategory === "inventory") {
+        const item = entry;
+        const rarity = InventoryService.getRarityMeta(item.rarity);
+        const sellPrice = InventoryService.getSellPrice(item);
+        const disabled = item.equippedBy ? "disabled" : "";
+
+        return [
+          `<article class="shop-card compact-commerce-card owned-shop-card rarity-${item.rarity} interactive-summary-card" data-open-detail="shop-sell" data-detail-id="${item.id}">`,
+          '  <div class="owned-shop-card-copy">',
+          `    <div class="item-title-row"><strong class="card-title">${item.name}</strong><span class="card-subtitle">${rarity.label}</span></div>`,
+          "  </div>",
+          '  <div class="owned-shop-card-actions">',
+          `    <span class="owned-shop-card-price">판매 ${sellPrice}G</span>`,
+          `    <button class="primary-button small-button inventory-meta-action" type="button" data-shop-sell="${item.id}" ${disabled}>${item.equippedBy ? "장착 중" : "판매"}</button>`,
+          "  </div>",
+          "</article>"
+        ].join("");
+      }
+
+      const product = entry;
       const rarity = InventoryService.getRarityMeta(product.rarity);
-      const disabled = !appState.saveData || appState.saveData.partyGold < product.price ? "disabled" : "";
+      const buyPrice = InventoryService.getBuyPrice(product);
+      const disabled = !appState.saveData || appState.saveData.partyGold < buyPrice ? "disabled" : "";
       return [
         `<article class="shop-card compact-commerce-card rarity-${product.rarity} interactive-summary-card" data-open-detail="shop" data-detail-id="${product.id}">`,
         `  <div class="item-title-row"><strong class="card-title">${product.name}</strong><span class="card-subtitle">${rarity.label}</span></div>`,
         '  <div class="inventory-meta">',
         `    <span class="meta-pill">${InventoryService.getTypeLabel(product.type || product.slot)}</span>`,
-        `    <span class="meta-pill is-gold">${product.price}G</span>`,
+        `    <span class="meta-pill is-gold">${buyPrice}G</span>`,
         `    <button class="primary-button small-button inventory-meta-action" type="button" data-shop-buy="${product.id}" ${disabled}>구매</button>`,
         "  </div>",
         "  <p>클릭 시 상세</p>",
@@ -4081,6 +4405,23 @@
         }
       });
     });
+
+    target.querySelectorAll("[data-shop-sell]").forEach((button) => {
+      button.addEventListener("click", (event) => {
+        event.stopPropagation();
+        try {
+          const result = InventoryService.sellItem(appState.saveData, button.dataset.shopSell);
+          persistSession(appState.saveData, appState.settings);
+          appState.shopView.page = Math.max(1, Math.min(
+            Math.ceil(Math.max(1, ((appState.saveData && appState.saveData.inventory) || []).length) / SHOP_PAGE_SIZE),
+            Number(appState.shopView.page || 1)
+          ));
+          showToast(`${result.item.name} 판매 +${result.sellPrice}G`);
+        } catch (error) {
+          showToast(error.message, true);
+        }
+      });
+    });
   }
 
   function renderTavern() {
@@ -4104,12 +4445,19 @@
       : "알 수 없음";
 
     if (statusTarget) {
+      const lineup = (tavern && tavern.lineup) || [];
+      const availableCandidates = lineup.filter((candidate) => !candidate.recruitedAt);
+      const topRank = availableCandidates
+        .map((candidate) => candidate.guildRank || "D")
+        .sort((left, right) => getGuildRankSortValue(right) - getGuildRankSortValue(left))[0] || "없음";
       statusTarget.innerHTML = [
         '<div class="tavern-status-grid">',
         `  <p class="status-line is-gold">보유 골드: ${appState.saveData.partyGold}G</p>`,
         `  <p class="status-line">파티 리더: ${getLeaderUnit(appState.saveData) ? getLeaderUnit(appState.saveData).name : "없음"}</p>`,
-        `  <p class="status-line">현재 명단: ${Math.min(4, tavern && tavern.lineup ? tavern.lineup.length : 0)}명</p>`,
-        `  <p class="status-line">길드 대기열: ${Math.min(4, tavern && tavern.lineup ? tavern.lineup.filter((candidate) => !candidate.recruitedAt).length : 0)}명</p>`,
+        `  <p class="status-line">현재 명단: ${Math.min(4, lineup.length)}명</p>`,
+        `  <p class="status-line">길드 대기열: ${Math.min(4, availableCandidates.length)}명</p>`,
+        `  <p class="status-line">오늘 무료 새로고침: ${Math.max(0, manualState.remaining || 0)}회</p>`,
+        `  <p class="status-line">현재 최고 등급: ${topRank}</p>`,
         `  <p class="status-line tavern-status-wide">다음 교대: ${nextRefreshText}</p>`,
         '</div>'
       ].join("");
@@ -4131,17 +4479,37 @@
       const signaturePassives = getSignaturePassiveDefinitions(unit, candidate);
       const potentialMeta = StatsService.getPotentialMeta(unit);
       const isSupreme = candidate.guildRank === "SSS";
+      const combatSummary = `HP ${unit.maxHp} / STR ${unit.str} / SPD ${unit.spd} / DEF ${unit.def}`;
+      const roleSummary = unit.mov >= 5
+        ? "기동력 우수"
+        : unit.def >= unit.spd
+          ? "전열 유지형"
+          : "후열 지원형";
+      const signatureSummary = signaturePassives.length
+        ? signaturePassives.slice(0, 2).map((skill) => skill.name).join(" / ")
+        : "고유 패시브 없음";
 
       return [
         `<article class="shop-card tavern-card rarity-${candidate.rarity} ${isSupreme ? "is-supreme-candidate" : ""} interactive-summary-card" data-open-detail="tavern" data-detail-id="${candidate.id}">`,
-        `  <div class="item-title-row"><strong class="card-title">${unit.name}</strong><span class="card-subtitle">${unit.className}</span></div>`,
-        '  <div class="inventory-meta">',
-        `    <span class="meta-pill ${rankClass}">${candidate.guildRank}</span>`,
-        `    <span class="meta-pill">Lv.${unit.level}</span>`,
-        `    <span class="meta-pill is-violet">잠재 ${potentialMeta.label}</span>`,
-        `    <span class="meta-pill ${signaturePassives.length ? "is-cyan" : "is-muted"}">고유 ${signaturePassives.length}</span>`,
-        `    <span class="meta-pill is-gold">${candidate.hireCost}G</span>`,
-        '    <span class="inventory-click-hint">상세보기는 클릭</span>',
+        '  <div class="tavern-card-header">',
+        `    <div class="item-title-row"><strong class="card-title">${unit.name}</strong><span class="card-subtitle">${unit.className}</span></div>`,
+        '    <div class="inventory-meta tavern-card-meta">',
+        `      <span class="meta-pill ${rankClass}">${candidate.guildRank}</span>`,
+        `      <span class="meta-pill">Lv.${unit.level}</span>`,
+        `      <span class="meta-pill is-violet">잠재 ${potentialMeta.label}</span>`,
+        `      <span class="meta-pill ${signaturePassives.length ? "is-cyan" : "is-muted"}">고유 ${signaturePassives.length}</span>`,
+        `      <span class="meta-pill is-gold">${candidate.hireCost}G</span>`,
+        '    </div>',
+        '  </div>',
+        '  <div class="tavern-card-body">',
+        '    <div class="tavern-card-stat-grid">',
+        `      <span class="detail-token is-stat"><strong>전투</strong><small>${combatSummary}</small></span>`,
+        `      <span class="detail-token is-stat"><strong>성향</strong><small>${roleSummary}</small></span>`,
+        '    </div>',
+        `    <p class="tavern-card-copy">${signatureSummary}</p>`,
+        '  </div>',
+        '  <div class="button-row tavern-card-actions">',
+        `    <span class="inventory-click-hint">${recruited ? "이미 영입된 모험가" : "상세보기는 카드 클릭"}</span>`,
         `    <button class="primary-button small-button inventory-meta-action" type="button" data-recruit-adventurer="${candidate.id}" ${recruited ? "disabled" : ""}>${recruited ? "영입 완료" : "영입"}</button>`,
         "  </div>",
         "</article>"
@@ -4173,40 +4541,701 @@
     });
   }
 
-  function renderSettingsList() {
-    const target = getElement("menu-settings-list");
-    const settings = appState.settings || {};
-    const settingDescriptors = [
-      { key: "gridVisible", label: "격자선 표시", value: settings.gridVisible ? "활성" : "비활성" },
-      { key: "actionLogVisible", label: "행동 로그 표시", value: settings.actionLogVisible ? "활성" : "비활성" },
-      { key: "confirmEndTurn", label: "턴 종료 확인", value: settings.confirmEndTurn ? "활성" : "비활성" }
-    ];
+  function buildDispatchStarRating(starRating) {
+    const starCount = Math.max(1, Math.min(5, Number(starRating || 1)));
+    return `<span class="dispatch-star-rating" aria-label="${starCount}성">${"★".repeat(starCount)}</span>`;
+  }
 
-    target.innerHTML = settingDescriptors.map((setting) => [
-      '<article class="settings-card">',
-      `  <div class="item-title-row"><strong class="card-title">${setting.label}</strong><span class="card-subtitle">전투 UI</span></div>`,
-      `  <div class="settings-meta"><span class="meta-pill ${setting.value === "활성" ? "is-cyan" : "is-muted"}">${setting.value}</span></div>`,
-      '  <div class="button-row">',
-      `    <button class="ghost-button small-button" type="button" data-toggle-setting="${setting.key}">토글</button>`,
+  function formatDispatchMemberNames(unitIds) {
+    const names = (unitIds || []).map((unitId) => getUnitNameById(unitId)).filter(Boolean);
+    return names.length ? names.join(", ") : "배정 없음";
+  }
+
+  function getDispatchResultLabel(result) {
+    if (result === "jackpot") {
+      return "잭팟";
+    }
+
+    if (result === "great") {
+      return "대성공";
+    }
+
+    if (result === "fail") {
+      return "조기 철수";
+    }
+
+    return "성공";
+  }
+
+  function buildDispatchMissionRewardPreview(mission, rewardPreview) {
+    if (!rewardPreview) {
+      return `EXP ${mission.expRange[0]}~${mission.expRange[1]} / ${mission.goldRange[0]}~${mission.goldRange[1]}G / 재련석 ${Math.round((mission.refineStoneChance || 0) * 100)}% / 장비 ${Math.round((mission.equipmentChance || 0) * 100)}%`;
+    }
+
+    const equipmentMin = Math.round((rewardPreview.equipmentChanceRange && rewardPreview.equipmentChanceRange[0] || 0) * 100);
+    const equipmentMax = Math.round((rewardPreview.equipmentChanceRange && rewardPreview.equipmentChanceRange[1] || 0) * 100);
+    const consumableMin = Math.round((rewardPreview.consumableChanceRange && rewardPreview.consumableChanceRange[0] || 0) * 100);
+    const consumableMax = Math.round((rewardPreview.consumableChanceRange && rewardPreview.consumableChanceRange[1] || 0) * 100);
+    const refineStoneMin = Math.round((rewardPreview.refineStoneChanceRange && rewardPreview.refineStoneChanceRange[0] || 0) * 100);
+    const refineStoneMax = Math.round((rewardPreview.refineStoneChanceRange && rewardPreview.refineStoneChanceRange[1] || 0) * 100);
+    const jackpotNote = rewardPreview.guaranteedItemCount > 0
+      ? ` / 잭팟 전리품 ${rewardPreview.guaranteedItemCount}개`
+      : "";
+
+    return `EXP ${rewardPreview.expRange[0]}~${rewardPreview.expRange[1]} / ${rewardPreview.goldRange[0]}~${rewardPreview.goldRange[1]}G / 재련석 ${refineStoneMin}~${refineStoneMax}% / 소모품 ${consumableMin}~${consumableMax}% / 장비 ${equipmentMin}~${equipmentMax}%${jackpotNote}`;
+  }
+
+  function getDispatchResultBandForSnapshot(mission, snapshot) {
+    const ratio = Number(snapshot && snapshot.partyDispatchPower || 0) / Math.max(1, Number(mission && mission.requiredPower || 1));
+
+    if (ratio < 0.78) {
+      return ["fail", "success"];
+    }
+
+    if (ratio < 1.05) {
+      return ["success", "great"];
+    }
+
+    if (ratio < 1.2) {
+      return ["success", "great", "jackpot"];
+    }
+
+    return ["great", "jackpot"];
+  }
+
+  function getDispatchMissionRecord(dispatch, missionId) {
+    if (!dispatch || !missionId) {
+      return null;
+    }
+
+    const completedMission = (dispatch.completedMissions || []).find((mission) => mission.id === missionId);
+    if (completedMission) {
+      return { status: "completed", mission: completedMission };
+    }
+
+    const activeMission = (dispatch.activeMissions || []).find((mission) => mission.id === missionId);
+    if (activeMission) {
+      return { status: "active", mission: activeMission };
+    }
+
+    const availableMission = (dispatch.availableMissions || []).find((mission) => mission.id === missionId);
+    if (availableMission) {
+      return { status: "available", mission: availableMission };
+    }
+
+    return null;
+  }
+
+  function buildDispatchMissionGroup(title, status, missions, selectedMissionId) {
+    if (!missions.length) {
+      return "";
+    }
+
+    return [
+      '<div class="dispatch-mission-group">',
+      `  <div class="dispatch-mission-group-title">${title}</div>`,
+      missions.map((mission) => buildDispatchMissionCard({ status, mission }, mission.id === selectedMissionId)).join(""),
+      '</div>'
+    ].join("");
+  }
+
+  function buildDispatchMissionCard(record, isSelected) {
+    const mission = record.mission;
+    const statusLabel = record.status === "active"
+      ? "진행 중"
+      : record.status === "completed"
+        ? "완료 대기"
+        : "가용";
+    const statusClass = record.status === "active"
+      ? "is-cyan"
+      : record.status === "completed"
+        ? (mission.result === "fail" ? "is-crimson" : "is-gold")
+        : "is-muted";
+    const statusDetail = record.status === "active"
+      ? formatRemainingDuration(mission.expectedReturnAt)
+      : record.status === "completed"
+        ? getDispatchResultLabel(mission.result)
+        : `권장 ${mission.requiredPower}`;
+    const copy = record.status === "active"
+      ? `파견대 ${formatDispatchMemberNames(mission.unitIds)}`
+      : record.status === "completed"
+        ? mission.resultLog
+        : mission.summary;
+    const subcopy = record.status === "completed"
+      ? `${mission.rewards.gold}G / ${mission.rewards.expPerUnit} EXP / 전리품 ${((mission.rewards && mission.rewards.items) || []).length}개`
+      : record.status === "active"
+        ? "리스트에서 진행 상태가 자동 갱신됩니다."
+      : `보상 ${mission.expRange[0]}~${mission.expRange[1]} EXP / ${mission.goldRange[0]}~${mission.goldRange[1]}G / 기타 보상: 재련석 가능`;
+
+    return [
+      `<button class="shop-card dispatch-mission-card is-${record.status} ${isSelected ? "is-selected" : ""}" type="button" data-dispatch-mission="${mission.id}">`,
+      '  <div class="item-title-row dispatch-mission-header">',
+      '    <div class="dispatch-mission-title-block">',
+      `      <strong class="card-title">${mission.missionName}</strong>`,
+      `      <span class="card-subtitle">${formatDurationHours(mission.durationHours)}</span>`,
+      '    </div>',
+      `    <div class="inventory-meta dispatch-mission-meta"><span class="meta-pill is-gold">${buildDispatchStarRating(mission.starRating)}</span><span class="meta-pill ${statusClass}">${statusLabel}</span><span class="meta-pill">${statusDetail}</span></div>`,
       "  </div>",
-      "</article>"
-    ].join("")).concat([
-      '<article class="settings-card">',
-      '  <div class="item-title-row"><strong class="card-title">전술 시점</strong><span class="card-subtitle">고정 탑다운</span></div>',
-      '  <div class="settings-meta"><span class="meta-pill is-gold">회전 없음</span><span class="meta-pill">던전보드 고정</span></div>',
-      '  <p class="muted-text">입구, 출구, 특수 방 표식을 기준으로 전장을 읽는 방식입니다.</p>',
-      "</article>"
-    ]).join("");
+      `  <p class="dispatch-card-copy">${copy}</p>`,
+      `  <p class="dispatch-card-footnote">${subcopy}</p>`,
+      "</button>"
+    ].join("");
+  }
 
-    target.querySelectorAll("[data-toggle-setting]").forEach((button) => {
+  function buildDispatchCandidateCard(unit, isSelected) {
+    const power = DispatchService.calculateUnitDispatchPower(appState.saveData, unit);
+    const potentialMeta = StatsService.getPotentialMeta(unit);
+    return [
+      `<button class="inventory-card dispatch-candidate-card ${isSelected ? "is-selected" : ""}" type="button" data-dispatch-unit="${unit.id}">`,
+      `  <div class="item-title-row"><strong class="card-title">${unit.name}</strong><span class="card-subtitle">${unit.className}</span></div>`,
+      `  <div class="inventory-meta"><span class="meta-pill">Lv.${unit.level}</span><span class="meta-pill is-violet">잠재 ${potentialMeta.label}</span><span class="meta-pill is-gold">전력 ${power}</span></div>`,
+      `  <p>${isSelected ? "선택된 파견 인원입니다." : "클릭해 파견 인원에 추가합니다."}</p>`,
+      "</button>"
+    ].join("");
+  }
+
+  function buildDispatchActiveMissionCard(mission) {
+    return [
+      '<article class="summary-card dispatch-progress-card">',
+      `  <div class="item-title-row"><strong class="card-title">${mission.missionName}</strong><span class="card-subtitle">${formatDurationHours(mission.durationHours)}</span></div>`,
+      `  <div class="inventory-meta"><span class="meta-pill is-gold">${buildDispatchStarRating(mission.starRating)}</span><span class="meta-pill is-cyan">${formatRemainingDuration(mission.expectedReturnAt)}</span></div>`,
+      `  <p>파견대: ${formatDispatchMemberNames(mission.unitIds)}</p>`,
+      '  <p>파견 시작 후 완료 전까지 중도 취소할 수 없습니다.</p>',
+      '</article>'
+    ].join("");
+  }
+
+  function buildDispatchCompletedMissionCard(mission) {
+    const rewardItems = (mission.rewards && mission.rewards.items) || [];
+    return [
+      `<article class="shop-card dispatch-completed-card result-${mission.result}">`,
+      `  <div class="item-title-row"><strong class="card-title">${mission.missionName}</strong><span class="card-subtitle">${getDispatchResultLabel(mission.result)}</span></div>`,
+      `  <div class="inventory-meta"><span class="meta-pill is-gold">${buildDispatchStarRating(mission.starRating)}</span><span class="meta-pill">${mission.rewards.expPerUnit} EXP</span><span class="meta-pill is-gold">${mission.rewards.gold}G</span><span class="meta-pill ${rewardItems.length ? "is-cyan" : "is-muted"}">전리품 ${rewardItems.length}개</span></div>`,
+      `  <p>${mission.resultLog}</p>`,
+      `  <p>파견대: ${formatDispatchMemberNames(mission.unitIds)}</p>`,
+      `  <div class="button-row"><button class="primary-button small-button" type="button" data-dispatch-claim="${mission.id}">수령</button></div>`,
+      "</article>"
+    ].join("");
+  }
+
+  function buildDispatchSlotMarkup(unitId, slotIndex) {
+    const unit = unitId && appState.saveData && appState.saveData.roster
+      ? appState.saveData.roster.find((entry) => entry.id === unitId) || null
+      : null;
+
+    if (!unit) {
+      return [
+        '<article class="inventory-card dispatch-slot-card is-empty">',
+        `  <div class="item-title-row"><strong class="card-title">${slotIndex + 1}번 슬롯</strong><span class="card-subtitle">EMPTY</span></div>`,
+        '  <p>후방 대기 중 모험가를 선택해 파견대를 구성합니다.</p>',
+        '</article>'
+      ].join("");
+    }
+
+    return [
+      '<article class="inventory-card dispatch-slot-card">',
+      `  <div class="item-title-row"><strong class="card-title">${unit.name}</strong><span class="card-subtitle">${unit.className}</span></div>`,
+      `  <div class="inventory-meta"><span class="meta-pill">Lv.${unit.level}</span><span class="meta-pill is-gold">전력 ${DispatchService.calculateUnitDispatchPower(appState.saveData, unit)}</span></div>`,
+      '  <div class="button-row">',
+      `    <button class="ghost-button small-button" type="button" data-dispatch-remove-unit="${unit.id}">제외</button>`,
+      '  </div>',
+      '</article>'
+    ].join("");
+  }
+
+  function buildDispatchCompletedRewardSummary(mission) {
+    const rewardItems = ((mission.rewards && mission.rewards.items) || []).map((item) => formatRewardItemLabel(item)).filter(Boolean);
+    return rewardItems.length ? rewardItems.slice(0, 3).join(", ") : "추가 전리품 없음";
+  }
+
+  function buildDispatchSelectedDetail(record, preview, draftUnitIds, availableUnits) {
+    if (!record) {
+      return '<div class="inventory-card"><p>좌측 리스트에서 임무를 선택하세요.</p></div>';
+    }
+
+    const mission = record.mission;
+
+    if (record.status === "active") {
+      const activeRewardPreview = DispatchService.buildRewardPreview(
+        mission,
+        mission.dispatchSnapshot,
+        getDispatchResultBandForSnapshot(mission, mission.dispatchSnapshot)
+      );
+      return [
+        '    <div class="item-title-row dispatch-section-header dispatch-planner-header">',
+        '      <div class="dispatch-planner-title-block">',
+        `        <strong class="card-title">${mission.missionName}</strong>`,
+        `        <span class="card-subtitle">${formatDurationHours(mission.durationHours)}</span>`,
+        '      </div>',
+        `      <div class="inventory-meta dispatch-planner-meta"><span class="meta-pill is-gold">${buildDispatchStarRating(mission.starRating)}</span><span class="meta-pill is-cyan">진행 중</span><span class="meta-pill">${formatRemainingDuration(mission.expectedReturnAt)}</span></div>`,
+        '    </div>',
+        `    <p>${mission.summary}</p>`,
+        `    <p>파견대: ${formatDispatchMemberNames(mission.unitIds)}</p>`,
+        `    <p>예상 보상 범위: ${buildDispatchMissionRewardPreview(mission, activeRewardPreview)}</p>`,
+        '    <p class="dispatch-lock-copy">파견 시작 후 완료 전까지 중도 취소할 수 없습니다. 리스트에서 남은 시간을 확인할 수 있습니다.</p>'
+      ].join("");
+    }
+
+    if (record.status === "completed") {
+      const rewardItems = (mission.rewards && mission.rewards.items) || [];
+      return [
+        '    <div class="item-title-row dispatch-section-header dispatch-planner-header">',
+        '      <div class="dispatch-planner-title-block">',
+        `        <strong class="card-title">${mission.missionName}</strong>`,
+        `        <span class="card-subtitle">${getDispatchResultLabel(mission.result)}</span>`,
+        '      </div>',
+        `      <div class="inventory-meta dispatch-planner-meta"><span class="meta-pill is-gold">${buildDispatchStarRating(mission.starRating)}</span><span class="meta-pill">${mission.rewards.expPerUnit} EXP</span><span class="meta-pill is-gold">${mission.rewards.gold}G</span><span class="meta-pill ${rewardItems.length ? "is-cyan" : "is-muted"}">전리품 ${rewardItems.length}개</span></div>`,
+        '    </div>',
+        `    <p>${mission.resultLog}</p>`,
+        `    <p>파견대: ${formatDispatchMemberNames(mission.unitIds)}</p>`,
+        `    <p>전리품: ${buildDispatchCompletedRewardSummary(mission)}</p>`,
+        '    <div class="button-row dispatch-action-row">',
+        `      <button class="primary-button small-button" type="button" data-dispatch-claim="${mission.id}">보상 수령</button>`,
+        '    </div>'
+      ].join("");
+    }
+
+    const canStart = draftUnitIds.length >= DispatchService.MIN_DISPATCH_PARTY_SIZE
+      && draftUnitIds.length <= DispatchService.MAX_DISPATCH_PARTY_SIZE;
+
+    return [
+      '    <div class="item-title-row dispatch-section-header dispatch-planner-header">',
+      '      <div class="dispatch-planner-title-block">',
+      `        <strong class="card-title">${mission.missionName}</strong>`,
+      `        <span class="card-subtitle">${formatDurationHours(mission.durationHours)}</span>`,
+      '      </div>',
+      `      <div class="inventory-meta dispatch-planner-meta"><span class="meta-pill is-gold">${buildDispatchStarRating(mission.starRating)}</span><span class="meta-pill">권장 전력 ${mission.requiredPower}</span><span class="meta-pill ${preview ? getDispatchOutcomeTone(preview.summary) : "is-muted"}">${preview ? preview.summary : "예상 결과 없음"}</span></div>`,
+      '    </div>',
+      `    <p>${mission.summary}</p>`,
+      preview && preview.tags && preview.tags.length
+        ? `    <div class="inventory-meta">${preview.tags.map((tag) => `<span class="meta-pill is-muted">${tag}</span>`).join("")}</div>`
+        : "",
+      `    <p>예상 보상 범위: ${buildDispatchMissionRewardPreview(mission, preview && preview.rewardPreview)}</p>`,
+      preview && preview.rewardPreview && preview.rewardPreview.scaling
+        ? `    <p>현재 편성 기준: 평균 Lv.${Math.round(preview.rewardPreview.scaling.averageLevel || 0)} / 파견 전력 ${preview.snapshot ? preview.snapshot.partyDispatchPower : 0} / 인원 ${preview.rewardPreview.scaling.memberCount}명</p>`
+        : "",
+      '    <p class="dispatch-lock-copy">파견 시작 후 완료 전까지 중도 취소할 수 없습니다. 파견 중 유닛은 출전 편성, 방출, 중복 파견이 불가합니다.</p>',
+      `    <div class="dispatch-slot-grid">${[0, 1, 2].map((index) => buildDispatchSlotMarkup(draftUnitIds[index] || null, index)).join("")}</div>`,
+      '    <div class="item-title-row dispatch-section-header"><strong class="card-title">후방 대기 인원</strong><span class="card-subtitle">최소 2명 / 최대 3명</span></div>',
+      availableUnits.length
+        ? `    <div class="dispatch-candidate-list">${availableUnits.map((unit) => buildDispatchCandidateCard(unit, draftUnitIds.includes(unit.id))).join("")}</div>`
+        : '    <div class="inventory-card"><p>현재 파견 가능한 후방 인원이 없습니다.</p></div>',
+      '    <div class="button-row dispatch-action-row">',
+      `      <button class="primary-button small-button" type="button" data-dispatch-start="true" ${canStart ? "" : "disabled"}>파견 시작</button>`,
+      `      <button class="ghost-button small-button" type="button" data-dispatch-clear="true" ${draftUnitIds.length ? "" : "disabled"}>선택 초기화</button>`,
+      '    </div>'
+    ].filter(Boolean).join("");
+  }
+
+  function renderDispatchPanel() {
+    const root = getElement("menu-dispatch-root");
+
+    if (!root || !appState.saveData || !DispatchService) {
+      return;
+    }
+
+    const dispatch = syncDispatchState(false) || appState.saveData.dispatch || {};
+    const refreshState = getDispatchRefreshState();
+    const availableUnits = DispatchService.getAvailableUnits(appState.saveData)
+      .slice()
+      .sort((left, right) => DispatchService.calculateUnitDispatchPower(appState.saveData, right) - DispatchService.calculateUnitDispatchPower(appState.saveData, left));
+    const availableMissions = dispatch.availableMissions || [];
+    const activeMissions = dispatch.activeMissions || [];
+    const completedMissions = dispatch.completedMissions || [];
+    const selectedMissionRecord = ensureDispatchMissionSelection();
+    const selectedMission = selectedMissionRecord && selectedMissionRecord.status === "available"
+      ? selectedMissionRecord.mission
+      : null;
+    const draftUnitIds = (appState.dispatchView.draftUnitIds || []).slice(0, DispatchService.MAX_DISPATCH_PARTY_SIZE);
+    const preview = selectedMission
+      ? DispatchService.getMissionOutcomePreview(appState.saveData, selectedMission, draftUnitIds)
+      : null;
+
+    root.innerHTML = [
+      '<div class="summary-card dispatch-status-card">',
+      '  <div class="dispatch-status-grid">',
+      `    <div><strong>${availableUnits.length}</strong><span>가용 인원</span></div>`,
+      `    <div><strong>${activeMissions.length}</strong><span>진행 중 파견</span></div>`,
+      `    <div><strong>${completedMissions.length}</strong><span>완료 대기</span></div>`,
+      `    <div><strong>${refreshState.remaining}/${refreshState.limit}</strong><span>오늘 남은 갱신</span></div>`,
+      '  </div>',
+      '</div>',
+      '<div class="dispatch-layout">',
+      '  <section class="panel dispatch-section dispatch-mission-section">',
+      '    <div class="item-title-row dispatch-section-header"><strong class="card-title">임무 보드</strong>',
+      `      <div class="inventory-meta"><span class="meta-pill">가용 ${availableMissions.length}</span><span class="meta-pill is-cyan">진행 ${activeMissions.length}</span><span class="meta-pill is-gold">대기 ${completedMissions.length}</span><button class="secondary-button small-button inventory-meta-action" type="button" data-dispatch-refresh="true" ${refreshState.remaining <= 0 ? "disabled" : ""}>임무 갱신</button>${completedMissions.length ? '<button class="ghost-button small-button inventory-meta-action" type="button" data-dispatch-claim-all="true">전체 수령</button>' : ""}</div>`,
+      '    </div>',
+      (availableMissions.length || activeMissions.length || completedMissions.length)
+        ? [
+            '    <div class="dispatch-mission-list">',
+            buildDispatchMissionGroup("완료 대기", "completed", completedMissions, appState.dispatchView.selectedMissionId),
+            buildDispatchMissionGroup("진행 중", "active", activeMissions, appState.dispatchView.selectedMissionId),
+            buildDispatchMissionGroup("가용 임무", "available", availableMissions, appState.dispatchView.selectedMissionId),
+            '    </div>'
+          ].join("")
+        : '    <div class="shop-card"><p>현재 배정 가능한 임무가 없습니다.</p></div>',
+      '  </section>',
+      '  <section class="panel dispatch-section dispatch-planner-section">',
+      buildDispatchSelectedDetail(selectedMissionRecord, preview, draftUnitIds, availableUnits),
+      '  </section>',
+      '</div>'
+    ].join("");
+
+    root.querySelectorAll("[data-dispatch-mission]").forEach((button) => {
       button.addEventListener("click", () => {
-        const key = button.dataset.toggleSetting;
-        appState.settings[key] = !appState.settings[key];
-        persistSession(appState.saveData, appState.settings);
-        showToast(`${button.parentElement.parentElement.querySelector("strong").textContent} 설정 변경`);
+        appState.dispatchView.selectedMissionId = button.dataset.dispatchMission;
+        appState.dispatchView.draftUnitIds = [];
+        renderDispatchPanel();
       });
     });
 
+    root.querySelectorAll("[data-dispatch-unit]").forEach((button) => {
+      button.addEventListener("click", () => {
+        const unitId = button.dataset.dispatchUnit;
+        const nextDraft = (appState.dispatchView.draftUnitIds || []).slice();
+        const existingIndex = nextDraft.indexOf(unitId);
+
+        if (existingIndex >= 0) {
+          nextDraft.splice(existingIndex, 1);
+        } else {
+          if (nextDraft.length >= DispatchService.MAX_DISPATCH_PARTY_SIZE) {
+            showToast(`파견 인원은 최대 ${DispatchService.MAX_DISPATCH_PARTY_SIZE}명까지 선택할 수 있습니다.`, true);
+            return;
+          }
+          nextDraft.push(unitId);
+        }
+
+        appState.dispatchView.draftUnitIds = nextDraft;
+        renderDispatchPanel();
+      });
+    });
+
+    root.querySelectorAll("[data-dispatch-remove-unit]").forEach((button) => {
+      button.addEventListener("click", () => {
+        appState.dispatchView.draftUnitIds = (appState.dispatchView.draftUnitIds || []).filter((unitId) => unitId !== button.dataset.dispatchRemoveUnit);
+        renderDispatchPanel();
+      });
+    });
+
+    root.querySelectorAll("[data-dispatch-refresh]").forEach((button) => {
+      button.addEventListener("click", () => {
+        try {
+          const refreshResult = DispatchService.useRefresh(appState.saveData);
+          appState.dispatchView.selectedMissionId = null;
+          appState.dispatchView.draftUnitIds = [];
+          persistSession(appState.saveData, appState.settings);
+          showToast(`파견 임무 목록을 갱신했습니다. (${refreshResult.refreshState.remaining}/${refreshResult.refreshState.limit})`);
+        } catch (error) {
+          showToast(error.message, true);
+        }
+      });
+    });
+
+    root.querySelectorAll("[data-dispatch-start]").forEach((button) => {
+      button.addEventListener("click", () => {
+        if (!selectedMission) {
+          return;
+        }
+
+        try {
+          const startedMission = DispatchService.startMission(appState.saveData, selectedMission.id, appState.dispatchView.draftUnitIds || []);
+          appState.dispatchView.selectedMissionId = null;
+          appState.dispatchView.draftUnitIds = [];
+          persistSession(appState.saveData, appState.settings);
+          showToast(`${startedMission.missionName} 파견을 시작했습니다. ${formatDurationHours(startedMission.durationHours)} 후 복귀 예정입니다.`);
+        } catch (error) {
+          showToast(error.message, true);
+        }
+      });
+    });
+
+    root.querySelectorAll("[data-dispatch-clear]").forEach((button) => {
+      button.addEventListener("click", () => {
+        appState.dispatchView.draftUnitIds = [];
+        renderDispatchPanel();
+      });
+    });
+
+    root.querySelectorAll("[data-dispatch-claim]").forEach((button) => {
+      button.addEventListener("click", () => {
+        try {
+          const result = DispatchService.claimMission(appState.saveData, button.dataset.dispatchClaim);
+          persistSession(appState.saveData, appState.settings);
+          showToast(`${result.mission.missionName} 보상을 수령했습니다. +${result.mission.rewards.gold}G`);
+        } catch (error) {
+          showToast(error.message, true);
+        }
+      });
+    });
+
+    root.querySelectorAll("[data-dispatch-claim-all]").forEach((button) => {
+      button.addEventListener("click", () => {
+        try {
+          const result = DispatchService.claimAllCompleted(appState.saveData);
+          persistSession(appState.saveData, appState.settings);
+          showToast(`완료된 파견 ${result.claimedMissions.length}건의 보상을 모두 수령했습니다.`);
+        } catch (error) {
+          showToast(error.message, true);
+        }
+      });
+    });
+  }
+
+  function getBlacksmithWeapons() {
+    const inventory = (appState.saveData && appState.saveData.inventory) || [];
+
+    return inventory
+      .filter((item) => InventoryService.isWeapon(item))
+      .sort((left, right) => {
+        const leftPreview = InventoryService.getReinforcePreview(appState.saveData, left);
+        const rightPreview = InventoryService.getReinforcePreview(appState.saveData, right);
+        const leftEquipped = left.equippedBy ? 1 : 0;
+        const rightEquipped = right.equippedBy ? 1 : 0;
+
+        if (leftEquipped !== rightEquipped) {
+          return rightEquipped - leftEquipped;
+        }
+
+        const leftAffordable = leftPreview && leftPreview.canReinforce ? 1 : 0;
+        const rightAffordable = rightPreview && rightPreview.canReinforce ? 1 : 0;
+
+        if (leftAffordable !== rightAffordable) {
+          return rightAffordable - leftAffordable;
+        }
+
+        const rarityGap = InventoryService.RARITY_ORDER.indexOf(right.rarity) - InventoryService.RARITY_ORDER.indexOf(left.rarity);
+        if (rarityGap !== 0) {
+          return rarityGap;
+        }
+
+        const leftBaseName = String(left.baseName || left.name || "");
+        const rightBaseName = String(right.baseName || right.name || "");
+
+        if (leftBaseName === rightBaseName) {
+          const reinforceGap = InventoryService.getReinforceLevel(right) - InventoryService.getReinforceLevel(left);
+          if (reinforceGap !== 0) {
+            return reinforceGap;
+          }
+        }
+
+        const reinforceGap = InventoryService.getReinforceLevel(left) - InventoryService.getReinforceLevel(right);
+        if (reinforceGap !== 0) {
+          return reinforceGap;
+        }
+
+        return InventoryService.getItemDisplayName(left, { forceShowReinforceLevel: true })
+          .localeCompare(InventoryService.getItemDisplayName(right, { forceShowReinforceLevel: true }), "ko");
+      });
+  }
+
+  function ensureBlacksmithSelection(weapons) {
+    const availableWeapons = Array.isArray(weapons) ? weapons : [];
+    const currentSelection = availableWeapons.find((item) => item.id === appState.blacksmithView.selectedItemId);
+
+    if (currentSelection) {
+      return currentSelection;
+    }
+
+    const nextSelection = availableWeapons[0] || null;
+    appState.blacksmithView.selectedItemId = nextSelection ? nextSelection.id : null;
+    return nextSelection;
+  }
+
+  function openBlacksmithTutorialModal() {
+    const host = getEquipmentModalHost();
+
+    if (!host) {
+      return;
+    }
+
+    closeMenuModals();
+    appState.detailModal.type = "blacksmith-tutorial";
+    appState.detailModal.id = "intro";
+    host.innerHTML = [
+      '<div class="modal-backdrop menu-modal-backdrop">',
+      '  <div class="modal-panel menu-detail-modal-panel blacksmith-tutorial-modal-panel">',
+      '    <button id="blacksmith-tutorial-close-button" class="ghost-button modal-close-button" type="button">닫기</button>',
+      '    <div class="modal-body menu-detail-modal-body">',
+      '      <div class="item-title-row equipment-modal-header"><strong class="card-title">대장간 안내</strong><span class="card-subtitle">이 안내는 처음 한 번만 표시됩니다</span></div>',
+      '      <section class="modal-card blacksmith-tutorial-card">',
+      '        <div class="item-title-row"><strong class="card-title">무기 재련 흐름</strong><span class="card-subtitle">골드 + 재련석</span></div>',
+      '        <p>대장간에서는 무기만 강화할 수 있습니다. 장착 중인 무기도 바로 강화되며, 성공하면 장착자 능력치에 즉시 반영됩니다.</p>',
+      '        <div class="detail-token-list"><span class="detail-token is-gold">강화 성공 시 might +1</span><span class="detail-token is-cyan">실패 시 장비 유지</span><span class="detail-token is-muted">하락 / 파괴 없음</span></div>',
+      '      </section>',
+      '      <section class="modal-card blacksmith-tutorial-card">',
+      '        <div class="item-title-row"><strong class="card-title">성공률과 보정</strong><span class="card-subtitle">연속 실패 완충</span></div>',
+      '        <p>기본 성공률은 강화 구간에 따라 달라집니다. 같은 무기에서 실패가 누적되면 다음 시도 성공률이 올라가며, 성공하면 누적 실패 수는 초기화됩니다.</p>',
+      '        <div class="detail-token-list"><span class="detail-token is-muted">+0 ~ +3: 100%</span><span class="detail-token is-muted">+4 ~ +6: 75%</span><span class="detail-token is-muted">+7 ~ +8: 55%</span><span class="detail-token is-muted">+9 ~ +10: 35%</span></div>',
+      '      </section>',
+      '      <section class="modal-card blacksmith-tutorial-card">',
+      '        <div class="item-title-row"><strong class="card-title">재련석 획득처</strong><span class="card-subtitle">전투 / 파견</span></div>',
+      '        <p>재련석은 일반 전투, 무한 균열, 던전 파견에서 드롭됩니다. 대장간과 전투 보상 패널에서 현재 보유 수량을 계속 확인할 수 있습니다.</p>',
+      '        <div class="detail-token-list"><span class="detail-token is-gold">전투 클리어 보상</span><span class="detail-token is-cyan">파견 완료 보상</span><span class="detail-token is-muted">인벤토리 기타 탭</span></div>',
+      '      </section>',
+      '      <div class="detail-actions menu-detail-actions"><button id="blacksmith-tutorial-confirm-button" class="primary-button small-button" type="button">확인</button></div>',
+      '    </div>',
+      '  </div>',
+      '</div>'
+    ].join("");
+
+    const backdrop = host.querySelector(".menu-modal-backdrop");
+    const close = () => closeDetailModal();
+
+    getElement("blacksmith-tutorial-close-button").addEventListener("click", close);
+    getElement("blacksmith-tutorial-confirm-button").addEventListener("click", close);
+    backdrop.addEventListener("click", (event) => {
+      if (event.target === backdrop) {
+        close();
+      }
+    });
+  }
+
+  function maybeShowBlacksmithTutorial() {
+    if (
+      appState.activeMainPanel !== "blacksmith"
+      || !appState.saveData
+      || !appState.currentUserId
+      || (appState.saveData.tutorial && appState.saveData.tutorial.blacksmithIntroShown)
+    ) {
+      return;
+    }
+
+    appState.saveData.tutorial = Object.assign({}, appState.saveData.tutorial, {
+      blacksmithIntroShown: true
+    });
+    appState.saveData = StorageService.setUserSave(appState.currentUserId, appState.saveData);
+    openBlacksmithTutorialModal();
+  }
+
+  function renderBlacksmithPanel() {
+    const root = getElement("menu-blacksmith-root");
+
+    if (!root) {
+      return;
+    }
+
+    if (!appState.saveData) {
+      root.innerHTML = '<article class="inventory-card"><p>세이브 데이터가 없습니다.</p></article>';
+      return;
+    }
+
+    const weapons = getBlacksmithWeapons();
+    const selectedWeapon = ensureBlacksmithSelection(weapons);
+    const totalPages = Math.max(1, Math.ceil(weapons.length / BLACKSMITH_PAGE_SIZE));
+    const currentPage = Math.max(1, Math.min(totalPages, Number(appState.blacksmithView.page || 1)));
+    const visibleWeapons = weapons.slice((currentPage - 1) * BLACKSMITH_PAGE_SIZE, currentPage * BLACKSMITH_PAGE_SIZE);
+    const refineStoneCount = InventoryService.getMiscItemQuantity(appState.saveData, "refine-stone-basic");
+    const affordableCount = weapons.filter((item) => {
+      const preview = InventoryService.getReinforcePreview(appState.saveData, item);
+      return preview && preview.canReinforce;
+    }).length;
+    const equippedCount = weapons.filter((item) => !!item.equippedBy).length;
+    const maxedCount = weapons.filter((item) => InventoryService.getReinforceLevel(item) >= InventoryService.REINFORCE_MAX_LEVEL).length;
+    const preview = selectedWeapon ? InventoryService.getReinforcePreview(appState.saveData, selectedWeapon) : null;
+    const selectedOwner = selectedWeapon && selectedWeapon.equippedBy
+      ? `${getUnitNameById(selectedWeapon.equippedBy)} / ${InventoryService.getSlotLabel(selectedWeapon.equippedSlotKey || selectedWeapon.slot)}`
+      : "미장착";
+
+    appState.blacksmithView.page = currentPage;
+
+    root.innerHTML = [
+      '<div class="summary-card blacksmith-status-card">',
+      `  <div class="inventory-status-grid"><p class="status-line is-gold">보유 골드: ${Math.max(0, Number(appState.saveData.partyGold || 0))}G</p><p class="status-line is-cyan">보유 재련석: ${refineStoneCount}개</p><p class="status-line">무기 ${weapons.length}개 / 즉시 강화 가능 ${affordableCount}개</p><p class="status-line">장착 중 무기 ${equippedCount}개 / 최대 강화 ${maxedCount}개</p><p class="status-line inventory-status-wide">${selectedWeapon ? `${InventoryService.getItemDisplayName(selectedWeapon, { forceShowReinforceLevel: true })} 선택 중` : "강화 가능한 무기 없음"}</p></div>`,
+      '  <div class="button-row blacksmith-status-actions"><button class="ghost-button small-button" type="button" data-open-blacksmith-tutorial="true">안내 다시보기</button></div>',
+      '</div>',
+      '<div class="blacksmith-layout">',
+      '  <section class="inventory-card blacksmith-weapon-list-card">',
+      `    <div class="item-title-row"><strong class="card-title">강화 가능한 무기</strong><span class="card-subtitle">${currentPage} / ${totalPages} 페이지</span></div>`,
+      '    <p class="blacksmith-section-copy">장착 중 무기와 지금 바로 강화 가능한 무기가 먼저 보이도록 정렬됩니다.</p>',
+      `    <div class="blacksmith-weapon-list">${weapons.length ? visibleWeapons.map((item) => {
+        const rarity = InventoryService.getRarityMeta(item.rarity);
+        const itemPreview = InventoryService.getReinforcePreview(appState.saveData, item);
+        const isSelected = selectedWeapon && selectedWeapon.id === item.id;
+        const ownerText = item.equippedBy
+          ? `${getUnitNameById(item.equippedBy)} 장착`
+          : "미장착";
+
+        return [
+          `<button class="inventory-card blacksmith-weapon-row rarity-${item.rarity} ${isSelected ? "is-selected" : ""}" type="button" data-blacksmith-item="${item.id}">`,
+          `  <div class="item-title-row"><strong class="card-title">${InventoryService.getItemDisplayName(item, { forceShowReinforceLevel: true })}</strong><span class="card-subtitle">${rarity.label}</span></div>`,
+          `  <div class="inventory-meta"><span class="meta-pill ${item.equippedBy ? "is-gold" : "is-muted"}">${ownerText}</span><span class="meta-pill">위력 ${item.might}</span><span class="meta-pill is-cyan">강화 +${InventoryService.getReinforceLevel(item)}</span><span class="meta-pill ${itemPreview && itemPreview.canReinforce ? "is-gold" : "is-muted"}">${itemPreview && itemPreview.maxLevelReached ? "최대 강화" : itemPreview && itemPreview.canReinforce ? "즉시 가능" : "재화 필요"}</span></div>`,
+          '  </button>'
+        ].join("");
+      }).join("") : '<div class="inventory-card"><p>보유한 무기가 없습니다.</p></div>'}</div>`,
+      weapons.length > BLACKSMITH_PAGE_SIZE ? [
+        '    <div class="list-pagination blacksmith-pagination">',
+        `      <button class="ghost-button small-button" type="button" data-blacksmith-page="prev" ${currentPage <= 1 ? "disabled" : ""}>이전</button>`,
+        `      <span class="pagination-label">${currentPage} / ${totalPages}</span>`,
+        `      <button class="ghost-button small-button" type="button" data-blacksmith-page="next" ${currentPage >= totalPages ? "disabled" : ""}>다음</button>`,
+        '    </div>'
+      ].join("") : "",
+      '  </section>',
+      '  <section class="inventory-card blacksmith-detail-card">',
+      selectedWeapon && preview ? [
+        `    <div class="item-title-row"><strong class="card-title">${InventoryService.getItemDisplayName(selectedWeapon, { forceShowReinforceLevel: true })}</strong><span class="card-subtitle">${InventoryService.getRarityMeta(selectedWeapon.rarity).label}</span></div>`,
+        `    <div class="inventory-meta"><span class="meta-pill ${selectedWeapon.equippedBy ? "is-gold" : "is-muted"}">${selectedOwner}</span><span class="meta-pill is-cyan">현재 +${preview.reinforceLevel}</span><span class="meta-pill ${preview.maxLevelReached ? "is-gold" : "is-muted"}">${preview.maxLevelReached ? "최대 강화" : `다음 +${preview.cost ? preview.cost.targetLevel : preview.reinforceLevel}`}</span></div>`,
+        `    <p class="blacksmith-section-copy">${selectedWeapon.description || "무기 재련으로 위력을 올릴 수 있습니다. 장착 중인 무기라도 바로 강화가 가능하며, 성공 시 즉시 성능에 반영됩니다."}</p>`,
+        '    <div class="blacksmith-detail-grid">',
+        `      <article class="summary-card blacksmith-metric-card"><span class="card-subtitle">현재 강화</span><strong class="card-title">+${preview.reinforceLevel} 강화</strong></article>`,
+        `      <article class="summary-card blacksmith-metric-card"><span class="card-subtitle">강화 후</span><strong class="card-title">${preview.maxLevelReached ? "최대 도달" : `+${preview.cost ? preview.cost.targetLevel : preview.reinforceLevel} 강화`}</strong></article>`,
+        `      <article class="summary-card blacksmith-metric-card"><span class="card-subtitle">기본 성공률</span><strong class="card-title">${Math.round((preview.success.baseRate || 0) * 100)}%</strong></article>`,
+        `      <article class="summary-card blacksmith-metric-card"><span class="card-subtitle">현재 성공률</span><strong class="card-title">${Math.round((preview.success.rate || 0) * 100)}%</strong></article>`,
+        '    </div>',
+        '    <div class="blacksmith-resource-state">',
+        `      <div class="status-line"><strong>필요 골드:</strong> ${preview.cost ? `${preview.cost.gold}G` : "-"}</div>`,
+        `      <div class="status-line"><strong>필요 재련석:</strong> ${preview.cost ? `${preview.cost.stones}개` : "-"}</div>`,
+        `      <div class="status-line ${preview.canAffordGold ? "is-cyan" : "is-crimson"}"><strong>보유 골드:</strong> ${preview.canAffordGold ? "충분" : `부족 (${Math.max(0, Number(appState.saveData.partyGold || 0))}/${preview.cost ? preview.cost.gold : 0})`}</div>`,
+        `      <div class="status-line ${preview.canAffordStone ? "is-cyan" : "is-crimson"}"><strong>보유 재련석:</strong> ${preview.canAffordStone ? "충분" : `부족 (${preview.stoneOwned}/${preview.cost ? preview.cost.stones : 0})`}</div>`,
+        `      <div class="status-line ${preview.success.pityBonus > 0 ? "is-gold" : ""}"><strong>연속 실패 보정:</strong> ${preview.success.pityBonus > 0 ? `+${Math.round(preview.success.pityBonus * 100)}%` : "없음"}</div>`,
+        '    </div>',
+        '    <div class="button-row">',
+        `      <button class="primary-button" type="button" data-blacksmith-reinforce="${selectedWeapon.id}" ${preview.maxLevelReached || !preview.canReinforce ? "disabled" : ""}>${preview.maxLevelReached ? "최대 강화" : "강화 시도"}</button>`,
+        '    </div>',
+        `    <p class="inventory-click-hint">${preview.maxLevelReached ? "이 무기는 현재 최대 강화 단계입니다." : "실패해도 하락이나 파괴는 없고, 재료만 소모됩니다."}</p>`
+      ].join("") : [
+        '    <div class="item-title-row"><strong class="card-title">강화 상세</strong><span class="card-subtitle">무기 선택 필요</span></div>',
+        '    <p class="blacksmith-section-copy">좌측 목록에서 강화할 무기를 선택하세요.</p>'
+      ].join(""),
+      '  </section>',
+      '</div>'
+    ].join("");
+
+    root.querySelectorAll("[data-blacksmith-item]").forEach((button) => {
+      button.addEventListener("click", () => {
+        appState.blacksmithView.selectedItemId = button.dataset.blacksmithItem;
+        renderBlacksmithPanel();
+      });
+    });
+
+    root.querySelectorAll("[data-blacksmith-page]").forEach((button) => {
+      button.addEventListener("click", () => {
+        appState.blacksmithView.page = button.dataset.blacksmithPage === "next"
+          ? Math.min(totalPages, currentPage + 1)
+          : Math.max(1, currentPage - 1);
+        renderBlacksmithPanel();
+      });
+    });
+
+    root.querySelectorAll("[data-blacksmith-reinforce]").forEach((button) => {
+      button.addEventListener("click", () => {
+        try {
+          const result = InventoryService.reinforceWeapon(appState.saveData, button.dataset.blacksmithReinforce);
+          persistSession(appState.saveData, appState.settings);
+          appState.blacksmithView.selectedItemId = result.item.id;
+          showToast(result.success
+            ? `${InventoryService.getItemDisplayName(result.item, { forceShowReinforceLevel: true })} 강화 성공`
+            : `${InventoryService.getItemDisplayName(result.item, { forceShowReinforceLevel: true })} 강화 실패`);
+        } catch (error) {
+          showToast(error.message, true);
+        }
+      });
+    });
+
+    root.querySelectorAll("[data-open-blacksmith-tutorial]").forEach((button) => {
+      button.addEventListener("click", () => {
+        openBlacksmithTutorialModal();
+      });
+    });
   }
 
   function renderStageList() {
@@ -4327,7 +5356,7 @@
         `    <span class="meta-pill ${stage.inProgress ? "is-crimson" : "is-muted"}">${stage.inProgress ? "진행 중" : "준비"}</span>`,
         "  </div>",
         `  <p>${stage.victoryLabel}${stage.id === "endless-rift" ? ` / ${stage.objective}` : ""}</p>`,
-        '  <div class="button-row">',
+        '  <div class="button-row stage-card-actions">',
         `    <button class="${stage.selected ? "secondary-button" : "primary-button"} small-button" type="button" data-stage-id="${stage.id}" ${!stage.available || stage.selected ? "disabled" : ""}>${stage.selected ? "선택됨" : "선택"}</button>`,
         `    <button class="ghost-button small-button" type="button" data-stage-detail="${stage.id}">상세보기</button>`,
         "  </div>",
@@ -4439,17 +5468,65 @@
     });
   }
 
+  function renderOperationsPanel() {
+    const root = getElement("menu-operations-root");
+
+    if (!root) {
+      return;
+    }
+
+    if (!appState.saveData) {
+      root.innerHTML = '<article class="inventory-card"><p>세이브 데이터가 없습니다.</p></article>';
+      return;
+    }
+
+    const selectedStage = getSelectedStageMeta();
+    const saveData = appState.saveData;
+    const selectedUnits = getSelectedPartyIds()
+      .map((unitId) => saveData.roster.find((unit) => unit.id === unitId))
+      .filter(Boolean);
+    const battleInProgress = saveData.stageStatus === "in_progress" && !!saveData.battleState;
+    const endless = saveData.endless || {};
+    const currentRun = endless.currentRun || null;
+
+    root.innerHTML = [
+      '<div class="operations-grid">',
+      '  <article class="inventory-card operations-card operations-card-primary">',
+      '    <div class="item-title-row"><strong class="card-title">현재 작전</strong><span class="card-subtitle">지도 연동</span></div>',
+      `    <div class="inventory-meta"><span class="meta-pill ${battleInProgress ? "is-crimson" : "is-cyan"}">${battleInProgress ? "던전 진행 중" : "출격 대기"}</span><span class="meta-pill is-gold">${selectedStage ? selectedStage.name : "선택 없음"}</span></div>`,
+      `    <p>${getStageFlavorText(selectedStage)}</p>`,
+      `    <p>현재 스테이지 상태: ${saveData.stageStatus === "in_progress" ? "전투 이어하기 가능" : selectedStage && selectedStage.cleared ? "클리어 기록 보유" : "새 전투 시작 가능"}</p>`,
+      '  </article>',
+      '  <article class="inventory-card operations-card">',
+      '    <div class="item-title-row"><strong class="card-title">출전 파티</strong><span class="card-subtitle">최대 5명</span></div>',
+      `    <div class="inventory-meta"><span class="meta-pill">${selectedUnits.length}명 편성</span><span class="meta-pill is-cyan">${selectedUnits.length ? selectedUnits.map((unit) => unit.className).slice(0, 2).join(" / ") : "편성 필요"}</span></div>`,
+      `    <p>${selectedUnits.length ? selectedUnits.map((unit, index) => `${index + 1}. ${unit.name} Lv.${unit.level}`).join(" / ") : "파티 관리에서 출전 인원을 먼저 편성하세요."}</p>`,
+      `    <p>리더: ${getLeaderUnit(saveData) ? getLeaderUnit(saveData).name : "없음"} / 파견 중 유닛은 출전 편성에서 자동 제외됩니다.</p>`,
+      '  </article>',
+      '  <article class="inventory-card operations-card">',
+      '    <div class="item-title-row"><strong class="card-title">던전 진행 현황</strong><span class="card-subtitle">장기 기록</span></div>',
+      `    <div class="inventory-meta"><span class="meta-pill is-gold">무한 균열 ${endless.bestFloor || 1}층 최고</span><span class="meta-pill">${currentRun ? `${currentRun.floor || endless.currentFloor || 1}층 진행` : "대기 중"}</span></div>`,
+      `    <p>현재 층: ${endless.currentFloor || 1} / 최고 기록: ${endless.bestFloor || 1}</p>`,
+      `    <p>${currentRun ? `진행 중 런 보유 / 최근 확보 유물 ${((currentRun.relicNames || []).slice(0, 2).join(", ")) || "없음"}` : "현재 진행 중인 무한 균열 런 없음"}</p>`,
+      '  </article>',
+      '</div>'
+    ].join("");
+  }
+
   function renderMainMenu() {
     InventoryService.normalizeInventoryState(appState.saveData);
     StatsService.normalizeRosterProgression(appState.saveData);
     SkillsService.normalizeRosterLearnedSkills(appState.saveData);
     syncTavernState(false);
     syncShopState(false);
+    syncDispatchState(false);
     renderSortieQuickBar();
     renderPartyManagement();
     renderStageList();
+    renderOperationsPanel();
+    renderDispatchPanel();
     renderInventoryList();
-    renderSettingsList();
+    renderBlacksmithPanel();
     renderShopList();
     renderTavern();
     renderRewardCodex();
@@ -4510,11 +5587,16 @@
     appState.inventoryView.page = 1;
     appState.shopView.category = "equipment";
     appState.shopView.page = 1;
+    appState.blacksmithView.selectedItemId = null;
+    appState.blacksmithView.page = 1;
+    appState.dispatchView.selectedMissionId = null;
+    appState.dispatchView.draftUnitIds = [];
     InventoryService.normalizeInventoryState(appState.saveData);
     StatsService.normalizeRosterProgression(appState.saveData);
     SkillsService.normalizeRosterLearnedSkills(appState.saveData);
     syncTavernState(false);
     syncShopState(false);
+    syncDispatchState(false);
     ensureSelectedMenuUnit();
 
     if (!appState.menuClockTimer) {
@@ -4621,7 +5703,7 @@
     appState.selectedMenuUnitId = null;
     appState.quickSwapSlotIndex = null;
     appState.progressionDrafts = {};
-    appState.activeMainPanel = "party";
+    appState.activeMainPanel = "operations";
     appState.rosterView.page = 1;
     appState.sortieManagerView.page = 1;
     appState.inventoryView.sort = "rarity";
@@ -4631,6 +5713,10 @@
     appState.inventoryView.page = 1;
     appState.shopView.category = "equipment";
     appState.shopView.page = 1;
+    appState.blacksmithView.selectedItemId = null;
+    appState.blacksmithView.page = 1;
+    appState.dispatchView.selectedMissionId = null;
+    appState.dispatchView.draftUnitIds = [];
     renderSessionChrome();
     showScreen("screen-start");
     showToast("로그아웃되었습니다.");
@@ -4746,8 +5832,10 @@
     getElement("menu-inventory-type-filter").addEventListener("change", (event) => {
       if (event.target.value === "consumable") {
         setInventoryCategory("consumable");
+      } else if (event.target.value === "misc") {
+        setInventoryCategory("misc");
       } else {
-        if (appState.inventoryView.category === "consumable") {
+        if (["consumable", "misc"].includes(appState.inventoryView.category)) {
           setInventoryCategory("equipment");
         }
         appState.inventoryView.type = event.target.value;
@@ -4791,6 +5879,7 @@
 
     syncTavernState(true);
     syncShopState(true);
+    syncDispatchState(true);
     renderMainMenu();
   }
 
