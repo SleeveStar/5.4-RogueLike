@@ -1842,6 +1842,7 @@ body.use-floating-stat-tooltip .stat-tooltip-pill::after {
 
 .dispatch-slot-card {
   min-height: 96px;
+  cursor: pointer;
 }
 
 .dispatch-slot-card .card-title,
@@ -1853,6 +1854,29 @@ body.use-floating-stat-tooltip .stat-tooltip-pill::after {
 .dispatch-candidate-card p {
   font-size: 0.9rem;
   line-height: 1.46;
+}
+
+.dispatch-slot-helper,
+.dispatch-slot-picker-empty p {
+  margin: 0;
+  font-size: 0.88rem;
+  line-height: 1.46;
+}
+
+.dispatch-slot-picker-modal-panel {
+  width: min(980px, calc(100vw - 32px));
+}
+
+.dispatch-slot-picker-copy {
+  margin: 0;
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+
+.dispatch-slot-picker-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
 }
 
 .dispatch-action-row {

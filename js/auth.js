@@ -662,10 +662,29 @@
       appState.dispatchView.draftUnitIds = [];
     }
 
-    appState.dispatchView.draftUnitIds = (appState.dispatchView.draftUnitIds || [])
-      .filter((unitId) => !isUnitSelectedForSortie(unitId) && !isUnitOnDispatch(unitId));
+    const normalizedDraftSlots = Array.from(
+      { length: DispatchService.MAX_DISPATCH_PARTY_SIZE },
+      (_, index) => {
+        const unitId = (appState.dispatchView.draftUnitIds || [])[index] || null;
+        return unitId && !isUnitSelectedForSortie(unitId) && !isUnitOnDispatch(unitId) ? unitId : null;
+      }
+    );
+
+    appState.dispatchView.draftUnitIds = normalizedDraftSlots;
 
     return getDispatchMissionRecord(dispatch, appState.dispatchView.selectedMissionId);
+  }
+
+  function getDispatchDraftSlots() {
+    const maxSlots = DispatchService ? DispatchService.MAX_DISPATCH_PARTY_SIZE : 3;
+    return Array.from(
+      { length: maxSlots },
+      (_, index) => ((appState.dispatchView.draftUnitIds || [])[index] || null)
+    );
+  }
+
+  function getDispatchDraftUnitIds() {
+    return getDispatchDraftSlots().filter(Boolean);
   }
 
   function getDispatchOutcomeTone(previewSummary) {
@@ -4788,16 +4807,85 @@
     ].join("");
   }
 
-  function buildDispatchCandidateCard(unit, isSelected) {
+  function buildDispatchCandidateCard(unit, isSelected, slotIndex) {
     const power = DispatchService.calculateUnitDispatchPower(appState.saveData, unit);
     const potentialMeta = StatsService.getPotentialMeta(unit);
     return [
-      `<button class="inventory-card dispatch-candidate-card ${isSelected ? "is-selected" : ""}" type="button" data-dispatch-unit="${unit.id}">`,
+      `<button class="inventory-card dispatch-candidate-card ${isSelected ? "is-selected" : ""}" type="button" data-dispatch-assign-unit="${unit.id}" data-dispatch-target-slot="${slotIndex}">`,
       `  <div class="item-title-row"><strong class="card-title">${unit.name}</strong><span class="card-subtitle">${unit.className}</span></div>`,
       `  <div class="inventory-meta"><span class="meta-pill">Lv.${unit.level}</span><span class="meta-pill is-violet">잠재 ${potentialMeta.label}</span><span class="meta-pill is-gold">전력 ${power}</span></div>`,
-      `  <p>${isSelected ? "선택된 파견 인원입니다." : "클릭해 파견 인원에 추가합니다."}</p>`,
+      `  <p>${isSelected ? "이미 다른 슬롯에 배치된 인원입니다. 클릭하면 이 슬롯으로 이동합니다." : "클릭하면 선택한 슬롯에 배치합니다."}</p>`,
       "</button>"
     ].join("");
+  }
+
+  function openDispatchSlotPickerModal(slotIndex) {
+    const host = getEquipmentModalHost();
+
+    if (!host || !appState.saveData || !DispatchService) {
+      return;
+    }
+
+    const availableUnits = DispatchService.getAvailableUnits(appState.saveData)
+      .slice()
+      .sort((left, right) => DispatchService.calculateUnitDispatchPower(appState.saveData, right) - DispatchService.calculateUnitDispatchPower(appState.saveData, left));
+    const currentDraftSlots = getDispatchDraftSlots();
+    const currentUnitId = currentDraftSlots[slotIndex] || null;
+    const currentUnit = currentUnitId
+      ? (appState.saveData.roster || []).find((unit) => unit.id === currentUnitId) || null
+      : null;
+
+    closeMenuModals();
+    appState.detailModal.type = "dispatch-slot-picker";
+    appState.detailModal.id = `slot-${slotIndex}`;
+
+    host.innerHTML = [
+      '<div class="modal-backdrop menu-modal-backdrop">',
+      '  <div class="modal-panel menu-detail-modal-panel dispatch-slot-picker-modal-panel">',
+      '    <button id="dispatch-slot-picker-close-button" class="ghost-button modal-close-button" type="button">닫기</button>',
+      '    <div class="modal-body menu-detail-modal-body">',
+      `      <div class="item-title-row equipment-modal-header"><strong class="card-title">${slotIndex + 1}번 슬롯 배치</strong><span class="card-subtitle">${currentUnit ? `${currentUnit.name} 배치 중` : "비어 있는 슬롯"}</span></div>`,
+      `      <p class="dispatch-slot-picker-copy">가용 인원 ${availableUnits.length}명 중 한 명을 선택해 ${slotIndex + 1}번 슬롯에 배치합니다.</p>`,
+      availableUnits.length
+        ? `      <div class="dispatch-slot-picker-list">${availableUnits.map((unit) => buildDispatchCandidateCard(unit, currentDraftSlots.includes(unit.id), slotIndex)).join("")}</div>`
+        : '      <div class="inventory-card"><p>현재 파견 가능한 후방 인원이 없습니다.</p></div>',
+      '    </div>',
+      '  </div>',
+      '</div>'
+    ].join("");
+
+    const backdrop = host.querySelector(".menu-modal-backdrop");
+    const close = () => closeDetailModal();
+
+    getElement("dispatch-slot-picker-close-button").addEventListener("click", close);
+
+    host.querySelectorAll("[data-dispatch-assign-unit]").forEach((button) => {
+      button.addEventListener("click", () => {
+        const unitId = button.dataset.dispatchAssignUnit;
+        const targetSlotIndex = Number(button.dataset.dispatchTargetSlot);
+        const nextDraft = getDispatchDraftSlots();
+        const existingIndex = nextDraft.findIndex((draftUnitId) => draftUnitId === unitId);
+
+        if (!Number.isInteger(targetSlotIndex) || targetSlotIndex < 0 || targetSlotIndex >= DispatchService.MAX_DISPATCH_PARTY_SIZE) {
+          return;
+        }
+
+        if (existingIndex >= 0) {
+          nextDraft[existingIndex] = null;
+        }
+
+        nextDraft[targetSlotIndex] = unitId;
+        appState.dispatchView.draftUnitIds = nextDraft;
+        closeDetailModal();
+        renderDispatchPanel();
+      });
+    });
+
+    backdrop.addEventListener("click", (event) => {
+      if (event.target === backdrop) {
+        close();
+      }
+    });
   }
 
   function buildDispatchActiveMissionCard(mission) {
@@ -4831,17 +4919,18 @@
 
     if (!unit) {
       return [
-        '<article class="inventory-card dispatch-slot-card is-empty">',
+        `<article class="inventory-card dispatch-slot-card is-empty" data-dispatch-slot="${slotIndex}">`,
         `  <div class="item-title-row"><strong class="card-title">${slotIndex + 1}번 슬롯</strong><span class="card-subtitle">EMPTY</span></div>`,
-        '  <p>후방 대기 중 모험가를 선택해 파견대를 구성합니다.</p>',
+        '  <p>클릭해 이 슬롯에 파견 인원을 배치합니다.</p>',
         '</article>'
       ].join("");
     }
 
     return [
-      '<article class="inventory-card dispatch-slot-card">',
+      `<article class="inventory-card dispatch-slot-card" data-dispatch-slot="${slotIndex}">`,
       `  <div class="item-title-row"><strong class="card-title">${unit.name}</strong><span class="card-subtitle">${unit.className}</span></div>`,
       `  <div class="inventory-meta"><span class="meta-pill">Lv.${unit.level}</span><span class="meta-pill is-gold">전력 ${DispatchService.calculateUnitDispatchPower(appState.saveData, unit)}</span></div>`,
+      `  <p>${slotIndex + 1}번 슬롯 배치 완료</p>`,
       '  <div class="button-row">',
       `    <button class="ghost-button small-button" type="button" data-dispatch-remove-unit="${unit.id}">제외</button>`,
       '  </div>',
@@ -4903,6 +4992,7 @@
 
     const canStart = draftUnitIds.length >= DispatchService.MIN_DISPATCH_PARTY_SIZE
       && draftUnitIds.length <= DispatchService.MAX_DISPATCH_PARTY_SIZE;
+    const draftSlots = getDispatchDraftSlots();
 
     return [
       '    <div class="item-title-row dispatch-section-header dispatch-planner-header">',
@@ -4921,11 +5011,7 @@
         ? `    <p>현재 편성 기준: 평균 Lv.${Math.round(preview.rewardPreview.scaling.averageLevel || 0)} / 파견 전력 ${preview.snapshot ? preview.snapshot.partyDispatchPower : 0} / 인원 ${preview.rewardPreview.scaling.memberCount}명</p>`
         : "",
       '    <p class="dispatch-lock-copy">파견 시작 후 완료 전까지 중도 취소할 수 없습니다. 파견 중 유닛은 출전 편성, 방출, 중복 파견이 불가합니다.</p>',
-      `    <div class="dispatch-slot-grid">${[0, 1, 2].map((index) => buildDispatchSlotMarkup(draftUnitIds[index] || null, index)).join("")}</div>`,
-      '    <div class="item-title-row dispatch-section-header"><strong class="card-title">후방 대기 인원</strong><span class="card-subtitle">최소 2명 / 최대 3명</span></div>',
-      availableUnits.length
-        ? `    <div class="dispatch-candidate-list">${availableUnits.map((unit) => buildDispatchCandidateCard(unit, draftUnitIds.includes(unit.id))).join("")}</div>`
-        : '    <div class="inventory-card"><p>현재 파견 가능한 후방 인원이 없습니다.</p></div>',
+      `    <div class="dispatch-slot-grid">${draftSlots.map((unitId, index) => buildDispatchSlotMarkup(unitId, index)).join("")}</div>`,
       '    <div class="button-row dispatch-action-row">',
       `      <button class="primary-button small-button" type="button" data-dispatch-start="true" ${canStart ? "" : "disabled"}>파견 시작</button>`,
       `      <button class="ghost-button small-button" type="button" data-dispatch-clear="true" ${draftUnitIds.length ? "" : "disabled"}>선택 초기화</button>`,
@@ -4963,7 +5049,7 @@
     const selectedMission = selectedMissionRecord && selectedMissionRecord.status === "available"
       ? selectedMissionRecord.mission
       : null;
-    const draftUnitIds = (appState.dispatchView.draftUnitIds || []).slice(0, DispatchService.MAX_DISPATCH_PARTY_SIZE);
+    const draftUnitIds = getDispatchDraftUnitIds();
     const preview = selectedMission
       ? DispatchService.getMissionOutcomePreview(appState.saveData, selectedMission, draftUnitIds)
       : null;
@@ -5026,30 +5112,21 @@
       });
     });
 
-    root.querySelectorAll("[data-dispatch-unit]").forEach((button) => {
-      button.addEventListener("click", () => {
-        const unitId = button.dataset.dispatchUnit;
-        const nextDraft = (appState.dispatchView.draftUnitIds || []).slice();
-        const existingIndex = nextDraft.indexOf(unitId);
-
-        if (existingIndex >= 0) {
-          nextDraft.splice(existingIndex, 1);
-        } else {
-          if (nextDraft.length >= DispatchService.MAX_DISPATCH_PARTY_SIZE) {
-            showToast(`파견 인원은 최대 ${DispatchService.MAX_DISPATCH_PARTY_SIZE}명까지 선택할 수 있습니다.`, true);
-            return;
-          }
-          nextDraft.push(unitId);
+    root.querySelectorAll("[data-dispatch-slot]").forEach((card) => {
+      card.addEventListener("click", (event) => {
+        if (event.target.closest("button")) {
+          return;
         }
 
-        appState.dispatchView.draftUnitIds = nextDraft;
-        renderDispatchPanel();
+        openDispatchSlotPickerModal(Number(card.dataset.dispatchSlot));
       });
     });
 
     root.querySelectorAll("[data-dispatch-remove-unit]").forEach((button) => {
       button.addEventListener("click", () => {
-        appState.dispatchView.draftUnitIds = (appState.dispatchView.draftUnitIds || []).filter((unitId) => unitId !== button.dataset.dispatchRemoveUnit);
+        appState.dispatchView.draftUnitIds = getDispatchDraftSlots().map((unitId) => (
+          unitId === button.dataset.dispatchRemoveUnit ? null : unitId
+        ));
         renderDispatchPanel();
       });
     });
@@ -5076,7 +5153,7 @@
         }
 
         try {
-          const startedMission = DispatchService.startMission(appState.saveData, selectedMission.id, appState.dispatchView.draftUnitIds || []);
+          const startedMission = DispatchService.startMission(appState.saveData, selectedMission.id, getDispatchDraftUnitIds());
           appState.dispatchView.selectedMissionId = null;
           appState.dispatchView.draftUnitIds = [];
           appState.dispatchView.page = 1;
