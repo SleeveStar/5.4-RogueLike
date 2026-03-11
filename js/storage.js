@@ -44,7 +44,8 @@
       prologueFieldIntroShown: false,
       blacksmithIntroShown: false,
       partyIntroShown: false,
-      tavernIntroShown: false
+      tavernIntroShown: false,
+      dispatchIntroShown: false
     },
     shop: {
       refreshBlock: null,

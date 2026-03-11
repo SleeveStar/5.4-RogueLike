@@ -287,6 +287,10 @@
     return `${rankMeta.label} / ${rankMeta.title}`;
   }
 
+  function getRankClassName(rank) {
+    return `rank-${String(rank || "D").toLowerCase().replace("+", "plus")}`;
+  }
+
   function getSignaturePassiveIds(entity) {
     if (!entity) {
       return [];
@@ -441,6 +445,7 @@
     const shopTabs = getElement("shop-header-tabs");
     const tavernActions = getElement("tavern-header-actions");
     const blacksmithActions = getElement("blacksmith-header-actions");
+    const dispatchActions = getElement("dispatch-header-actions");
 
     if (!headerActions) {
       return;
@@ -450,8 +455,9 @@
     const isShopPanel = appState.activeMainPanel === "shop";
     const isTavernPanel = appState.activeMainPanel === "tavern";
     const isBlacksmithPanel = appState.activeMainPanel === "blacksmith";
+    const isDispatchPanel = appState.activeMainPanel === "dispatch";
 
-    headerActions.classList.toggle("hidden", !isInventoryPanel && !isShopPanel && !isTavernPanel && !isBlacksmithPanel);
+    headerActions.classList.toggle("hidden", !isInventoryPanel && !isShopPanel && !isTavernPanel && !isBlacksmithPanel && !isDispatchPanel);
 
     if (inventoryTabs) {
       inventoryTabs.classList.toggle("hidden", !isInventoryPanel);
@@ -467,6 +473,22 @@
 
     if (blacksmithActions) {
       blacksmithActions.classList.toggle("hidden", !isBlacksmithPanel);
+    }
+
+    if (dispatchActions) {
+      dispatchActions.classList.toggle("hidden", !isDispatchPanel);
+    }
+
+    if (isDispatchPanel) {
+      const activeMissions = (((appState.saveData || {}).dispatch || {}).activeMissions || []);
+      const activeMissionsButton = getElement("dispatch-active-missions-button");
+
+      if (activeMissionsButton) {
+        activeMissionsButton.disabled = !activeMissions.length;
+        activeMissionsButton.textContent = activeMissions.length
+          ? `파견중 임무 ${activeMissions.length}`
+          : "파견중 임무 없음";
+      }
     }
 
     if (!isTavernPanel || !appState.saveData || !TavernService) {
@@ -912,6 +934,7 @@
     maybeShowBlacksmithTutorial();
     maybeShowPartyTutorial();
     maybeShowTavernTutorial();
+    maybeShowDispatchTutorial();
     syncTavernCountdownTimer();
   }
 
@@ -4767,12 +4790,12 @@
   function buildDispatchMissionCard(record, isSelected) {
     const mission = record.mission;
     const statusLabel = record.status === "active"
-      ? "진행 중"
+      ? "파견중"
       : record.status === "completed"
         ? "완료 대기"
         : "가용";
     const statusClass = record.status === "active"
-      ? "is-cyan"
+      ? "is-crimson"
       : record.status === "completed"
         ? (mission.result === "fail" ? "is-crimson" : "is-gold")
         : "is-muted";
@@ -4810,10 +4833,11 @@
   function buildDispatchCandidateCard(unit, isSelected, slotIndex) {
     const power = DispatchService.calculateUnitDispatchPower(appState.saveData, unit);
     const potentialMeta = StatsService.getPotentialMeta(unit);
+    const rankClass = getRankClassName(unit.guildRank || "D");
     return [
-      `<button class="inventory-card dispatch-candidate-card ${isSelected ? "is-selected" : ""}" type="button" data-dispatch-assign-unit="${unit.id}" data-dispatch-target-slot="${slotIndex}">`,
+      `<button class="inventory-card dispatch-candidate-card ${rankClass} ${isSelected ? "is-selected" : ""}" type="button" data-dispatch-assign-unit="${unit.id}" data-dispatch-target-slot="${slotIndex}">`,
       `  <div class="item-title-row"><strong class="card-title">${unit.name}</strong><span class="card-subtitle">${unit.className}</span></div>`,
-      `  <div class="inventory-meta"><span class="meta-pill">Lv.${unit.level}</span><span class="meta-pill is-violet">잠재 ${potentialMeta.label}</span><span class="meta-pill is-gold">전력 ${power}</span></div>`,
+      `  <div class="inventory-meta"><span class="meta-pill ${rankClass}">${formatRankBadge(unit.guildRank || "D")}</span><span class="meta-pill">Lv.${unit.level}</span><span class="meta-pill is-violet">잠재 ${potentialMeta.label}</span><span class="meta-pill is-gold">전력 ${power}</span></div>`,
       `  <p>${isSelected ? "이미 다른 슬롯에 배치된 인원입니다. 클릭하면 이 슬롯으로 이동합니다." : "클릭하면 선택한 슬롯에 배치합니다."}</p>`,
       "</button>"
     ].join("");
@@ -4834,6 +4858,7 @@
     const currentUnit = currentUnitId
       ? (appState.saveData.roster || []).find((unit) => unit.id === currentUnitId) || null
       : null;
+    const currentRankText = currentUnit ? formatRankBadge(currentUnit.guildRank || "D") : null;
 
     closeMenuModals();
     appState.detailModal.type = "dispatch-slot-picker";
@@ -4844,7 +4869,7 @@
       '  <div class="modal-panel menu-detail-modal-panel dispatch-slot-picker-modal-panel">',
       '    <button id="dispatch-slot-picker-close-button" class="ghost-button modal-close-button" type="button">닫기</button>',
       '    <div class="modal-body menu-detail-modal-body">',
-      `      <div class="item-title-row equipment-modal-header"><strong class="card-title">${slotIndex + 1}번 슬롯 배치</strong><span class="card-subtitle">${currentUnit ? `${currentUnit.name} 배치 중` : "비어 있는 슬롯"}</span></div>`,
+      `      <div class="item-title-row equipment-modal-header"><strong class="card-title">${slotIndex + 1}번 슬롯 배치</strong><span class="card-subtitle">${currentUnit ? `${currentUnit.name} / ${currentRankText}` : "비어 있는 슬롯"}</span></div>`,
       `      <p class="dispatch-slot-picker-copy">가용 인원 ${availableUnits.length}명 중 한 명을 선택해 ${slotIndex + 1}번 슬롯에 배치합니다.</p>`,
       availableUnits.length
         ? `      <div class="dispatch-slot-picker-list">${availableUnits.map((unit) => buildDispatchCandidateCard(unit, currentDraftSlots.includes(unit.id), slotIndex)).join("")}</div>`
@@ -4927,9 +4952,9 @@
     }
 
     return [
-      `<article class="inventory-card dispatch-slot-card" data-dispatch-slot="${slotIndex}">`,
+      `<article class="inventory-card dispatch-slot-card ${getRankClassName(unit.guildRank || "D")}" data-dispatch-slot="${slotIndex}">`,
       `  <div class="item-title-row"><strong class="card-title">${unit.name}</strong><span class="card-subtitle">${unit.className}</span></div>`,
-      `  <div class="inventory-meta"><span class="meta-pill">Lv.${unit.level}</span><span class="meta-pill is-gold">전력 ${DispatchService.calculateUnitDispatchPower(appState.saveData, unit)}</span></div>`,
+      `  <div class="inventory-meta"><span class="meta-pill ${getRankClassName(unit.guildRank || "D")}">${formatRankBadge(unit.guildRank || "D")}</span><span class="meta-pill">Lv.${unit.level}</span><span class="meta-pill is-gold">전력 ${DispatchService.calculateUnitDispatchPower(appState.saveData, unit)}</span></div>`,
       `  <p>${slotIndex + 1}번 슬롯 배치 완료</p>`,
       '  <div class="button-row">',
       `    <button class="ghost-button small-button" type="button" data-dispatch-remove-unit="${unit.id}">제외</button>`,
@@ -5402,6 +5427,115 @@
     });
   }
 
+  function buildDispatchActiveMissionModalCard(mission) {
+    const rewardPreview = DispatchService.buildRewardPreview(
+      mission,
+      mission.dispatchSnapshot,
+      getDispatchResultBandForSnapshot(mission, mission.dispatchSnapshot)
+    );
+
+    return [
+      '<article class="modal-card dispatch-active-mission-modal-card">',
+      `  <div class="item-title-row"><strong class="card-title">${mission.missionName}</strong><span class="card-subtitle">${formatDurationHours(mission.durationHours)}</span></div>`,
+      `  <div class="inventory-meta"><span class="meta-pill is-gold">${buildDispatchStarRating(mission.starRating)}</span><span class="meta-pill is-crimson">파견중</span><span class="meta-pill">${formatRemainingDuration(mission.expectedReturnAt)}</span></div>`,
+      `  <p>${mission.summary}</p>`,
+      `  <p>파견대: ${formatDispatchMemberNames(mission.unitIds)}</p>`,
+      `  <p>예상 보상 범위: ${buildDispatchMissionRewardPreview(mission, rewardPreview)}</p>`,
+      `  <p>추가 전리품 체감: ${rewardPreview.guaranteedItemCount > 0 ? `잭팟 시 전리품 ${rewardPreview.guaranteedItemCount}개 보장 가능` : "재련석 / 소모품 / 장비 가능"}</p>`,
+      `  <p>복귀 예정: ${new Date(mission.expectedReturnAt).toLocaleString("ko-KR")} / 약 ${formatRemainingDuration(mission.expectedReturnAt)}</p>`,
+      '</article>'
+    ].join("");
+  }
+
+  function openDispatchActiveMissionsModal() {
+    const host = getEquipmentModalHost();
+    const activeMissions = (((appState.saveData || {}).dispatch || {}).activeMissions || []).slice();
+
+    if (!host || !DispatchService) {
+      return;
+    }
+
+    if (!activeMissions.length) {
+      showToast("현재 파견 중인 임무가 없습니다.", true);
+      return;
+    }
+
+    closeMenuModals();
+    appState.detailModal.type = "dispatch-active";
+    appState.detailModal.id = "active-missions";
+    host.innerHTML = [
+      '<div class="modal-backdrop menu-modal-backdrop">',
+      '  <div class="modal-panel menu-detail-modal-panel dispatch-active-modal-panel">',
+      '    <button id="dispatch-active-close-button" class="ghost-button modal-close-button" type="button">닫기</button>',
+      '    <div class="modal-body menu-detail-modal-body">',
+      '      <div class="item-title-row equipment-modal-header"><strong class="card-title">파견중 임무 상세</strong><span class="card-subtitle">현재 진행 중인 파견의 멤버, 예상 보상, 복귀 시각</span></div>',
+      `      <p class="dispatch-slot-picker-copy">현재 ${activeMissions.length}개의 파견이 진행 중입니다. 완료 시각이 지나면 왼쪽 임무 보드에서 보상 수령 대기로 바뀝니다.</p>`,
+      `      <div class="dispatch-active-mission-list">${activeMissions.map((mission) => buildDispatchActiveMissionModalCard(mission)).join("")}</div>`,
+      '    </div>',
+      '  </div>',
+      '</div>'
+    ].join("");
+
+    const backdrop = host.querySelector(".menu-modal-backdrop");
+    const close = () => closeDetailModal();
+
+    getElement("dispatch-active-close-button").addEventListener("click", close);
+    backdrop.addEventListener("click", (event) => {
+      if (event.target === backdrop) {
+        close();
+      }
+    });
+  }
+
+  function openDispatchTutorialModal() {
+    const host = getEquipmentModalHost();
+
+    if (!host) {
+      return;
+    }
+
+    closeMenuModals();
+    appState.detailModal.type = "dispatch-tutorial";
+    appState.detailModal.id = "intro";
+    host.innerHTML = [
+      '<div class="modal-backdrop menu-modal-backdrop">',
+      '  <div class="modal-panel menu-detail-modal-panel dispatch-tutorial-modal-panel">',
+      '    <button id="dispatch-tutorial-close-button" class="ghost-button modal-close-button" type="button">닫기</button>',
+      '    <div class="modal-body menu-detail-modal-body">',
+      '      <div class="item-title-row equipment-modal-header"><strong class="card-title">던전 파견 안내</strong><span class="card-subtitle">이 안내는 처음 한 번만 표시됩니다</span></div>',
+      '      <section class="modal-card blacksmith-tutorial-card">',
+      '        <div class="item-title-row"><strong class="card-title">파티 구성</strong><span class="card-subtitle">2~3인 파견</span></div>',
+      '        <p>던전 파견은 출전 편성에 들어가지 않은 후방 모험가들로 별도 파견대를 꾸려 보내는 콘텐츠입니다. 슬롯을 클릭하면 모달이 열리고, 그 안에서 배치할 모험가를 선택합니다.</p>',
+      '        <div class="detail-token-list"><span class="detail-token is-gold">최소 2명</span><span class="detail-token is-cyan">최대 3명</span><span class="detail-token is-muted">출전 중 유닛 제외</span></div>',
+      '      </section>',
+      '      <section class="modal-card blacksmith-tutorial-card">',
+      '        <div class="item-title-row"><strong class="card-title">임무 진행</strong><span class="card-subtitle">실시간 복귀</span></div>',
+      '        <p>파견 시작 후에는 완료 전까지 중도 취소할 수 없습니다. 파견 중 유닛은 출전 편성, 방출, 중복 파견이 불가하며, 남은 시간은 임무 보드와 진행 임무 상세 창에서 확인할 수 있습니다.</p>',
+      '        <div class="detail-token-list"><span class="detail-token is-crimson">파견중 표시</span><span class="detail-token is-cyan">복귀 시간 확인</span><span class="detail-token is-muted">중도 취소 불가</span></div>',
+      '      </section>',
+      '      <section class="modal-card blacksmith-tutorial-card">',
+      '        <div class="item-title-row"><strong class="card-title">보상 확인</strong><span class="card-subtitle">EXP / 골드 / 전리품</span></div>',
+      '        <p>오른쪽 상세 패널에서는 현재 편성 기준의 예상 보상 범위를 보고, 진행 중인 임무 상세 창에서는 누가 갔는지, 언제 보상을 받을 수 있는지, 어떤 보상이 예상되는지 다시 확인할 수 있습니다.</p>',
+      '        <div class="detail-token-list"><span class="detail-token is-gold">EXP / 골드</span><span class="detail-token is-cyan">재련석 / 소모품</span><span class="detail-token is-muted">낮은 확률 장비</span></div>',
+      '      </section>',
+      '      <div class="detail-actions menu-detail-actions"><button id="dispatch-tutorial-confirm-button" class="primary-button small-button" type="button">확인</button></div>',
+      '    </div>',
+      '  </div>',
+      '</div>'
+    ].join("");
+
+    const backdrop = host.querySelector(".menu-modal-backdrop");
+    const close = () => closeDetailModal();
+
+    getElement("dispatch-tutorial-close-button").addEventListener("click", close);
+    getElement("dispatch-tutorial-confirm-button").addEventListener("click", close);
+    backdrop.addEventListener("click", (event) => {
+      if (event.target === backdrop) {
+        close();
+      }
+    });
+  }
+
   function maybeShowBlacksmithTutorial() {
     if (
       appState.activeMainPanel !== "blacksmith"
@@ -5451,6 +5585,23 @@
     });
     appState.saveData = StorageService.setUserSave(appState.currentUserId, appState.saveData);
     openTavernTutorialModal();
+  }
+
+  function maybeShowDispatchTutorial() {
+    if (
+      appState.activeMainPanel !== "dispatch"
+      || !appState.saveData
+      || !appState.currentUserId
+      || (appState.saveData.tutorial && appState.saveData.tutorial.dispatchIntroShown)
+    ) {
+      return;
+    }
+
+    appState.saveData.tutorial = Object.assign({}, appState.saveData.tutorial, {
+      dispatchIntroShown: true
+    });
+    appState.saveData = StorageService.setUserSave(appState.currentUserId, appState.saveData);
+    openDispatchTutorialModal();
   }
 
   function renderBlacksmithPanel() {
@@ -6170,6 +6321,12 @@
     });
     getElement("blacksmith-tutorial-button").addEventListener("click", () => {
       openBlacksmithTutorialModal();
+    });
+    getElement("dispatch-tutorial-button").addEventListener("click", () => {
+      openDispatchTutorialModal();
+    });
+    getElement("dispatch-active-missions-button").addEventListener("click", () => {
+      openDispatchActiveMissionsModal();
     });
     getElement("menu-inventory-sort").addEventListener("change", (event) => {
       appState.inventoryView.sort = event.target.value;

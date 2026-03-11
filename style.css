@@ -1724,7 +1724,11 @@ body.use-floating-stat-tooltip .stat-tooltip-pill::after {
 }
 
 .dispatch-mission-card.is-active {
-  border-color: rgba(103, 215, 232, 0.24);
+  border-color: rgba(255, 111, 145, 0.34);
+  background:
+    radial-gradient(circle at top right, rgba(255, 111, 145, 0.12), transparent 36%),
+    linear-gradient(180deg, rgba(36, 16, 24, 0.94), rgba(16, 11, 18, 0.98));
+  box-shadow: 0 0 0 1px rgba(255, 111, 145, 0.08);
 }
 
 .dispatch-mission-card.is-completed {
@@ -1845,6 +1849,71 @@ body.use-floating-stat-tooltip .stat-tooltip-pill::after {
   cursor: pointer;
 }
 
+.dispatch-slot-card.rank-d,
+.dispatch-candidate-card.rank-d {
+  border-color: rgba(161, 177, 198, 0.18);
+  background: linear-gradient(180deg, rgba(24, 31, 43, 0.94), rgba(12, 18, 29, 0.96));
+}
+
+.dispatch-slot-card.rank-c,
+.dispatch-candidate-card.rank-c {
+  border-color: rgba(103, 215, 232, 0.22);
+  background:
+    radial-gradient(circle at top right, rgba(103, 215, 232, 0.12), transparent 38%),
+    linear-gradient(180deg, rgba(14, 28, 37, 0.95), rgba(9, 18, 26, 0.97));
+}
+
+.dispatch-slot-card.rank-b,
+.dispatch-candidate-card.rank-b {
+  border-color: rgba(176, 133, 255, 0.22);
+  background:
+    radial-gradient(circle at top right, rgba(176, 133, 255, 0.12), transparent 38%),
+    linear-gradient(180deg, rgba(22, 21, 40, 0.95), rgba(11, 15, 27, 0.97));
+}
+
+.dispatch-slot-card.rank-a,
+.dispatch-candidate-card.rank-a {
+  border-color: rgba(255, 142, 201, 0.24);
+  background:
+    radial-gradient(circle at top right, rgba(255, 142, 201, 0.12), transparent 38%),
+    linear-gradient(180deg, rgba(34, 20, 35, 0.95), rgba(13, 15, 25, 0.97));
+}
+
+.dispatch-slot-card.rank-s,
+.dispatch-candidate-card.rank-s {
+  border-color: rgba(255, 174, 66, 0.26);
+  background:
+    radial-gradient(circle at top right, rgba(255, 174, 66, 0.14), transparent 38%),
+    linear-gradient(180deg, rgba(38, 27, 17, 0.95), rgba(16, 16, 24, 0.97));
+}
+
+.dispatch-slot-card.rank-splus,
+.dispatch-candidate-card.rank-splus {
+  border-color: rgba(255, 227, 109, 0.28);
+  background:
+    radial-gradient(circle at top right, rgba(255, 227, 109, 0.16), transparent 40%),
+    linear-gradient(180deg, rgba(42, 33, 16, 0.95), rgba(17, 17, 24, 0.97));
+}
+
+.dispatch-slot-card.rank-ss,
+.dispatch-candidate-card.rank-ss {
+  border-color: rgba(255, 235, 143, 0.32);
+  background:
+    radial-gradient(circle at top right, rgba(255, 235, 143, 0.18), transparent 40%),
+    linear-gradient(180deg, rgba(49, 38, 18, 0.96), rgba(18, 18, 24, 0.98));
+  box-shadow: 0 0 0 1px rgba(255, 235, 143, 0.08);
+}
+
+.dispatch-slot-card.rank-sss,
+.dispatch-candidate-card.rank-sss {
+  border-color: rgba(208, 245, 255, 0.34);
+  background:
+    radial-gradient(circle at top left, rgba(255, 249, 200, 0.12), transparent 34%),
+    radial-gradient(circle at top right, rgba(183, 243, 255, 0.18), transparent 40%),
+    linear-gradient(180deg, rgba(28, 37, 48, 0.97), rgba(15, 20, 28, 0.99));
+  box-shadow: 0 0 0 1px rgba(208, 245, 255, 0.08);
+}
+
 .dispatch-slot-card .card-title,
 .dispatch-candidate-card .card-title {
   font-size: 0.98rem;
@@ -1867,6 +1936,11 @@ body.use-floating-stat-tooltip .stat-tooltip-pill::after {
   width: min(980px, calc(100vw - 32px));
 }
 
+.dispatch-active-modal-panel,
+.dispatch-tutorial-modal-panel {
+  width: min(980px, calc(100vw - 32px));
+}
+
 .dispatch-slot-picker-copy {
   margin: 0;
   font-size: 0.92rem;
@@ -1877,6 +1951,28 @@ body.use-floating-stat-tooltip .stat-tooltip-pill::after {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
+}
+
+.dispatch-active-mission-list {
+  display: grid;
+  gap: 10px;
+}
+
+.dispatch-active-mission-modal-card {
+  grid-template-columns: 1fr;
+  gap: 8px;
+}
+
+.dispatch-active-modal-panel .modal-close-button,
+.dispatch-tutorial-modal-panel .modal-close-button {
+  top: 18px;
+  right: 18px;
+}
+
+.dispatch-active-modal-panel .equipment-modal-header,
+.dispatch-tutorial-modal-panel .equipment-modal-header {
+  margin-bottom: 30px;
+  padding-right: 128px;
 }
 
 .dispatch-action-row {
