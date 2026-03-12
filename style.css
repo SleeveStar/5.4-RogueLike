@@ -95,7 +95,7 @@
   --battle-unit-width: minmax(270px, 310px);
   --battle-map-width: minmax(0, 1.95fr);
   --battle-side-width: minmax(270px, 330px);
-  --tile-size: clamp(44px, 3.15vw, 58px);
+  --tile-size: clamp(42px, 3vw, 56px);
   --tile-gap: clamp(5px, 0.5vw, 8px);
   --transition-fast: 140ms ease;
   --transition-base: 180ms ease;
@@ -4470,7 +4470,7 @@ body.use-floating-stat-tooltip .stat-tooltip-pill::after {
 
 .battle-scene {
   position: relative;
-  min-height: 720px;
+  /*min-height: 720px;*/
   overflow: hidden;
   border-radius: calc(var(--radius-xl) + 2px);
   border: 1px solid var(--line-base);
@@ -4700,7 +4700,7 @@ body.use-floating-stat-tooltip .stat-tooltip-pill::after {
   min-width: max-content;
   min-height: max-content;
   margin: auto;
-  padding: var(--space-10);
+  padding: var(--space-8);
   display: flex;
   justify-content: center;
   align-items: center;
@@ -4715,7 +4715,7 @@ body.use-floating-stat-tooltip .stat-tooltip-pill::after {
   grid-template-columns: repeat(var(--grid-cols), var(--tile-size));
   grid-template-rows: repeat(var(--grid-rows), var(--tile-size));
   gap: var(--tile-gap);
-  padding: var(--space-8);
+  padding: var(--space-6);
   border-radius: calc(var(--radius-xl) + 4px);
   border: 1px solid rgba(255, 255, 255, 0.06);
   background:
@@ -5628,7 +5628,7 @@ body.use-floating-stat-tooltip .stat-tooltip-pill::after {
 }
 
 .log-box {
-  min-height: 0;
+  min-height: 300px;
   padding: var(--space-16);
   border-radius: var(--radius-lg);
   border: 1px solid var(--line-soft);
