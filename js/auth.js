@@ -809,14 +809,60 @@
       return "선택된 스테이지가 없습니다.";
     }
 
+    const displayOrder = getDisplayedStageOrder(stage);
+
     return [
-      `${stage.order}. ${stage.name}`,
+      `${displayOrder}. ${stage.name}`,
       `${stage.category === "main" ? "메인 콘텐츠" : "튜토리얼"} / ${stage.available ? "개방" : "잠김"}`,
       `목표: ${stage.victoryLabel}`,
       `임무: ${stage.objective}`,
       `보상: ${stage.rewardGold}G`,
       `상태: ${stage.inProgress ? "진행 중" : stage.cleared ? "클리어" : "준비"}`
     ].join("\n");
+  }
+
+  function getDisplayedStageOrder(stage) {
+    if (!stage || !appState.saveData || !BattleService) {
+      return stage && stage.order ? stage.order : 1;
+    }
+
+    const stages = BattleService.getStageCatalog(appState.saveData).filter((entry) => !entry.hidden);
+    const tutorialStages = stages.filter((entry) => entry.category === "tutorial");
+    const tutorialsCleared = tutorialStages.length > 0 && tutorialStages.every((entry) => entry.cleared);
+    const visibleStages = tutorialsCleared
+      ? stages.filter((entry) => (
+          appState.activeStageTab === "prologue"
+            ? entry.category === "tutorial"
+            : (entry.category === "main" || entry.id === "endless-rift")
+        ))
+      : stages.slice().sort((left, right) => {
+          if (left.category !== right.category) {
+            return left.category === "tutorial" ? -1 : 1;
+          }
+
+          if (left.id === "endless-rift") {
+            return -1;
+          }
+
+          if (right.id === "endless-rift") {
+            return 1;
+          }
+
+          return left.order - right.order;
+        });
+    const orderedVisibleStages = visibleStages.slice().sort((left, right) => {
+      if (left.id === "endless-rift") {
+        return -1;
+      }
+
+      if (right.id === "endless-rift") {
+        return 1;
+      }
+
+      return left.order - right.order;
+    });
+    const stageIndex = orderedVisibleStages.findIndex((entry) => entry.id === stage.id);
+    return stageIndex >= 0 ? stageIndex + 1 : stage.order;
   }
 
   function buildStageFocusMarkup(stage) {
@@ -833,11 +879,12 @@
 
     const statusText = stage.inProgress ? "진행 중" : stage.cleared ? "클리어" : "준비";
     const stageFlavor = getStageFlavorText(stage);
+    const displayOrder = getDisplayedStageOrder(stage);
 
     return [
       `<div class="stage-focus-body ${stage.category === "main" ? "is-main" : "is-tutorial"} ${stage.id === "endless-rift" ? "is-endless" : ""}">`,
       '  <div class="stage-focus-topline">',
-      `    <div><div class="detail-hero-label">MISSION FOCUS</div><strong class="stage-focus-title">${stage.order}. ${stage.name}</strong></div>`,
+      `    <div><div class="detail-hero-label">MISSION FOCUS</div><strong class="stage-focus-title">${displayOrder}. ${stage.name}</strong></div>`,
       `    <div class="stage-focus-status ${stage.inProgress ? "is-live" : stage.cleared ? "is-cleared" : "is-ready"}">${statusText}</div>`,
       "  </div>",
       '  <div class="inventory-meta stage-focus-meta">',
@@ -2002,7 +2049,6 @@
         InventoryService.isMisc(item) ? { label: "보유 수량", value: `${Math.max(0, Number(item.quantity || 0))}개`, tone: "cyan" } : null
       ].filter(Boolean))}</div>`,
       "</section>",
-      buildItemFeatureSection("기본 요약", `<p class="detail-summary-copy">${InventoryService.describeItem(item)}</p>`, "is-summary"),
       buildItemFeatureSection("능력치", statSummary !== "추가 능력치 없음"
         ? `<div class="detail-token-list">${statSummary.split(" / ").map((entry) => `<span class="detail-token is-stat">${entry}</span>`).join("")}</div>`
         : '<div class="detail-token-list"><span class="detail-token is-muted">추가 능력치 없음</span></div>', "is-stats"),
@@ -2166,7 +2212,6 @@
         { label: "상태", value: appState.saveData && (appState.saveData.partyGold || 0) >= buyPrice ? "구매 가능" : "골드 부족", tone: appState.saveData && (appState.saveData.partyGold || 0) >= buyPrice ? "cyan" : "muted" }
       ])}</div>`,
       "</section>",
-      buildItemFeatureSection("기본 요약", `<p class="detail-summary-copy">${InventoryService.describeItem(product)}</p>`, "is-summary"),
       buildItemFeatureSection("능력치", statSummary !== "추가 능력치 없음"
         ? `<div class="detail-token-list">${statSummary.split(" / ").map((entry) => `<span class="detail-token is-stat">${entry}</span>`).join("")}</div>`
         : '<div class="detail-token-list"><span class="detail-token is-muted">추가 능력치 없음</span></div>', "is-stats")
@@ -2432,6 +2477,7 @@
     const isEndless = stage.id === "endless-rift";
     const statusText = stage.inProgress ? "진행 중" : stage.cleared ? "클리어" : "준비";
     const availabilityText = stage.available ? "개방" : "잠김";
+    const displayOrder = getDisplayedStageOrder(stage);
     const focusLines = [
       `${stage.category === "main" ? "메인 콘텐츠" : "튜토리얼"} / ${availabilityText}`,
       `승리 조건: ${stage.victoryLabel}`,
@@ -2445,7 +2491,7 @@
     ];
 
     return [
-      `<div class="item-title-row"><strong class="card-title">${stage.order}. ${stage.name}</strong><span class="card-subtitle">${availabilityText}</span></div>`,
+      `<div class="item-title-row"><strong class="card-title">${displayOrder}. ${stage.name}</strong><span class="card-subtitle">${availabilityText}</span></div>`,
       '  <div class="inventory-meta">',
       `    <span class="meta-pill ${stage.category === "main" ? "is-gold" : "is-cyan"}">${stage.category === "main" ? "메인 콘텐츠" : "튜토리얼"}</span>`,
       `    <span class="meta-pill">${stage.victoryLabel}</span>`,
@@ -6155,7 +6201,7 @@
 
       return [
         `<article class="${classes.join(" ")} interactive-summary-card" data-select-stage="${stage.id}">`,
-        `  <div class="item-title-row"><strong>${stage.order}. ${stage.name}</strong>${stage.cleared ? '<span class="stage-clear-badge">완료</span>' : ""}<span>${stage.available ? "개방" : "잠김"}</span></div>`,
+        `  <div class="item-title-row"><strong>${getDisplayedStageOrder(stage)}. ${stage.name}</strong>${stage.cleared ? '<span class="stage-clear-badge">완료</span>' : ""}<span>${stage.available ? "개방" : "잠김"}</span></div>`,
         '  <div class="inventory-meta">',
         `    <span class="meta-pill ${stage.category === "main" ? "is-gold" : "is-cyan"}">${stage.category === "main" ? "메인 콘텐츠" : "튜토리얼"}</span>`,
         `    <span class="meta-pill is-gold">${stage.rewardGold}G</span>`,
