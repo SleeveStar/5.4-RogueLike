@@ -2513,6 +2513,77 @@
     };
   }
 
+  function escapeRegex(value) {
+    return String(value || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  }
+
+  function formatInlineScaledValue(baseValue, totalValue, options) {
+    const nextOptions = options || {};
+    const normalizedBase = Math.max(0, Math.round(Number(baseValue || 0)));
+    const normalizedTotal = Math.max(0, Math.round(Number(totalValue || 0)));
+    const delta = normalizedTotal - normalizedBase;
+    const prefix = nextOptions.prefix || "";
+
+    if (!delta) {
+      return `${prefix}${normalizedBase}`;
+    }
+
+    return `${prefix}${normalizedBase}${delta > 0 ? `(+${delta})` : `(${delta})`}`;
+  }
+
+  function buildSkillDescriptionWithPerformance(unit, skillOrId) {
+    const skill = typeof skillOrId === "string"
+      ? decorateSkillForUnit(unit, getGlobalSkillDefinition(skillOrId))
+      : decorateSkillForUnit(unit, skillOrId);
+    const baseDescription = skill && skill.description ? String(skill.description) : "";
+    const performance = getSkillPerformance(unit, skill);
+
+    if (!skill || !baseDescription || !performance) {
+      return baseDescription;
+    }
+
+    if (performance.kind === "heal") {
+      const baseAmount = Number(skill.effect && skill.effect.amount || 0);
+      return baseDescription.replace(
+        /(\d+)\s*회복한다\./,
+        `${formatInlineScaledValue(baseAmount, performance.amount)} 회복한다.`
+      );
+    }
+
+    if (performance.kind === "attack") {
+      let nextDescription = baseDescription;
+      const baseDamage = Number(skill.effect && skill.effect.damageBonus || 0);
+      const baseHit = Number(skill.effect && skill.effect.hitBonus || 0);
+
+      nextDescription = nextDescription.replace(
+        /피해\s*\+\d+/,
+        `피해 ${formatInlineScaledValue(baseDamage, performance.damageBonus, { prefix: "+" })}`
+      );
+      nextDescription = nextDescription.replace(
+        /명중\s*\+\d+/,
+        `명중 ${formatInlineScaledValue(baseHit, performance.hitBonus, { prefix: "+" })}`
+      );
+      return nextDescription;
+    }
+
+    if (performance.kind === "buff") {
+      let nextDescription = baseDescription;
+      const buff = skill.effect && skill.effect.buff ? skill.effect.buff : {};
+
+      performance.entries.forEach((entry) => {
+        const baseValue = Number(buff[entry.key] || 0);
+        nextDescription = nextDescription.replace(
+          new RegExp(`${escapeRegex(entry.label)}\\s*\\+\\d+`),
+          `${entry.label} ${formatInlineScaledValue(baseValue, entry.value, { prefix: "+" })}`
+        );
+      });
+
+      return nextDescription;
+    }
+
+    return baseDescription;
+  }
+
   function getSkillPerformance(unit, skillOrId) {
     const skill = typeof skillOrId === "string"
       ? decorateSkillForUnit(unit, getGlobalSkillDefinition(skillOrId))
@@ -3163,6 +3234,7 @@
     getLearnableActiveSkills,
     getSkillDefinition,
     getSkillPerformance,
+    buildSkillDescriptionWithPerformance,
     getSkillLevel,
     getSkillMaxLevel,
     grantSkillById,

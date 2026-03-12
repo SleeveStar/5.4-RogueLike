@@ -21,6 +21,7 @@
   const EQUIPMENT_MODAL_PAGE_SIZE = 8;
   const EQUIP_TARGET_MODAL_PAGE_SIZE = 10;
   const SORTIE_MANAGER_PAGE_SIZE = 4;
+  const ACTIVE_SKILL_MODAL_PAGE_SIZE = 3;
   const PASSIVE_SKILL_MODAL_PAGE_SIZE = 8;
 
   const appState = {
@@ -64,8 +65,8 @@
     },
     skillModal: {
       unitId: null,
-      hoveredSkillId: null,
       dragSkillId: null,
+      activePage: 1,
       passivePage: 1
     },
     detailModal: {
@@ -1142,8 +1143,8 @@
     hideFloatingStatTooltip();
 
     appState.skillModal.unitId = null;
-    appState.skillModal.hoveredSkillId = null;
     appState.skillModal.dragSkillId = null;
+    appState.skillModal.activePage = 1;
     appState.skillModal.passivePage = 1;
   }
 
@@ -1650,35 +1651,8 @@
     return `${skill.rangeMin}-${skill.rangeMax}칸`;
   }
 
-  function getSkillTerrainLabel(skill) {
-    if (!skill || !skill.requiredTileTypes || !skill.requiredTileTypes.length) {
-      return "지형 제한 없음";
-    }
-
-    return skill.requiredTileTypes.map((tile) => (
-      tile === "hill" ? "고지" : tile === "forest" ? "숲" : tile
-    )).join(" / ");
-  }
-
   function getSkillSlotLabel(slotIndex) {
     return `슬롯 ${slotIndex + 1}`;
-  }
-
-  function resolveSkillDetailSelection(unit, preferredSkillId) {
-    if (!unit) {
-      return null;
-    }
-
-    const loadout = SkillsService.getActiveSkillLoadout(unit).filter(Boolean);
-    const activeSkills = SkillsService.getActiveSkillsForUnit(unit);
-    const passiveSkills = SkillsService.getSkillsForUnit(unit);
-    const skillPool = [...loadout, ...activeSkills, ...passiveSkills];
-
-    if (!skillPool.length) {
-      return null;
-    }
-
-    return skillPool.find((skill) => skill.id === preferredSkillId) || skillPool[0];
   }
 
   function normalizeSkillForDetail(unit, skill) {
@@ -1695,84 +1669,12 @@
 
     return {
       ...skill,
+      baseDescription: skill.description,
+      description: SkillsService.buildSkillDescriptionWithPerformance(unit, skill) || skill.description,
       skillLevel,
       maxSkillLevel,
       canLevelUp: skill.skillType === "active" ? (skillLevel < maxSkillLevel) : false
     };
-  }
-
-  function buildSkillDetailMarkup(unit, skillId) {
-    if (!unit) {
-      return "<p>스킬 정보를 표시할 수 없습니다.</p>";
-    }
-
-    const selectedSkill = resolveSkillDetailSelection(unit, skillId);
-
-    if (!selectedSkill) {
-      return [
-        `<div class="item-title-row"><strong class="card-title">${unit.name} 스킬 상세</strong><span class="card-subtitle">${unit.className}</span></div>`,
-        "  <p>장착하거나 확인할 스킬이 없습니다.</p>"
-      ].join("");
-    }
-
-    const detailedSkill = normalizeSkillForDetail(unit, selectedSkill);
-    const performance = SkillsService.getSkillPerformance(unit, detailedSkill);
-    const equippedSlotIndex = detailedSkill.skillType === "active"
-      ? (unit.equippedActiveSkillIds || []).indexOf(detailedSkill.id)
-      : -1;
-    const formulaLines = performance && performance.formulaLines ? performance.formulaLines.slice(0, 2) : [];
-    const formulaOverflowCount = performance && performance.formulaLines
-      ? Math.max(0, performance.formulaLines.length - formulaLines.length)
-      : 0;
-
-    return [
-      `<div class="item-title-row"><strong class="card-title">${detailedSkill.name}</strong><span class="card-subtitle">${detailedSkill.skillType === "active" ? "ACTIVE" : "PASSIVE"}</span></div>`,
-      '  <div class="inventory-meta">',
-      `    <span class="meta-pill ${detailedSkill.skillType === "active" ? "is-cyan" : "is-gold"}">${detailedSkill.skillType === "active" ? "액티브" : "패시브"}</span>`,
-      detailedSkill.skillType === "active" ? `    <span class="meta-pill">Lv.${detailedSkill.skillLevel} / 최대 ${detailedSkill.maxSkillLevel}</span>` : "",
-      detailedSkill.skillType === "active" && equippedSlotIndex >= 0 ? `    <span class="meta-pill is-gold">${getSkillSlotLabel(equippedSlotIndex)}</span>` : "",
-      `    <span class="meta-pill">개방 Lv.${detailedSkill.unlockLevel}</span>`,
-      detailedSkill.sourceClassName && detailedSkill.sourceClassName !== "special" ? `    <span class="meta-pill is-muted">${detailedSkill.sourceClassName}</span>` : "",
-      "  </div>",
-      '  <div class="detail-metric-grid skill-detail-metrics">',
-      detailedSkill.skillType === "active"
-        ? [
-          buildDetailKeyValue("대상", getSkillTargetLabel(detailedSkill), "cyan"),
-          buildDetailKeyValue("사거리", getSkillRangeLabel(detailedSkill), "violet"),
-          buildDetailKeyValue("재사용", `${detailedSkill.cooldown}턴`, "gold"),
-          buildDetailKeyValue("지형", getSkillTerrainLabel(detailedSkill), "muted")
-        ].join("")
-        : [
-          buildDetailKeyValue("분류", "상시 패시브", "gold"),
-          buildDetailKeyValue("출처", detailedSkill.sourceClassName === "special" ? "특수" : (detailedSkill.sourceClassName || "공통"), "muted"),
-          buildDetailKeyValue("개방", `Lv.${detailedSkill.unlockLevel}`, "cyan"),
-          buildDetailKeyValue("상태", "항상 적용", "violet")
-        ].join(""),
-      "  </div>",
-      '  <div class="skill-detail-grid">',
-      '    <section class="skill-detail-pane">',
-      '      <div class="detail-feature-title">운용 개요</div>',
-      `      <p class="skill-detail-copy">${detailedSkill.description}</p>`,
-      detailedSkill.skillType === "active"
-        ? `      <p class="skill-detail-note">장착 상태: ${equippedSlotIndex >= 0 ? `${getSkillSlotLabel(equippedSlotIndex)} 배치` : "미장착"}</p>`
-        : `      <p class="skill-detail-note">${detailedSkill.sourceClassName === "special" ? "특수 패시브로 자동 적용됩니다." : "습득 시 자동 적용되는 지속 효과입니다."}</p>`,
-      "    </section>",
-      '    <section class="skill-detail-pane">',
-      '      <div class="detail-feature-title">현재 성능</div>',
-      performance
-        ? `      <p class="skill-detail-copy skill-detail-current">${performance.currentSummary}</p>`
-        : '      <p class="skill-detail-copy">현재 수치가 필요한 능동 효과는 없습니다.</p>',
-      formulaLines.length
-        ? `      <div class="skill-detail-note-list">${formulaLines.map((line) => `<p class="skill-detail-note">${line}</p>`).join("")}${formulaOverflowCount ? `<p class="skill-detail-note">추가 계산식 ${formulaOverflowCount}개</p>` : ""}</div>`
-        : "",
-      detailedSkill.canLevelUp
-        ? '      <p class="skill-detail-note is-upgrade">현재 레벨 기준으로 더 강화할 수 있습니다.</p>'
-        : (detailedSkill.skillType === "active" && detailedSkill.skillLevel >= detailedSkill.maxSkillLevel
-          ? '      <p class="skill-detail-note">현재 레벨에서 가능한 최대 스킬 레벨입니다.</p>'
-          : ""),
-      "    </section>",
-      "  </div>"
-    ].filter(Boolean).join("");
   }
 
   function buildUnitStatSummary(unit) {
@@ -2422,7 +2324,7 @@
       "  </div>",
       '  <div class="detail-stats">',
       `    <span class="meta-pill">HP ${effectivePreviewUnit.maxHp}${effectivePreviewUnit.equipmentBonus && effectivePreviewUnit.equipmentBonus.legacy && effectivePreviewUnit.equipmentBonus.legacy.maxHp ? ` (+${effectivePreviewUnit.equipmentBonus.legacy.maxHp} 장비)` : ""}</span>`,
-      `    <span class="meta-pill">MOV ${effectivePreviewUnit.mov}${effectivePreviewUnit.equipmentBonus && effectivePreviewUnit.equipmentBonus.legacy && effectivePreviewUnit.equipmentBonus.legacy.mov ? ` (+${effectivePreviewUnit.equipmentBonus.legacy.mov} 장비)` : ""}</span>`,
+      `    <span class="meta-pill">MOV ${effectivePreviewUnit.mov}</span>`,
       `    <span class="meta-pill ${spentStats ? "is-preview-up" : "is-muted"}">예약 스탯 ${spentStats}</span>`,
       `    <span class="meta-pill ${spentSkills ? "is-preview-up" : "is-muted"}">예약 스킬 ${spentSkills}</span>`,
       "  </div>",
@@ -3828,18 +3730,6 @@
     renderEquipmentModal();
   }
 
-  function renderSkillDetailPanel(unit) {
-    const detailTarget = getElement("menu-skill-detail");
-
-    if (!detailTarget) {
-      return;
-    }
-
-    const selectedSkill = resolveSkillDetailSelection(unit, appState.skillModal.hoveredSkillId);
-    appState.skillModal.hoveredSkillId = selectedSkill ? selectedSkill.id : null;
-    detailTarget.innerHTML = buildSkillDetailMarkup(unit, appState.skillModal.hoveredSkillId);
-  }
-
   function renderSkillModal() {
     const host = getEquipmentModalHost();
     const unit = appState.saveData && appState.saveData.roster
@@ -3854,14 +3744,20 @@
     SkillsService.normalizeUnitLearnedSkills(unit);
 
     const activeSkills = SkillsService.getActiveSkillsForUnit(unit).map((skill) => normalizeSkillForDetail(unit, skill));
-    const passiveSkills = SkillsService.getSkillsForUnit(unit);
+    const passiveSkills = SkillsService.getSkillsForUnit(unit).map((skill) => normalizeSkillForDetail(unit, skill));
     const loadout = SkillsService.getActiveSkillLoadout(unit).map((skill) => normalizeSkillForDetail(unit, skill));
-    const passiveTotalPages = Math.max(1, Math.ceil(passiveSkills.length / PASSIVE_SKILL_MODAL_PAGE_SIZE));
-    const passiveCurrentPage = Math.max(1, Math.min(passiveTotalPages, Number(appState.skillModal.passivePage || 1)));
-    const passivePageStart = (passiveCurrentPage - 1) * PASSIVE_SKILL_MODAL_PAGE_SIZE;
-    const visiblePassiveSkills = passiveSkills.slice(passivePageStart, passivePageStart + PASSIVE_SKILL_MODAL_PAGE_SIZE);
+    const activeTotalPages = Math.max(1, Math.ceil(activeSkills.length / ACTIVE_SKILL_MODAL_PAGE_SIZE));
+    const activeCurrentPage = Math.max(1, Math.min(activeTotalPages, Number(appState.skillModal.activePage || 1)));
+    const activePageStart = (activeCurrentPage - 1) * ACTIVE_SKILL_MODAL_PAGE_SIZE;
+    const visibleActiveSkills = activeSkills.slice(activePageStart, activePageStart + ACTIVE_SKILL_MODAL_PAGE_SIZE);
+    const activeSkillCards = visibleActiveSkills.slice();
 
-    appState.skillModal.passivePage = passiveCurrentPage;
+    while (activeSkillCards.length < ACTIVE_SKILL_MODAL_PAGE_SIZE) {
+      activeSkillCards.push(null);
+    }
+
+    appState.skillModal.activePage = activeCurrentPage;
+    appState.skillModal.passivePage = 1;
 
     host.innerHTML = [
       '<div class="modal-backdrop menu-modal-backdrop">',
@@ -3874,30 +3770,36 @@
       '          <h3>장착 액티브</h3>',
       '          <div class="skill-slot-grid">',
       loadout.map((skill, index) => {
-        const performance = skill ? SkillsService.getSkillPerformance(unit, skill) : null;
-
         return [
-          `<article class="inventory-card skill-slot-card ${skill ? "is-filled" : "is-empty"}" data-skill-slot="${index}" data-slot-skill-id="${skill ? skill.id : ""}">`,
+          `<article class="inventory-card skill-slot-card ${skill ? "is-filled" : "is-empty"}" data-skill-slot="${index}">`,
           `  <div class="item-title-row"><strong class="card-title">${getSkillSlotLabel(index)}</strong><span class="card-subtitle">${skill ? `Lv.${skill.skillLevel}` : "EMPTY"}</span></div>`,
-          `  <p>${skill ? skill.name : "장착된 액티브가 없습니다."}</p>`,
-          `  <p>${performance ? performance.currentSummary : "액티브 스킬 카드를 드래그하거나 더블클릭해 배치합니다."}</p>`,
+          '  <div class="skill-slot-card-body">',
+          `    <strong class="skill-slot-skill-name">${skill ? skill.name : "장착된 액티브가 없습니다."}</strong>`,
+          skill
+            ? `    <div class="inventory-meta skill-slot-inline-meta"><span class="meta-pill is-cyan">${getSkillTargetLabel(skill)}</span><span class="meta-pill is-violet">${getSkillRangeLabel(skill)}</span></div>`
+            : '    <div class="inventory-meta skill-slot-inline-meta"><span class="meta-pill is-muted">배치 대기</span><span class="meta-pill is-muted">드래그 또는 더블클릭</span></div>',
+          `    <p class="skill-slot-skill-summary">${skill ? skill.description : "액티브 스킬 카드를 드래그하거나 더블클릭해 배치합니다."}</p>`,
+          skill
+            ? `    <div class="skill-slot-facts"><span class="skill-slot-fact"><span class="skill-slot-fact-label">대상</span><strong>${getSkillTargetLabel(skill)}</strong></span><span class="skill-slot-fact"><span class="skill-slot-fact-label">사거리</span><strong>${getSkillRangeLabel(skill)}</strong></span></div>`
+            : "",
+          "  </div>",
           skill ? `  <button class="ghost-button small-button" type="button" data-skill-unequip="${index}">해제</button>` : "",
           "</article>"
         ].join("");
       }).join(""),
       "          </div>",
-      '          <div class="modal-card skill-slot-help-panel">',
-      '            <p>장착된 3개 액티브만 전투에서 사용됩니다. 더블클릭으로 자동 배치하거나 슬롯으로 드래그해 순서를 바꿀 수 있습니다.</p>',
-      "          </div>",
       "        </section>",
       '        <section class="skill-inventory-column">',
       '          <div class="item-title-row">',
       '            <h3>액티브 스킬</h3>',
-      '            <span class="meta-pill is-gold">더블클릭 또는 드래그</span>',
+      `            <span class="meta-pill is-gold">${activeCurrentPage} / ${activeTotalPages} 페이지</span>`,
       "          </div>",
       activeSkills.length
-        ? `          <div class="skill-catalog-list">${activeSkills.map((skill) => {
-            const performance = SkillsService.getSkillPerformance(unit, skill);
+        ? `          <div class="skill-catalog-list">${activeSkillCards.map((skill) => {
+            if (!skill) {
+              return '<article class="inventory-card skill-card skill-card-active is-placeholder"><div class="item-title-row skill-card-header"><strong class="card-title">EMPTY</strong><div class="inventory-meta skill-card-inline-meta"><span class="meta-pill is-muted">빈 슬롯</span></div></div><p class="skill-card-description">이 페이지에는 더 표시할 액티브 스킬이 없습니다.</p></article>';
+            }
+
             const equippedIndex = (unit.equippedActiveSkillIds || []).indexOf(skill.id);
 
             return [
@@ -3912,42 +3814,38 @@
               "    </div>",
               "  </div>",
               `  <p class="skill-card-description">${skill.description}</p>`,
-              performance ? `  <p>${performance.currentSummary}</p>` : "",
               '  <div class="button-row">',
               `    <button class="secondary-button small-button" type="button" data-skill-equip="${skill.id}">${equippedIndex >= 0 ? "재배치" : "장착"}</button>`,
               `    <button class="${skill.canLevelUp ? "primary-button" : "ghost-button"} small-button" type="button" data-skill-upgrade="${skill.id}" ${skill.canLevelUp ? "" : "disabled"}>${skill.canLevelUp ? "강화" : "최대"}</button>`,
               "  </div>",
               "</article>"
             ].filter(Boolean).join("");
-          }).join("")}</div>`
-        : '          <div class="inventory-card"><p>보유한 액티브 스킬이 없습니다.</p></div>',
-      '          <div class="item-title-row">',
-      '            <h3>패시브 스킬</h3>',
-      `            <span class="meta-pill is-muted">${passiveCurrentPage} / ${passiveTotalPages}</span>`,
-      "          </div>",
-      passiveSkills.length
-        ? `          <div class="skill-catalog-list passive-skill-list">${visiblePassiveSkills.map((skill) => (
-            `<article class="inventory-card skill-card is-passive" data-passive-skill="${skill.id}"><div class="item-title-row"><strong class="card-title">${skill.name}</strong><span class="card-subtitle">${skill.sourceClassName === "special" ? "SPECIAL" : "PASSIVE"}</span></div><p>${skill.description}</p></article>`
-          )).join("")}</div>
-          <div class="list-pagination passive-skill-pagination">
-            <button class="ghost-button small-button" type="button" data-passive-page="prev" ${passiveCurrentPage <= 1 ? "disabled" : ""}>이전</button>
-            <span class="pagination-label">${passiveCurrentPage} / ${passiveTotalPages}</span>
-            <button class="ghost-button small-button" type="button" data-passive-page="next" ${passiveCurrentPage >= passiveTotalPages ? "disabled" : ""}>다음</button>
+          }).join("")}</div>
+          <div class="list-pagination active-skill-pagination">
+            <button class="ghost-button small-button" type="button" data-active-page="prev" ${activeCurrentPage <= 1 ? "disabled" : ""}>이전</button>
+            <span class="pagination-label">${activeCurrentPage} / ${activeTotalPages}</span>
+            <button class="ghost-button small-button" type="button" data-active-page="next" ${activeCurrentPage >= activeTotalPages ? "disabled" : ""}>다음</button>
           </div>`
-        : '          <div class="inventory-card"><p>보유한 패시브 스킬이 없습니다.</p></div>',
+        : '          <div class="inventory-card"><p>보유한 액티브 스킬이 없습니다.</p></div>',
       "        </section>",
       "      </div>",
-      '      <section id="menu-skill-detail" class="modal-card skill-detail-panel"></section>',
+      '      <section class="skill-passive-section">',
+      '        <div class="item-title-row">',
+      '          <h3>패시브 스킬</h3>',
+      `          <span class="meta-pill is-gold">총 ${passiveSkills.length}개 / 자동 적용</span>`,
+      "        </div>",
+      passiveSkills.length
+        ? `        <div class="passive-skill-inline-list">${passiveSkills.map((skill) => (
+            `<article class="inventory-card skill-card is-passive is-compact"><div class="item-title-row"><strong class="card-title">${skill.name}</strong><span class="card-subtitle">${skill.sourceClassName === "special" ? "SPECIAL" : "PASSIVE"}</span></div><p>${skill.description}</p></article>`
+          )).join("")}</div>`
+        : '        <div class="inventory-card"><p>보유한 패시브 스킬이 없습니다.</p></div>',
+      "      </section>",
       "    </div>",
       "  </div>",
       "</div>"
     ].join("");
 
     const backdrop = host.querySelector(".menu-modal-backdrop");
-    const selectSkillDetail = (skillId) => {
-      appState.skillModal.hoveredSkillId = skillId || null;
-      renderSkillDetailPanel(unit);
-    };
     const rerenderSkillState = (toastMessage) => {
       persistSession(appState.saveData, appState.settings);
       renderSkillModal();
@@ -3965,12 +3863,6 @@
 
     host.querySelectorAll("[data-skill-slot]").forEach((slotCard) => {
       const slotIndex = Number(slotCard.dataset.skillSlot || 0);
-      const slotSkillId = slotCard.dataset.slotSkillId || null;
-      slotCard.classList.toggle("is-selected", !!slotSkillId && slotSkillId === appState.skillModal.hoveredSkillId);
-
-      slotCard.addEventListener("click", () => {
-        selectSkillDetail(slotSkillId);
-      });
       slotCard.addEventListener("dragover", (event) => {
         const draggedSkillId = appState.skillModal.dragSkillId;
 
@@ -4006,11 +3898,6 @@
 
     host.querySelectorAll("[data-modal-skill]").forEach((card) => {
       const skillId = card.dataset.modalSkill;
-      card.classList.toggle("is-selected", skillId === appState.skillModal.hoveredSkillId);
-
-      card.addEventListener("click", () => {
-        selectSkillDetail(skillId);
-      });
       card.addEventListener("dragstart", (event) => {
         appState.skillModal.dragSkillId = skillId;
 
@@ -4033,19 +3920,11 @@
       });
     });
 
-    host.querySelectorAll("[data-passive-skill]").forEach((card) => {
-      const skillId = card.dataset.passiveSkill;
-      card.classList.toggle("is-selected", skillId === appState.skillModal.hoveredSkillId);
-      card.addEventListener("click", () => {
-        selectSkillDetail(skillId);
-      });
-    });
-
-    host.querySelectorAll("[data-passive-page]").forEach((button) => {
+    host.querySelectorAll("[data-active-page]").forEach((button) => {
       button.addEventListener("click", () => {
-        appState.skillModal.passivePage = button.dataset.passivePage === "next"
-          ? Math.min(passiveTotalPages, passiveCurrentPage + 1)
-          : Math.max(1, passiveCurrentPage - 1);
+        appState.skillModal.activePage = button.dataset.activePage === "next"
+          ? Math.min(activeTotalPages, activeCurrentPage + 1)
+          : Math.max(1, activeCurrentPage - 1);
         renderSkillModal();
       });
     });
@@ -4085,15 +3964,14 @@
       });
     });
 
-    renderSkillDetailPanel(unit);
   }
 
   function openSkillModal(unitId) {
     closeDetailModal();
     closeEquipmentModal();
     appState.skillModal.unitId = unitId;
-    appState.skillModal.hoveredSkillId = null;
     appState.skillModal.dragSkillId = null;
+    appState.skillModal.activePage = 1;
     appState.skillModal.passivePage = 1;
     renderSkillModal();
   }
@@ -4975,6 +4853,156 @@
     return rewardItems.length ? rewardItems.slice(0, 3).join(", ") : "추가 전리품 없음";
   }
 
+  function getDispatchRewardItemTypeLabel(item) {
+    if (!item) {
+      return "전리품";
+    }
+
+    if (InventoryService.isMisc(item)) {
+      return "기타 전리품";
+    }
+
+    if (InventoryService.isConsumable(item)) {
+      return "소모품";
+    }
+
+    return InventoryService.getSlotLabel(item.equippedSlotKey || InventoryService.getCompatibleSlotKeys(item)[0] || item.slot);
+  }
+
+  function buildDispatchClaimRewardItemCard(item) {
+    const rarityKey = item && item.rarity ? item.rarity : "common";
+    const rarity = InventoryService.getRarityMeta(rarityKey);
+    const typeLabel = getDispatchRewardItemTypeLabel(item);
+    const description = InventoryService.isMisc(item)
+      ? (item.description || "제작과 성장에 사용하는 전리품입니다.")
+      : InventoryService.isConsumable(item)
+        ? (item.description || "즉시 사용할 수 있는 보급품입니다.")
+        : InventoryService.formatStatBonusLine(item);
+    const levelLabel = InventoryService.isEquipment(item)
+      ? `<span class="meta-pill">Lv.${InventoryService.getEquipmentItemLevel(item) || 1}</span>`
+      : "";
+
+    return [
+      `<article class="dispatch-claim-loot-card rarity-${rarityKey}">`,
+      '  <div class="item-title-row dispatch-claim-loot-header">',
+      `    <div><strong class="card-title">${formatRewardItemLabel(item)}</strong><span class="card-subtitle">${rarity.label}</span></div>`,
+      `    <span class="dispatch-claim-loot-badge rarity-${rarityKey}">${typeLabel}</span>`,
+      "  </div>",
+      `  <div class="inventory-meta"><span class="meta-pill rarity-${rarityKey}">${rarity.label}</span>${levelLabel}</div>`,
+      `  <p>${description}</p>`,
+      "</article>"
+    ].join("");
+  }
+
+  function buildDispatchClaimLevelSummaryMarkup(levelSummary) {
+    if (!levelSummary || !Array.isArray(levelSummary.levels) || !levelSummary.levels.length) {
+      return '<p class="dispatch-claim-member-copy">경험치만 획득했고 레벨 변화는 없습니다.</p>';
+    }
+
+    const unlockedSkills = Array.from(new Set(
+      levelSummary.levels.flatMap((entry) => Array.isArray(entry.unlockedSkills) ? entry.unlockedSkills : [])
+    ));
+
+    return [
+      `  <p class="dispatch-claim-member-copy">레벨업 ${levelSummary.levels.length}회 · ${levelSummary.levels.map((entry) => `Lv.${entry.level}`).join(" / ")}</p>`,
+      `  <div class="dispatch-claim-level-list">${levelSummary.levels.map((entry) => `<div class="dispatch-claim-level-entry"><strong>Lv.${entry.level}</strong><span>${entry.gains || "성장 수치 없음"}</span></div>`).join("")}</div>`,
+      unlockedSkills.length
+        ? `  <div class="detail-token-list">${unlockedSkills.map((skillName) => `<span class="detail-token is-unique"><strong>Unlock</strong><small>${skillName}</small></span>`).join("")}</div>`
+        : ""
+    ].filter(Boolean).join("");
+  }
+
+  function buildDispatchClaimMemberCard(unitId, expPerUnit, levelSummary) {
+    const unit = appState.saveData && appState.saveData.roster
+      ? appState.saveData.roster.find((entry) => entry.id === unitId) || null
+      : null;
+    const unitName = levelSummary && levelSummary.unitName ? levelSummary.unitName : getUnitNameById(unitId);
+    const className = unit ? unit.className : "모험가";
+    const levelText = unit ? `Lv.${unit.level}` : "레벨 정보 없음";
+    const levelUpBadge = levelSummary && levelSummary.levels && levelSummary.levels.length
+      ? `<span class="meta-pill is-gold">레벨업 ${levelSummary.levels.length}회</span>`
+      : '<span class="meta-pill is-muted">레벨 유지</span>';
+
+    return [
+      '<article class="dispatch-claim-member-card">',
+      '  <div class="item-title-row">',
+      `    <div><strong class="card-title">${unitName}</strong><span class="card-subtitle">${className}</span></div>`,
+      `    <div class="inventory-meta"><span class="meta-pill is-cyan">+${expPerUnit} EXP</span><span class="meta-pill">${levelText}</span>${levelUpBadge}</div>`,
+      "  </div>",
+      buildDispatchClaimLevelSummaryMarkup(levelSummary),
+      "</article>"
+    ].join("");
+  }
+
+  function openDispatchClaimResultModal(claimResult) {
+    const host = getEquipmentModalHost();
+    const mission = claimResult && claimResult.mission ? claimResult.mission : null;
+
+    if (!host || !mission) {
+      return;
+    }
+
+    const rewardItems = (mission.rewards && mission.rewards.items) || [];
+    const levelUpSummaryMap = new Map(
+      ((claimResult && claimResult.levelUpSummaries) || []).map((summary) => [summary.unitId || summary.unitName, summary])
+    );
+
+    closeMenuModals();
+    appState.detailModal.type = "dispatch-claim-result";
+    appState.detailModal.id = mission.id;
+    host.innerHTML = [
+      '<div class="modal-backdrop menu-modal-backdrop">',
+      '  <div class="modal-panel menu-detail-modal-panel dispatch-claim-modal-panel">',
+      '    <button id="dispatch-claim-close-button" class="ghost-button modal-close-button" type="button">닫기</button>',
+      '    <div class="modal-body menu-detail-modal-body">',
+      '      <div class="item-title-row equipment-modal-header"><strong class="card-title">파견 보상 정산</strong><span class="card-subtitle">수령한 보상을 한눈에 확인합니다</span></div>',
+      `      <section class="modal-card dispatch-claim-hero result-${mission.result}">`,
+      '        <div class="dispatch-claim-hero-top">',
+      '          <div class="dispatch-claim-hero-copy">',
+      `            <div class="inventory-meta dispatch-claim-hero-meta"><span class="meta-pill is-gold">${buildDispatchStarRating(mission.starRating)}</span><span class="meta-pill ${mission.result === "fail" ? "is-crimson" : mission.result === "jackpot" ? "is-gold" : "is-cyan"}">${getDispatchResultLabel(mission.result)}</span><span class="meta-pill">${formatDurationHours(mission.durationHours)}</span></div>`,
+      `            <strong class="card-title">${mission.missionName}</strong>`,
+      `            <p class="dispatch-claim-log">${mission.resultLog}</p>`,
+      `            <p class="dispatch-claim-party">파견대: ${formatDispatchMemberNames(mission.unitIds)}</p>`,
+      "          </div>",
+      `          <div class="dispatch-claim-result-badge result-${mission.result}">${mission.result === "jackpot" ? "JACKPOT" : mission.result === "great" ? "GREAT" : mission.result === "fail" ? "RETREAT" : "SUCCESS"}</div>`,
+      "        </div>",
+      '        <div class="dispatch-claim-metric-grid">',
+      `          <div class="dispatch-claim-metric-card is-gold"><span class="dispatch-claim-metric-label">획득 골드</span><strong class="dispatch-claim-metric-value">+${mission.rewards.gold}G</strong></div>`,
+      `          <div class="dispatch-claim-metric-card is-cyan"><span class="dispatch-claim-metric-label">개인 EXP</span><strong class="dispatch-claim-metric-value">+${mission.rewards.expPerUnit}</strong></div>`,
+      `          <div class="dispatch-claim-metric-card"><span class="dispatch-claim-metric-label">전리품 수</span><strong class="dispatch-claim-metric-value">${rewardItems.length}개</strong></div>`,
+      `          <div class="dispatch-claim-metric-card ${levelUpSummaryMap.size ? "is-gold" : ""}"><span class="dispatch-claim-metric-label">레벨업</span><strong class="dispatch-claim-metric-value">${levelUpSummaryMap.size ? `${levelUpSummaryMap.size}명 성장` : "없음"}</strong></div>`,
+      "        </div>",
+      "      </section>",
+      '      <div class="dispatch-claim-layout">',
+      '        <section class="modal-card dispatch-claim-section">',
+      `          <div class="item-title-row"><strong class="card-title">획득 전리품</strong><span class="card-subtitle">${rewardItems.length ? `총 ${rewardItems.length}개` : "추가 전리품 없음"}</span></div>`,
+      rewardItems.length
+        ? `          <div class="dispatch-claim-loot-grid">${rewardItems.map((item) => buildDispatchClaimRewardItemCard(item)).join("")}</div>`
+        : '          <div class="dispatch-claim-empty-state"><strong>보너스 전리품 없음</strong><p>이번 파견에서는 골드와 경험치만 정산되었습니다.</p></div>',
+      "        </section>",
+      '        <section class="modal-card dispatch-claim-section">',
+      `          <div class="item-title-row"><strong class="card-title">파견대 정산</strong><span class="card-subtitle">${(mission.unitIds || []).length}명 정산 완료</span></div>`,
+      `          <div class="dispatch-claim-member-list">${(mission.unitIds || []).map((unitId) => buildDispatchClaimMemberCard(unitId, mission.rewards.expPerUnit, levelUpSummaryMap.get(unitId) || levelUpSummaryMap.get(getUnitNameById(unitId)))).join("")}</div>`,
+      "        </section>",
+      "      </div>",
+      '      <div class="detail-actions menu-detail-actions"><button id="dispatch-claim-confirm-button" class="primary-button small-button" type="button">확인</button></div>',
+      '    </div>',
+      '  </div>',
+      '</div>'
+    ].join("");
+
+    const backdrop = host.querySelector(".menu-modal-backdrop");
+    const close = () => closeDetailModal();
+
+    getElement("dispatch-claim-close-button").addEventListener("click", close);
+    getElement("dispatch-claim-confirm-button").addEventListener("click", close);
+    backdrop.addEventListener("click", (event) => {
+      if (event.target === backdrop) {
+        close();
+      }
+    });
+  }
+
   function buildDispatchSelectedDetail(record, preview, draftUnitIds, availableUnits) {
     if (!record) {
       return '<div class="inventory-card"><p>좌측 리스트에서 임무를 선택하세요.</p></div>';
@@ -5209,6 +5237,7 @@
         try {
           const result = DispatchService.claimMission(appState.saveData, button.dataset.dispatchClaim);
           persistSession(appState.saveData, appState.settings);
+          openDispatchClaimResultModal(result);
           showToast(`${result.mission.missionName} 보상을 수령했습니다. +${result.mission.rewards.gold}G`);
         } catch (error) {
           showToast(error.message, true);

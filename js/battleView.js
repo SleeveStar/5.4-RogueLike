@@ -2512,6 +2512,7 @@
 
   function buildBattleSkillCardMarkup(unit, skill) {
     const performance = SkillsService.getSkillPerformance(unit, skill);
+    const description = SkillsService.buildSkillDescriptionWithPerformance(unit, skill) || skill.description;
     const cooldownText = skill.cooldownRemaining > 0 ? `재사용 ${skill.cooldownRemaining}턴` : "사용 가능";
     const terrainReady = BattleService.canUseSkillOnCurrentTerrain(unit, skill);
     const terrainText = skill.requiredTileTypes && skill.requiredTileTypes.length
@@ -2534,7 +2535,7 @@
       '  <div class="battle-skill-card-top">',
       '    <div class="battle-skill-copy">',
       `      <div class="item-title-row"><strong>${skill.name}</strong><span>${targetLabel}</span></div>`,
-      `      <p>${skill.description}</p>`,
+      `      <p>${description}</p>`,
       "    </div>",
       '    <div class="battle-skill-state">',
       `      <span class="meta-pill ${skill.cooldownRemaining > 0 ? "is-muted" : "is-cyan"}">${cooldownText}</span>`,
@@ -2546,7 +2547,6 @@
       buildBattleBriefingMetric("사거리", getSkillRangeSummary(unit, skill), "gold"),
       buildBattleBriefingMetric("지형", terrainText, terrainReady ? "muted" : "crimson"),
       buildBattleBriefingMetric("상태", disabledReason, disabled ? "crimson" : "violet"),
-      performance ? buildBattleBriefingMetric("현재 성능", performance.currentSummary, "gold") : "",
       "  </div>",
       performance && performance.formulaLines && performance.formulaLines.length
         ? `  <div class="battle-skill-notes">${performance.formulaLines.map((line) => `<p>${line}</p>`).join("")}</div>`

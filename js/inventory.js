@@ -815,7 +815,7 @@
       },
       slot: "boots",
       type: "boots",
-      baseBonus: { mov: 1, spd: 1 }
+      baseBonus: { spd: 2 }
     },
     {
       key: "bracelet",
@@ -1265,8 +1265,8 @@
       slot: "boots",
       rarity: "rare",
       price: 145,
-      description: "이동력을 높여 주는 전투화.",
-      statBonus: { mov: 1, spd: 1 }
+      description: "속도와 반응을 끌어올리는 전투화.",
+      statBonus: { spd: 2 }
     },
     {
       id: "shop-war-bracelet",
@@ -1559,8 +1559,7 @@
       family: "strider",
       allowedRarities: ["rare", "unique", "legendary", "epic", "mystic", "primordial"],
       slotWeights: { boots: 7, legs: 4, bracelet: 2 },
-      legacyStatBonus: { mov: 1 },
-      hiddenBonus: { evasion: 3 }
+      hiddenBonus: { evasion: 6 }
     },
     {
       id: "eagle_eye",
@@ -1771,8 +1770,7 @@
       suffix: "사냥행군",
       family: "legendary_unique",
       allowedSlots: ["boots", "weapon", "bracelet"],
-      hiddenBonus: { moveThenAttackDamagePercent: 0.14 },
-      legacyStatBonus: { mov: 1 }
+      hiddenBonus: { moveThenAttackDamagePercent: 0.14, evasion: 6 }
     },
     {
       id: "nightbloom_hex",
@@ -1835,7 +1833,7 @@
       name: "질풍 추격",
       bonuses: [
         { pieces: 2, hiddenBonus: { accuracy: 8, critChance: 0.06 }, description: "명중과 치명 확률이 오른다." },
-        { pieces: 3, legacyStatBonus: { mov: 1 }, hiddenBonus: { moveThenAttackDamagePercent: 0.12 }, description: "이동력과 이동 후 공격 피해가 오른다." },
+        { pieces: 3, hiddenBonus: { moveThenAttackDamagePercent: 0.12, evasion: 6 }, description: "회피와 이동 후 공격 피해가 오른다." },
         { pieces: 4, hiddenBonus: { executeDamagePercent: 0.12 }, description: "마무리 피해가 오른다." }
       ]
     }
@@ -2011,7 +2009,7 @@
       type: "boots",
       minLevel: 10,
       primaryStatBonus: { dex: 1 },
-      statBonus: { mov: 1 },
+      statBonus: { spd: 1 },
       hiddenBonus: { moveThenAttackDamagePercent: 0.08 }
     },
     {
@@ -2228,7 +2226,7 @@
     });
 
     Object.keys(affix.legacyStatBonus || {}).forEach((statName) => {
-      if (affix.legacyStatBonus[statName]) {
+      if (statName !== "mov" && affix.legacyStatBonus[statName]) {
         parts.push(`${STAT_LABELS[statName]} +${affix.legacyStatBonus[statName]}`);
       }
     });
@@ -2502,10 +2500,6 @@
 
     if (source.maxHp) {
       primaryStatBonus.vit += Math.max(1, Math.floor((Number(source.maxHp || 0) + 1) / 2));
-    }
-
-    if (source.mov) {
-      legacyStatBonus.mov += Number(source.mov || 0);
     }
 
     return {
@@ -4133,7 +4127,6 @@
     unit.skl += bonus.legacy.skl || 0;
     unit.spd += bonus.legacy.spd || 0;
     unit.def += bonus.legacy.def || 0;
-    unit.mov += bonus.legacy.mov || 0;
 
     if (unit.hiddenStats) {
       Object.keys(bonus.hidden).forEach((statName) => {
@@ -4174,7 +4167,7 @@
       });
 
     Object.keys(STAT_LABELS)
-      .filter((statName) => legacyStatBonus && legacyStatBonus[statName])
+      .filter((statName) => statName !== "mov" && legacyStatBonus && legacyStatBonus[statName])
       .forEach((statName) => {
         parts.push(`${STAT_LABELS[statName]} +${legacyStatBonus[statName]}`);
       });

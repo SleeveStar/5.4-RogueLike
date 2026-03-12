@@ -978,6 +978,7 @@
       const levelUps = grantExperienceToUnit(unit, mission.rewards.expPerUnit);
       if (levelUps.length) {
         levelUpSummaries.push({
+          unitId,
           unitName: unit.name,
           levels: levelUps
         });

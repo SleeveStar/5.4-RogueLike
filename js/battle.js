@@ -2633,6 +2633,7 @@
       return;
     }
 
+    SkillsService.normalizeUnitLearnedSkills(persistentUnit);
     const previousHp = battleUnit.hp;
     const previousMaxHp = battleUnit.maxHp;
     const effectiveUnit = InventoryService.getEffectiveUnitStats(state.saveData, persistentUnit);
@@ -2645,10 +2646,13 @@
     battleUnit.trainingLevel = persistentUnit.trainingLevel || 0;
     battleUnit.trainingAttempts = persistentUnit.trainingAttempts || 0;
     battleUnit.spentPrimaryStats = clone(persistentUnit.spentPrimaryStats || {});
+    battleUnit.specialSkillIds = clone(persistentUnit.specialSkillIds || []);
+    battleUnit.specialActiveSkillIds = clone(persistentUnit.specialActiveSkillIds || []);
     battleUnit.learnedSkillIds = clone(persistentUnit.learnedSkillIds || []);
     battleUnit.learnedActiveSkillIds = clone(persistentUnit.learnedActiveSkillIds || []);
     battleUnit.equippedActiveSkillIds = clone(persistentUnit.equippedActiveSkillIds || []);
     battleUnit.skillLevels = clone(persistentUnit.skillLevels || {});
+    battleUnit.grantedMilestoneSkillLevels = clone(persistentUnit.grantedMilestoneSkillLevels || []);
     battleUnit.maxHp = effectiveUnit.maxHp;
     battleUnit.str = effectiveUnit.str;
     battleUnit.skl = effectiveUnit.skl;
@@ -2657,6 +2661,7 @@
     battleUnit.mov = effectiveUnit.mov;
     battleUnit.weapon = resolveWeaponForUnit(persistentUnit);
     battleUnit.equippedItemIds = clone(persistentUnit.equippedItemIds || []);
+    SkillsService.normalizeUnitLearnedSkills(battleUnit);
 
     if (!previousMaxHp || previousHp >= previousMaxHp) {
       battleUnit.hp = battleUnit.maxHp;
@@ -2822,7 +2827,10 @@
     state.battle.specialRule = clone(state.battle.specialRule || null);
     state.battle.pendingChoice = clone(state.battle.pendingChoice || null);
     state.battle.map = normalizeBattleMap(state.battle.map);
-    state.battle.units.forEach((unit) => initializeUnitBattleState(unit));
+    state.battle.units.forEach((unit) => {
+      initializeUnitBattleState(unit);
+      SkillsService.normalizeUnitLearnedSkills(unit);
+    });
   }
 
   function createMap(stageDefinition) {
@@ -3256,6 +3264,7 @@
     return getSelectedPartyUnits().map((unit, index) => {
       const spawn = stageDefinition.allySpawns[index] || stageDefinition.allySpawns[stageDefinition.allySpawns.length - 1];
       const nextUnit = InventoryService.getEffectiveUnitStats(state.saveData, clone(unit));
+      SkillsService.normalizeUnitLearnedSkills(nextUnit);
       nextUnit.team = "ally";
       nextUnit.isLeader = state.saveData.leaderUnitId === unit.id;
       nextUnit.alive = true;
