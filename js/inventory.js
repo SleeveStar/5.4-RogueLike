@@ -74,6 +74,9 @@
     mystic: 2.4,
     primordial: 2.85
   };
+  const WEAPON_DURABILITY_MULTIPLIER = 1.5;
+  const DURABILITY_TUNING_VERSION = 2;
+  const ACTION_DURABILITY_CONSUME_CHANCE = 0.5;
 
   const EQUIP_SLOT_LAYOUT = [
     { key: "head", label: "머리", accepts: ["head"] },
@@ -3164,6 +3167,7 @@
     normalizeLegacyCritChanceAffixBug(item);
     sanitizeItemRangeBonus(item);
     syncWeaponReinforcementStats(item);
+    syncWeaponDurabilityTuning(item);
     item.name = getItemDisplayName(item);
 
     return item;
@@ -3645,13 +3649,13 @@
     };
   }
 
-  function getWeaponBaseUses(item) {
+  function scaleWeaponDurabilityUses(uses) {
+    return Math.max(1, Math.round(Math.max(1, Number(uses || 1)) * WEAPON_DURABILITY_MULTIPLIER));
+  }
+
+  function getWeaponTemplateUses(item) {
     if (!item || !Number.isFinite(Number(item.uses))) {
       return null;
-    }
-
-    if (Number.isFinite(Number(item.baseUses)) && Number(item.baseUses) > 0) {
-      return Math.max(1, Math.round(Number(item.baseUses)));
     }
 
     const baseName = String(item.baseName || item.name || "").trim();
@@ -3695,6 +3699,58 @@
 
     if (lootTemplate && lootTemplate.base && Number.isFinite(Number(lootTemplate.base.uses))) {
       return Math.max(1, Math.round(lootTemplate.base.uses + getRarityIndex(itemRarity) * 3));
+    }
+
+    return null;
+  }
+
+  function syncWeaponDurabilityTuning(item) {
+    if (!isWeapon(item) || !Number.isFinite(Number(item.uses))) {
+      return;
+    }
+
+    const templateUses = getWeaponTemplateUses(item);
+    const bonusUses = Math.max(0, Number(item.weaponBonus && item.weaponBonus.uses || 0));
+    const currentUses = Math.max(0, Math.round(Number(item.uses || 0)));
+    const previousBaseUses = Number.isFinite(Number(item.baseUses)) && Number(item.baseUses) > 0
+      ? Math.max(1, Math.round(Number(item.baseUses)))
+      : null;
+    const legacyBaseUses = Number.isFinite(Number(templateUses))
+      ? Math.max(1, Math.round(Number(templateUses)))
+      : (previousBaseUses || Math.max(1, currentUses));
+    const tunedBaseUses = Number.isFinite(Number(templateUses))
+      ? scaleWeaponDurabilityUses(templateUses)
+      : (previousBaseUses || scaleWeaponDurabilityUses(legacyBaseUses));
+    const legacyMaxUses = Math.max(1, legacyBaseUses + bonusUses);
+    const tunedMaxUses = Math.max(1, tunedBaseUses + bonusUses);
+
+    item.baseUses = tunedBaseUses;
+
+    if (Number(item.durabilityTuningVersion || 0) < DURABILITY_TUNING_VERSION) {
+      const wearRatio = legacyMaxUses > 0 ? currentUses / legacyMaxUses : 1;
+      item.uses = currentUses <= 0
+        ? 0
+        : Math.max(1, Math.min(tunedMaxUses, Math.round(tunedMaxUses * Math.max(0, Math.min(1, wearRatio)))));
+      item.durabilityTuningVersion = DURABILITY_TUNING_VERSION;
+      return;
+    }
+
+    item.uses = Math.max(0, Math.min(tunedMaxUses, currentUses));
+    item.durabilityTuningVersion = DURABILITY_TUNING_VERSION;
+  }
+
+  function getWeaponBaseUses(item) {
+    if (!item || !Number.isFinite(Number(item.uses))) {
+      return null;
+    }
+
+    if (Number.isFinite(Number(item.baseUses)) && Number(item.baseUses) > 0) {
+      return Math.max(1, Math.round(Number(item.baseUses)));
+    }
+
+    const templateUses = getWeaponTemplateUses(item);
+    if (Number.isFinite(Number(templateUses))) {
+      return scaleWeaponDurabilityUses(templateUses);
     }
 
     if (Number.isFinite(Number(item.uses)) && Number(item.uses) > 0) {
@@ -4439,6 +4495,8 @@
     REINFORCE_MAX_LEVEL,
     REINFORCE_BASE_COST_TABLE,
     REINFORCE_RARITY_MULTIPLIER,
+    WEAPON_DURABILITY_MULTIPLIER,
+    ACTION_DURABILITY_CONSUME_CHANCE,
     STAT_LABELS,
     CLASS_WEAPONS,
     SHOP_CATALOG,
@@ -4498,6 +4556,7 @@
     getReinforceCost,
     getReinforceSuccessRate,
     getReinforcePreview,
+    scaleWeaponDurabilityUses,
     getRepairPreview,
     reinforceWeapon,
     repairItem,

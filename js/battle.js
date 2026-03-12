@@ -10,6 +10,7 @@
   const ENDLESS_STAGE_ID = "endless-rift";
   const MAP_WIDTH = 14;
   const MAP_HEIGHT = 8;
+  const ACTION_DURABILITY_CONSUME_CHANCE = Number(InventoryService && InventoryService.ACTION_DURABILITY_CONSUME_CHANCE || 0.5);
 
   const ALLY_SPAWNS = [
     { x: 1, y: 6 },
@@ -3202,7 +3203,9 @@
       hit: base.hit + Math.min(8, level),
       rangeMin: base.rangeMin,
       rangeMax: base.rangeMax,
-      uses: base.uses
+      uses: InventoryService && InventoryService.scaleWeaponDurabilityUses
+        ? InventoryService.scaleWeaponDurabilityUses(base.uses)
+        : base.uses
     };
   }
 
@@ -4796,7 +4799,9 @@
       const didCrit = didHit && critRoll <= critRate;
       const finalDamage = didCrit ? Math.max(damage, Math.round(damage * (preview.critMultiplier || 1.5))) : damage;
 
-      unit.weapon.uses = Math.max(0, unit.weapon.uses - 1);
+      if (Math.random() <= ACTION_DURABILITY_CONSUME_CHANCE) {
+        unit.weapon.uses = Math.max(0, unit.weapon.uses - 1);
+      }
 
       if (didHit) {
         target.hp = Math.max(0, target.hp - finalDamage);
