@@ -1381,7 +1381,7 @@
       `    <div class="resource-bar hp"><span class="bar-fill" style="width:${Math.max(0, Math.min(100, (selectedUnit.hp / Math.max(1, selectedUnit.maxHp)) * 100))}%"></span></div>`,
       `    <div class="resource-bar exp"><span class="bar-fill" style="width:${Math.max(0, Math.min(100, selectedUnit.exp || 0))}%"></span></div>`,
       "  </div>",
-      `  <div class="detail-stats">${StatsService.PRIMARY_STATS.map((statName) => buildPrimaryStatMetaPill(statName, previewPrimaryStats[statName], draft.stats && draft.stats[statName])).join("")}</div>`,
+      `  <div class="detail-stats detail-stat-strip">${StatsService.PRIMARY_STATS.map((statName) => buildPrimaryStatMetaPill(statName, previewPrimaryStats[statName], draft.stats && draft.stats[statName])).join("")}</div>`,
       `  <p>위치: ${terrainLabel}${elevation > 0 ? ` / 고도 ${elevation}` : ""}${effectiveRange && effectiveRange.bonus > 0 ? ` / 사거리 +${effectiveRange.bonus}` : ""}</p>`,
       selectedUnit.enemyEquipmentSummary ? `  <p>장비: ${selectedUnit.weapon ? `${selectedUnit.weapon.name}, ` : ""}${selectedUnit.enemyEquipmentSummary}</p>` : "",
       selectedUnit.eliteTraitName ? `  <p>정예 특성: ${selectedUnit.eliteTraitName}</p>` : "",

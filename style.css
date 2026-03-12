@@ -340,6 +340,18 @@ button:disabled {
   cursor: help;
 }
 
+.detail-stat-strip {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 2px;
+  scrollbar-width: thin;
+}
+
+.detail-stat-strip > * {
+  flex: 0 0 auto;
+}
+
 .stat-tooltip-pill::before,
 .stat-tooltip-pill::after {
   position: absolute;
@@ -613,6 +625,10 @@ body.use-floating-stat-tooltip .stat-tooltip-pill::after {
   align-items: center;
   justify-content: flex-end;
   gap: 12px;
+}
+
+.blacksmith-header-tabs {
+  margin-bottom: 0;
 }
 
 .tavern-header-refresh-meta {
@@ -3569,6 +3585,60 @@ body.use-floating-stat-tooltip .stat-tooltip-pill::after {
   gap: 6px;
 }
 
+.blacksmith-repair-row {
+  gap: 10px;
+}
+
+.blacksmith-durability-bar {
+  position: relative;
+  overflow: hidden;
+  width: 100%;
+  height: 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: linear-gradient(180deg, rgba(11, 16, 24, 0.94), rgba(17, 23, 34, 0.96));
+}
+
+.blacksmith-durability-bar.is-large {
+  height: 14px;
+}
+
+.blacksmith-durability-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, rgba(124, 232, 198, 0.9), rgba(69, 196, 155, 0.96));
+  box-shadow: 0 0 18px rgba(69, 196, 155, 0.32);
+}
+
+.blacksmith-durability-fill.is-gold {
+  background: linear-gradient(90deg, rgba(255, 210, 122, 0.9), rgba(226, 161, 64, 0.96));
+  box-shadow: 0 0 18px rgba(226, 161, 64, 0.28);
+}
+
+.blacksmith-durability-fill.is-crimson {
+  background: linear-gradient(90deg, rgba(255, 133, 154, 0.92), rgba(217, 74, 104, 0.98));
+  box-shadow: 0 0 18px rgba(217, 74, 104, 0.28);
+}
+
+.blacksmith-durability-panel {
+  display: grid;
+  gap: 8px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: linear-gradient(180deg, rgba(14, 21, 32, 0.94), rgba(9, 15, 24, 0.96));
+}
+
+.blacksmith-durability-caption {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: rgba(229, 234, 241, 0.72);
+  font-size: 0.82rem;
+}
+
 .blacksmith-detail-title-row {
   align-items: center;
   gap: 8px;
@@ -5180,6 +5250,23 @@ body.use-floating-stat-tooltip .stat-tooltip-pill::after {
     inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
 
+.battle-tile.has-attack-highlighted-unit::after,
+.battle-tile.has-skill-highlighted-unit::after {
+  content: "";
+  position: absolute;
+  inset: 5px;
+  border-radius: 16px;
+  z-index: 4;
+  pointer-events: none;
+}
+
+.battle-tile.has-attack-highlighted-unit::after {
+  background: linear-gradient(180deg, rgba(255, 118, 138, 0.28), rgba(153, 24, 52, 0.36));
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 160, 173, 0.42),
+    0 0 18px rgba(216, 76, 102, 0.18);
+}
+
 .battle-tile.has-skill-highlighted-unit .tile-unit {
   border-color: rgba(170, 255, 221, 0.7);
   box-shadow:
@@ -5187,6 +5274,13 @@ body.use-floating-stat-tooltip .stat-tooltip-pill::after {
     0 10px 18px rgba(0, 0, 0, 0.24),
     0 0 18px rgba(153, 240, 207, 0.26),
     inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.battle-tile.has-skill-highlighted-unit::after {
+  background: linear-gradient(180deg, rgba(186, 164, 255, 0.3), rgba(88, 48, 168, 0.38));
+  box-shadow:
+    inset 0 0 0 1px rgba(202, 188, 255, 0.42),
+    0 0 18px rgba(109, 82, 214, 0.18);
 }
 
 .tile-unit-name {
@@ -5819,6 +5913,68 @@ body.use-floating-stat-tooltip .stat-tooltip-pill::after {
   gap: var(--space-10);
 }
 
+.equipment-item-card {
+  padding: 12px 12px 11px;
+  gap: 8px;
+  align-content: start;
+}
+
+.equipment-item-card .item-title-row {
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.equipment-item-card .card-title {
+  min-width: 0;
+  flex: 1 1 120px;
+  font-size: 0.88rem;
+  line-height: 1.24;
+}
+
+.equipment-item-card .card-subtitle {
+  flex: 0 0 auto;
+  margin-left: auto;
+  font-size: 0.58rem;
+  letter-spacing: 0.1em;
+}
+
+.equipment-item-card .inventory-meta {
+  gap: 6px;
+}
+
+.equipment-item-card .inventory-meta .meta-pill {
+  min-height: 20px;
+  padding: 0 6px;
+  font-size: 0.68rem;
+}
+
+.equipment-item-footer {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.equipment-item-footer > .inventory-meta {
+  flex: 1 1 170px;
+  min-width: 0;
+}
+
+.equipment-item-actions {
+  margin-top: 0;
+  margin-left: auto;
+  justify-content: flex-end;
+  flex: 0 0 auto;
+  gap: 6px;
+}
+
+.equipment-item-actions .small-button {
+  min-height: 28px;
+  padding-inline: 8px;
+  font-size: 0.72rem;
+}
+
 .equipment-item-card.is-equipped-self,
 .equipment-item-card.is-equipped-other {
   border-color: rgba(255, 110, 120, 0.3);
@@ -5901,11 +6057,14 @@ body.use-floating-stat-tooltip .stat-tooltip-pill::after {
 
 .equipment-item-summary {
   margin: 0;
-  overflow: hidden;
   color: var(--text-muted);
-  font-size: 0.74rem;
-  line-height: 1.2;
-  white-space: nowrap;
+  font-size: 0.72rem;
+  line-height: 1.28;
+  overflow: hidden;
+  white-space: normal;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
   text-overflow: ellipsis;
 }
 
@@ -6992,22 +7151,22 @@ body.use-floating-stat-tooltip .stat-tooltip-pill::after {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 12px;
-  align-items: end;
+  align-items: start;
 }
 
 .detail-footer-split > .progression-stat-buttons {
   margin-top: 0;
-  align-self: end;
+  align-self: start;
   justify-content: flex-start;
 }
 
 .detail-footer-split > .detail-actions {
-  align-self: end;
-  justify-content: flex-end;
+  align-self: center;
+  justify-content: center;
 }
 
 .menu-detail-actions {
-  justify-content: flex-end;
+  justify-content: center;
   gap: var(--space-8);
 }
 
@@ -7143,6 +7302,10 @@ body.use-floating-stat-tooltip .stat-tooltip-pill::after {
 }
 
 .progression-stat-buttons {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(180px, 220px);
+  align-items: start;
+  gap: 12px;
   margin-top: var(--space-6);
   padding: 10px 12px;
   border-radius: 14px;
@@ -7153,6 +7316,54 @@ body.use-floating-stat-tooltip .stat-tooltip-pill::after {
     box-shadow var(--transition-fast),
     background var(--transition-fast),
     transform var(--transition-fast);
+}
+
+.progression-stat-button-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  gap: 8px;
+  min-width: 0;
+}
+
+.progression-stat-button {
+  width: 100%;
+}
+
+.progression-stat-recommendation-panel {
+  display: grid;
+  gap: 6px;
+  align-content: start;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(103, 215, 232, 0.18);
+  background:
+    linear-gradient(180deg, rgba(103, 215, 232, 0.08), transparent 70%),
+    rgba(9, 15, 24, 0.72);
+}
+
+.progression-stat-recommendation-label {
+  color: var(--text-faint);
+  font-size: 0.64rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.progression-stat-recommendation-copy {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  line-height: 1.32;
+}
+
+.progression-stat-recommendation-chips {
+  gap: 6px;
+}
+
+.progression-stat-recommendation-chips .meta-pill {
+  min-height: 22px;
+  padding: 0 7px;
+  font-size: 0.7rem;
 }
 
 .progression-stat-section {
@@ -7203,6 +7414,10 @@ body.use-floating-stat-tooltip .stat-tooltip-pill::after {
 
 @media (max-width: 980px) {
   .detail-footer-split {
+    grid-template-columns: 1fr;
+  }
+
+  .progression-stat-buttons {
     grid-template-columns: 1fr;
   }
 

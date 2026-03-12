@@ -18,7 +18,7 @@
   const SHOP_EQUIPMENT_LINEUP_SIZE = 12;
   const INVENTORY_PAGE_SIZE = 12;
   const BLACKSMITH_PAGE_SIZE = 4;
-  const EQUIPMENT_MODAL_PAGE_SIZE = 8;
+  const EQUIPMENT_MODAL_PAGE_SIZE = 6;
   const EQUIP_TARGET_MODAL_PAGE_SIZE = 10;
   const SORTIE_MANAGER_PAGE_SIZE = 4;
   const ACTIVE_SKILL_MODAL_PAGE_SIZE = 3;
@@ -46,6 +46,7 @@
       page: 1
     },
     blacksmithView: {
+      mode: "reinforce",
       selectedItemId: null,
       page: 1
     },
@@ -474,6 +475,10 @@
 
     if (blacksmithActions) {
       blacksmithActions.classList.toggle("hidden", !isBlacksmithPanel);
+    }
+
+    if (isBlacksmithPanel) {
+      syncBlacksmithModeTabs();
     }
 
     if (dispatchActions) {
@@ -1739,6 +1744,47 @@
     ].join("");
   }
 
+  function getRecommendedPrimaryStatsForUnit(unit, limit = 2) {
+    if (!unit) {
+      return [];
+    }
+
+    const weights = StatsService.getClassGrowthWeights(unit.className);
+
+    return StatsService.PRIMARY_STATS
+      .map((statName, index) => ({
+        statName,
+        weight: Number(weights && weights[statName] || 0),
+        order: index
+      }))
+      .sort((left, right) => (
+        right.weight - left.weight
+        || left.order - right.order
+      ))
+      .slice(0, Math.max(1, Number(limit || 0)))
+      .map((entry) => entry.statName);
+  }
+
+  function buildProgressionStatRecommendationMarkup(unit) {
+    if (!unit) {
+      return "";
+    }
+
+    const recommendedStats = getRecommendedPrimaryStatsForUnit(unit, 2);
+
+    if (!recommendedStats.length) {
+      return "";
+    }
+
+    return [
+      '<div class="progression-stat-recommendation-panel">',
+      `  <span class="progression-stat-recommendation-label">${unit.className} 추천</span>`,
+      `  <p class="progression-stat-recommendation-copy">병종 성장 계수 기준으로 특히 효율이 좋은 스탯입니다.</p>`,
+      `  <div class="detail-stats progression-stat-recommendation-chips">${recommendedStats.map((statName, index) => `<span class="meta-pill ${index === 0 ? "is-gold" : "is-cyan"}">${index === 0 ? "핵심" : "추천"} ${StatsService.PRIMARY_STAT_LABELS[statName]}</span>`).join("")}</div>`,
+      "</div>"
+    ].join("");
+  }
+
   function buildProgressionStatButtonsMarkup(unit, previewPrimaryStats, remainingStatPoints) {
     if (!unit) {
       return "";
@@ -1748,10 +1794,13 @@
 
     return [
       `<div class="detail-stats progression-stat-buttons ${canSpendStats ? "is-available" : "is-empty"}">`,
+      '  <div class="progression-stat-button-list">',
       StatsService.PRIMARY_STATS.map((statName) => {
         const isLimited = Number(previewPrimaryStats[statName] || 0) >= Number(StatsService.STAT_LIMITS[statName] || 0);
         return `<button class="ghost-button small-button progression-stat-button" type="button" data-menu-stat-draft="${statName}" ${!canSpendStats || isLimited ? "disabled" : ""}>+ ${StatsService.PRIMARY_STAT_LABELS[statName]}</button>`;
       }).join(""),
+      "  </div>",
+      `  ${buildProgressionStatRecommendationMarkup(unit)}`,
       "</div>"
     ].join("");
   }
@@ -2160,7 +2209,7 @@
       `    <span class="meta-pill is-gold">${candidate.hireCost}G</span>`,
       candidate.recruitedAt ? '    <span class="meta-pill is-cyan">영입 완료</span>' : "",
       "  </div>",
-      `  <div class="detail-stats">${buildUnitStatSummary(unit)}</div>`,
+      `  <div class="detail-stats detail-stat-strip">${buildUnitStatSummary(unit)}</div>`,
       buildItemFeatureSection("성장 정보", [
         '<div class="detail-metric-grid">',
         buildDetailKeyValue("잠재력", potentialMeta.label, "violet"),
@@ -2314,15 +2363,13 @@
       '  <div class="inventory-meta">',
       topMetaMarkup,
       "  </div>",
-      '  <div class="detail-stats">',
+      '  <div class="detail-stats detail-stat-strip">',
       StatsService.PRIMARY_STATS.map((statName) => (
         `    ${buildPrimaryStatPill(statName, basePrimaryStats[statName], previewPrimaryStats[statName], {
           equipmentBonus: equipmentBonus[statName] || 0,
           draftDelta: Number((draft.stats && draft.stats[statName]) || 0)
         })}`
       )).join(""),
-      "  </div>",
-      '  <div class="detail-stats">',
       `    <span class="meta-pill">HP ${effectivePreviewUnit.maxHp}${effectivePreviewUnit.equipmentBonus && effectivePreviewUnit.equipmentBonus.legacy && effectivePreviewUnit.equipmentBonus.legacy.maxHp ? ` (+${effectivePreviewUnit.equipmentBonus.legacy.maxHp} 장비)` : ""}</span>`,
       `    <span class="meta-pill">MOV ${effectivePreviewUnit.mov}</span>`,
       `    <span class="meta-pill ${spentStats ? "is-preview-up" : "is-muted"}">예약 스탯 ${spentStats}</span>`,
@@ -3419,12 +3466,12 @@
     }
 
     if (InventoryService.isWeapon(item)) {
-      return `위력 ${item.might || 0} / 명중 ${item.hit || 0} / 사거리 ${item.rangeMin}-${item.rangeMax} / 내구 ${item.uses || 0}`;
+      return `위력 ${item.might || 0} · 명중 ${item.hit || 0} · 사거리 ${item.rangeMin}-${item.rangeMax} · 내구 ${item.uses || 0}`;
     }
 
     const statSummary = InventoryService.formatStatBonusLine(item);
     return statSummary !== "추가 능력치 없음"
-      ? statSummary
+      ? statSummary.replaceAll(" / ", " · ")
       : `${InventoryService.getSlotLabel(item.equippedSlotKey || InventoryService.getCompatibleSlotKeys(item)[0] || item.slot)} 장비`;
   }
 
@@ -3549,15 +3596,17 @@
             return [
               `<article class="inventory-card equipment-item-card rarity-${item.rarity} ${equippedStateClass}" draggable="true" data-modal-item="${item.id}">`,
               `  <div class="item-title-row"><strong class="card-title">${item.name}</strong><span class="card-subtitle">${rarity.label}</span></div>`,
-              '  <div class="inventory-meta">',
-              `    <span class="meta-pill">${InventoryService.getTypeLabel(item.type || item.slot)}</span>`,
-              equippedStateText ? `    <span class="meta-pill is-crimson equipment-state-pill">${equippedStateText}</span>` : "",
-              `    <span class="meta-pill ${item.equippedBy ? "is-cyan" : "is-muted"}">${ownerText}</span>`,
-              "  </div>",
               `  <p class="equipment-item-summary">${buildEquipmentInventoryCardSummary(item)}</p>`,
-              '  <div class="button-row">',
-              `    <button class="secondary-button small-button" type="button" data-modal-equip="${item.id}">${equipLabel}</button>`,
-              item.equippedBy ? `    <button class="ghost-button small-button" type="button" data-modal-unequip="${item.id}">해제</button>` : "",
+              '  <div class="equipment-item-footer">',
+              '    <div class="inventory-meta">',
+              `      <span class="meta-pill">${InventoryService.getTypeLabel(item.type || item.slot)}</span>`,
+              equippedStateText ? `      <span class="meta-pill is-crimson equipment-state-pill">${equippedStateText}</span>` : "",
+              `      <span class="meta-pill ${item.equippedBy ? "is-cyan" : "is-muted"}">${ownerText}</span>`,
+              "    </div>",
+              '    <div class="button-row equipment-item-actions">',
+              `      <button class="secondary-button small-button" type="button" data-modal-equip="${item.id}">${equipLabel}</button>`,
+              item.equippedBy ? `      <button class="ghost-button small-button" type="button" data-modal-unequip="${item.id}">해제</button>` : "",
+              "    </div>",
               "  </div>",
               "</article>"
             ].join("");
@@ -4145,6 +4194,25 @@
         : "equipment";
     appState.shopView.page = 1;
     syncShopCategoryTabs();
+  }
+
+  function getBlacksmithMode() {
+    return appState.blacksmithView.mode === "repair" ? "repair" : "reinforce";
+  }
+
+  function syncBlacksmithModeTabs() {
+    const currentMode = getBlacksmithMode();
+
+    document.querySelectorAll("[data-blacksmith-tab]").forEach((button) => {
+      button.classList.toggle("active", button.dataset.blacksmithTab === currentMode);
+    });
+  }
+
+  function setBlacksmithMode(mode) {
+    appState.blacksmithView.mode = mode === "repair" ? "repair" : "reinforce";
+    appState.blacksmithView.page = 1;
+    appState.blacksmithView.selectedItemId = null;
+    syncBlacksmithModeTabs();
   }
 
   function renderInventoryList() {
@@ -5306,6 +5374,41 @@
       });
   }
 
+  function getBlacksmithRepairItems() {
+    const inventory = (appState.saveData && appState.saveData.inventory) || [];
+
+    return inventory
+      .filter((item) => {
+        const preview = InventoryService.getRepairPreview(appState.saveData, item);
+        return !!(preview && preview.needsRepair);
+      })
+      .sort((left, right) => {
+        const leftPreview = InventoryService.getRepairPreview(appState.saveData, left);
+        const rightPreview = InventoryService.getRepairPreview(appState.saveData, right);
+        const leftEquipped = left.equippedBy ? 1 : 0;
+        const rightEquipped = right.equippedBy ? 1 : 0;
+
+        if (leftEquipped !== rightEquipped) {
+          return rightEquipped - leftEquipped;
+        }
+
+        const leftRate = leftPreview ? leftPreview.durabilityRate : 1;
+        const rightRate = rightPreview ? rightPreview.durabilityRate : 1;
+
+        if (leftRate !== rightRate) {
+          return leftRate - rightRate;
+        }
+
+        const rarityGap = InventoryService.RARITY_ORDER.indexOf(right.rarity) - InventoryService.RARITY_ORDER.indexOf(left.rarity);
+        if (rarityGap !== 0) {
+          return rarityGap;
+        }
+
+        return InventoryService.getItemDisplayName(left, { forceShowReinforceLevel: InventoryService.isWeapon(left) })
+          .localeCompare(InventoryService.getItemDisplayName(right, { forceShowReinforceLevel: InventoryService.isWeapon(right) }), "ko");
+      });
+  }
+
   function ensureBlacksmithSelection(weapons) {
     const availableWeapons = Array.isArray(weapons) ? weapons : [];
     const currentSelection = availableWeapons.find((item) => item.id === appState.blacksmithView.selectedItemId);
@@ -5756,49 +5859,83 @@
       return;
     }
 
-    const weapons = getBlacksmithWeapons();
-    const selectedWeapon = ensureBlacksmithSelection(weapons);
-    const totalPages = Math.max(1, Math.ceil(weapons.length / BLACKSMITH_PAGE_SIZE));
+    const mode = getBlacksmithMode();
+    const items = mode === "repair" ? getBlacksmithRepairItems() : getBlacksmithWeapons();
+    const selectedItem = ensureBlacksmithSelection(items);
+    const totalPages = Math.max(1, Math.ceil(items.length / BLACKSMITH_PAGE_SIZE));
     const currentPage = Math.max(1, Math.min(totalPages, Number(appState.blacksmithView.page || 1)));
-    const visibleWeapons = weapons.slice((currentPage - 1) * BLACKSMITH_PAGE_SIZE, currentPage * BLACKSMITH_PAGE_SIZE);
+    const visibleItems = items.slice((currentPage - 1) * BLACKSMITH_PAGE_SIZE, currentPage * BLACKSMITH_PAGE_SIZE);
     const refineStoneCount = InventoryService.getMiscItemQuantity(appState.saveData, "refine-stone-basic");
+    const weapons = getBlacksmithWeapons();
     const affordableCount = weapons.filter((item) => {
       const preview = InventoryService.getReinforcePreview(appState.saveData, item);
       return preview && preview.canReinforce;
     }).length;
-    const equippedCount = weapons.filter((item) => !!item.equippedBy).length;
+    const equippedCount = items.filter((item) => !!item.equippedBy).length;
     const maxedCount = weapons.filter((item) => InventoryService.getReinforceLevel(item) >= InventoryService.REINFORCE_MAX_LEVEL).length;
-    const preview = selectedWeapon ? InventoryService.getReinforcePreview(appState.saveData, selectedWeapon) : null;
-    const selectedOwner = selectedWeapon && selectedWeapon.equippedBy
-      ? `${getUnitNameById(selectedWeapon.equippedBy)} / ${InventoryService.getSlotLabel(selectedWeapon.equippedSlotKey || selectedWeapon.slot)}`
+    const reinforcePreview = selectedItem ? InventoryService.getReinforcePreview(appState.saveData, selectedItem) : null;
+    const repairPreview = selectedItem ? InventoryService.getRepairPreview(appState.saveData, selectedItem) : null;
+    const repairItems = mode === "repair" ? items : getBlacksmithRepairItems();
+    const repairNeededCount = repairItems.length;
+    const totalMissingUses = repairItems.reduce((sum, item) => {
+      const preview = InventoryService.getRepairPreview(appState.saveData, item);
+      return sum + Math.max(0, Number(preview && preview.missingUses || 0));
+    }, 0);
+    const selectedOwner = selectedItem && selectedItem.equippedBy
+      ? `${getUnitNameById(selectedItem.equippedBy)} / ${InventoryService.getSlotLabel(selectedItem.equippedSlotKey || selectedItem.slot)}`
       : "미장착";
 
     appState.blacksmithView.page = currentPage;
 
     root.innerHTML = [
       '<div class="summary-card blacksmith-status-card">',
-      `  <div class="inventory-status-grid"><p class="status-line is-gold">보유 골드: ${Math.max(0, Number(appState.saveData.partyGold || 0))}G</p><p class="status-line is-cyan">보유 재련석: ${refineStoneCount}개</p><p class="status-line">무기 ${weapons.length}개 / 즉시 강화 가능 ${affordableCount}개</p><p class="status-line">장착 중 무기 ${equippedCount}개 / 최대 강화 ${maxedCount}개</p><p class="status-line inventory-status-wide">${selectedWeapon ? `${InventoryService.getItemDisplayName(selectedWeapon, { forceShowReinforceLevel: true })} 선택 중` : "강화 가능한 무기 없음"}</p></div>`,
+      mode === "repair"
+        ? `  <div class="inventory-status-grid"><p class="status-line is-gold">보유 골드: ${Math.max(0, Number(appState.saveData.partyGold || 0))}G</p><p class="status-line is-cyan">수리 필요 장비: ${repairNeededCount}개</p><p class="status-line">장착 중 수리 대상 ${equippedCount}개 / 총 손상 ${totalMissingUses}</p><p class="status-line">위험 내구 장비 ${repairItems.filter((item) => { const preview = InventoryService.getRepairPreview(appState.saveData, item); return preview && preview.currentUses <= Math.max(1, Math.ceil(preview.maxUses * 0.2)); }).length}개</p><p class="status-line inventory-status-wide">${selectedItem ? `${InventoryService.getItemDisplayName(selectedItem, { forceShowReinforceLevel: InventoryService.isWeapon(selectedItem) })} 선택 중` : "수리 대상 장비가 없습니다."}</p></div>`
+        : `  <div class="inventory-status-grid"><p class="status-line is-gold">보유 골드: ${Math.max(0, Number(appState.saveData.partyGold || 0))}G</p><p class="status-line is-cyan">보유 재련석: ${refineStoneCount}개</p><p class="status-line">무기 ${weapons.length}개 / 즉시 강화 가능 ${affordableCount}개</p><p class="status-line">장착 중 무기 ${equippedCount}개 / 최대 강화 ${maxedCount}개</p><p class="status-line inventory-status-wide">${selectedItem ? `${InventoryService.getItemDisplayName(selectedItem, { forceShowReinforceLevel: true })} 선택 중` : "강화 가능한 무기 없음"}</p></div>`,
       '</div>',
       '<div class="blacksmith-layout">',
       '  <section class="inventory-card blacksmith-weapon-list-card">',
-      `    <div class="item-title-row"><strong class="card-title">강화 가능한 무기</strong><span class="card-subtitle">${currentPage} / ${totalPages} 페이지</span></div>`,
-      '    <p class="blacksmith-section-copy">장착 중 무기와 지금 바로 강화 가능한 무기가 먼저 보이도록 정렬됩니다.</p>',
-      `    <div class="blacksmith-weapon-list">${weapons.length ? visibleWeapons.map((item) => {
+      mode === "repair"
+        ? `    <div class="item-title-row"><strong class="card-title">수리 대상 장비</strong><span class="card-subtitle">${currentPage} / ${totalPages} 페이지</span></div>`
+        : `    <div class="item-title-row"><strong class="card-title">강화 가능한 무기</strong><span class="card-subtitle">${currentPage} / ${totalPages} 페이지</span></div>`,
+      mode === "repair"
+        ? '    <p class="blacksmith-section-copy">내구도가 깎인 장비만 표시됩니다. 상태가 나쁜 장비가 먼저 보입니다.</p>'
+        : '    <p class="blacksmith-section-copy">장착 중 무기와 지금 바로 강화 가능한 무기가 먼저 보이도록 정렬됩니다.</p>',
+      `    <div class="blacksmith-weapon-list">${items.length ? visibleItems.map((item) => {
         const rarity = InventoryService.getRarityMeta(item.rarity);
-        const itemPreview = InventoryService.getReinforcePreview(appState.saveData, item);
-        const isSelected = selectedWeapon && selectedWeapon.id === item.id;
+        const itemRepairPreview = InventoryService.getRepairPreview(appState.saveData, item);
+        const itemReinforcePreview = InventoryService.getReinforcePreview(appState.saveData, item);
+        const isSelected = selectedItem && selectedItem.id === item.id;
         const ownerText = item.equippedBy
           ? `${getUnitNameById(item.equippedBy)} 장착`
           : "미장착";
+        const durabilityPercent = itemRepairPreview
+          ? Math.round(itemRepairPreview.durabilityRate * 100)
+          : 100;
+        const durabilityToneClass = durabilityPercent <= 25
+          ? "is-crimson"
+          : durabilityPercent <= 55
+            ? "is-gold"
+            : "is-cyan";
+
+        if (mode === "repair") {
+          return [
+            `<button class="inventory-card blacksmith-weapon-row blacksmith-repair-row rarity-${item.rarity} ${isSelected ? "is-selected" : ""}" type="button" data-blacksmith-item="${item.id}">`,
+            `  <div class="item-title-row"><strong class="card-title">${InventoryService.getItemDisplayName(item, { forceShowReinforceLevel: InventoryService.isWeapon(item) })}</strong><span class="card-subtitle">${rarity.label}</span></div>`,
+            `  <div class="inventory-meta"><span class="meta-pill ${item.equippedBy ? "is-gold" : "is-muted"}">${ownerText}</span><span class="meta-pill ${durabilityToneClass}">내구 ${itemRepairPreview.currentUses}/${itemRepairPreview.maxUses}</span><span class="meta-pill is-muted">손상 ${itemRepairPreview.missingUses}</span><span class="meta-pill ${itemRepairPreview.canRepair ? "is-cyan" : "is-crimson"}">${itemRepairPreview.cost ? `${itemRepairPreview.cost.gold}G` : "-"}</span></div>`,
+            `  <div class="blacksmith-durability-bar"><span class="blacksmith-durability-fill ${durabilityToneClass}" style="width:${durabilityPercent}%"></span></div>`,
+            '  </button>'
+          ].join("");
+        }
 
         return [
           `<button class="inventory-card blacksmith-weapon-row rarity-${item.rarity} ${isSelected ? "is-selected" : ""}" type="button" data-blacksmith-item="${item.id}">`,
           `  <div class="item-title-row"><strong class="card-title">${InventoryService.getItemDisplayName(item, { forceShowReinforceLevel: true })}</strong><span class="card-subtitle">${rarity.label}</span></div>`,
-          `  <div class="inventory-meta"><span class="meta-pill ${item.equippedBy ? "is-gold" : "is-muted"}">${ownerText}</span><span class="meta-pill">위력 ${item.might}</span><span class="meta-pill is-cyan">강화 +${InventoryService.getReinforceLevel(item)}</span><span class="meta-pill ${itemPreview && itemPreview.canReinforce ? "is-gold" : "is-muted"}">${itemPreview && itemPreview.maxLevelReached ? "최대 강화" : itemPreview && itemPreview.canReinforce ? "즉시 가능" : "재화 필요"}</span></div>`,
+          `  <div class="inventory-meta"><span class="meta-pill ${item.equippedBy ? "is-gold" : "is-muted"}">${ownerText}</span><span class="meta-pill">위력 ${item.might}</span><span class="meta-pill is-cyan">강화 +${InventoryService.getReinforceLevel(item)}</span><span class="meta-pill ${itemReinforcePreview && itemReinforcePreview.canReinforce ? "is-gold" : "is-muted"}">${itemReinforcePreview && itemReinforcePreview.maxLevelReached ? "최대 강화" : itemReinforcePreview && itemReinforcePreview.canReinforce ? "즉시 가능" : "재화 필요"}</span></div>`,
           '  </button>'
         ].join("");
-      }).join("") : '<div class="inventory-card"><p>보유한 무기가 없습니다.</p></div>'}</div>`,
-      weapons.length > BLACKSMITH_PAGE_SIZE ? [
+      }).join("") : `<div class="inventory-card"><p>${mode === "repair" ? "수리가 필요한 장비가 없습니다." : "보유한 무기가 없습니다."}</p></div>`}</div>`,
+      items.length > BLACKSMITH_PAGE_SIZE ? [
         '    <div class="list-pagination blacksmith-pagination">',
         `      <button class="ghost-button small-button" type="button" data-blacksmith-page="prev" ${currentPage <= 1 ? "disabled" : ""}>이전</button>`,
         `      <span class="pagination-label">${currentPage} / ${totalPages}</span>`,
@@ -5807,29 +5944,53 @@
       ].join("") : "",
       '  </section>',
       '  <section class="inventory-card blacksmith-detail-card">',
-      selectedWeapon && preview ? [
-        `    <div class="item-title-row blacksmith-detail-title-row"><strong class="card-title">${InventoryService.getItemDisplayName(selectedWeapon, { forceShowReinforceLevel: true })}</strong><div class="inventory-meta blacksmith-detail-inline-meta"><span class="meta-pill ${selectedWeapon.equippedBy ? "is-gold" : "is-muted"}">${selectedOwner}</span><span class="meta-pill is-cyan">현재 +${preview.reinforceLevel}</span><span class="meta-pill ${preview.maxLevelReached ? "is-gold" : "is-muted"}">${preview.maxLevelReached ? "최대 강화" : `다음 +${preview.cost ? preview.cost.targetLevel : preview.reinforceLevel}`}</span></div><span class="card-subtitle">${InventoryService.getRarityMeta(selectedWeapon.rarity).label}</span></div>`,
-        `    <p class="blacksmith-section-copy">${selectedWeapon.description || "무기 재련으로 위력을 올릴 수 있습니다. 장착 중인 무기라도 바로 강화가 가능하며, 성공 시 즉시 성능에 반영됩니다."}</p>`,
-        '    <div class="blacksmith-detail-grid">',
-        `      <article class="summary-card blacksmith-metric-card"><span class="card-subtitle">현재 강화</span><strong class="card-title">+${preview.reinforceLevel} 강화</strong></article>`,
-        `      <article class="summary-card blacksmith-metric-card"><span class="card-subtitle">강화 후</span><strong class="card-title">${preview.maxLevelReached ? "최대 도달" : `+${preview.cost ? preview.cost.targetLevel : preview.reinforceLevel} 강화`}</strong></article>`,
-        `      <article class="summary-card blacksmith-metric-card"><span class="card-subtitle">기본 성공률</span><strong class="card-title">${Math.round((preview.success.baseRate || 0) * 100)}%</strong></article>`,
-        `      <article class="summary-card blacksmith-metric-card"><span class="card-subtitle">현재 성공률</span><strong class="card-title">${Math.round((preview.success.rate || 0) * 100)}%</strong></article>`,
-        '    </div>',
-        '    <div class="blacksmith-resource-state">',
-        `      <div class="status-line"><strong>필요 골드:</strong> ${preview.cost ? `${preview.cost.gold}G` : "-"}</div>`,
-        `      <div class="status-line"><strong>필요 재련석:</strong> ${preview.cost ? `${preview.cost.stones}개` : "-"}</div>`,
-        `      <div class="status-line ${preview.canAffordGold ? "is-cyan" : "is-crimson"}"><strong>보유 골드:</strong> ${preview.canAffordGold ? "충분" : `부족 (${Math.max(0, Number(appState.saveData.partyGold || 0))}/${preview.cost ? preview.cost.gold : 0})`}</div>`,
-        `      <div class="status-line ${preview.canAffordStone ? "is-cyan" : "is-crimson"}"><strong>보유 재련석:</strong> ${preview.canAffordStone ? "충분" : `부족 (${preview.stoneOwned}/${preview.cost ? preview.cost.stones : 0})`}</div>`,
-        `      <div class="status-line ${preview.success.pityBonus > 0 ? "is-gold" : ""}"><strong>연속 실패 보정:</strong> ${preview.success.pityBonus > 0 ? `+${Math.round(preview.success.pityBonus * 100)}%` : "없음"}</div>`,
-        '    </div>',
-        '    <div class="button-row">',
-        `      <button class="primary-button" type="button" data-blacksmith-reinforce="${selectedWeapon.id}" ${preview.maxLevelReached || !preview.canReinforce ? "disabled" : ""}>${preview.maxLevelReached ? "최대 강화" : "강화 시도"}</button>`,
-        '    </div>',
-        `    <p class="inventory-click-hint">${preview.maxLevelReached ? "이 무기는 현재 최대 강화 단계입니다." : "실패해도 하락이나 파괴는 없고, 재료만 소모됩니다."}</p>`
+      selectedItem && (mode === "repair" ? repairPreview : reinforcePreview) ? [
+        mode === "repair"
+          ? `    <div class="item-title-row blacksmith-detail-title-row"><strong class="card-title">${InventoryService.getItemDisplayName(selectedItem, { forceShowReinforceLevel: InventoryService.isWeapon(selectedItem) })}</strong><div class="inventory-meta blacksmith-detail-inline-meta"><span class="meta-pill ${selectedItem.equippedBy ? "is-gold" : "is-muted"}">${selectedOwner}</span><span class="meta-pill ${repairPreview.durabilityRate <= 0.25 ? "is-crimson" : repairPreview.durabilityRate <= 0.55 ? "is-gold" : "is-cyan"}">내구 ${repairPreview.currentUses}/${repairPreview.maxUses}</span><span class="meta-pill is-muted">손상 ${repairPreview.missingUses}</span></div><span class="card-subtitle">${InventoryService.getRarityMeta(selectedItem.rarity).label}</span></div>`
+          : `    <div class="item-title-row blacksmith-detail-title-row"><strong class="card-title">${InventoryService.getItemDisplayName(selectedItem, { forceShowReinforceLevel: true })}</strong><div class="inventory-meta blacksmith-detail-inline-meta"><span class="meta-pill ${selectedItem.equippedBy ? "is-gold" : "is-muted"}">${selectedOwner}</span><span class="meta-pill is-cyan">현재 +${reinforcePreview.reinforceLevel}</span><span class="meta-pill ${reinforcePreview.maxLevelReached ? "is-gold" : "is-muted"}">${reinforcePreview.maxLevelReached ? "최대 강화" : `다음 +${reinforcePreview.cost ? reinforcePreview.cost.targetLevel : reinforcePreview.reinforceLevel}`}</span></div><span class="card-subtitle">${InventoryService.getRarityMeta(selectedItem.rarity).label}</span></div>`,
+        `    <p class="blacksmith-section-copy">${selectedItem.description || (mode === "repair"
+          ? "소모된 내구도를 복원해 장비를 다시 안정적으로 사용할 수 있습니다."
+          : "무기 재련으로 위력을 올릴 수 있습니다. 장착 중인 무기라도 바로 강화가 가능하며, 성공 시 즉시 성능에 반영됩니다.")}</p>`,
+        mode === "repair" ? [
+          '    <div class="blacksmith-detail-grid">',
+          `      <article class="summary-card blacksmith-metric-card"><span class="card-subtitle">현재 내구</span><strong class="card-title">${repairPreview.currentUses} / ${repairPreview.maxUses}</strong></article>`,
+          `      <article class="summary-card blacksmith-metric-card"><span class="card-subtitle">복구 후</span><strong class="card-title">${repairPreview.maxUses} / ${repairPreview.maxUses}</strong></article>`,
+          `      <article class="summary-card blacksmith-metric-card"><span class="card-subtitle">수리 비용</span><strong class="card-title">${repairPreview.cost ? `${repairPreview.cost.gold}G` : "-"}</strong></article>`,
+          `      <article class="summary-card blacksmith-metric-card"><span class="card-subtitle">내구 상태</span><strong class="card-title">${Math.round(repairPreview.durabilityRate * 100)}%</strong></article>`,
+          '    </div>',
+          `    <div class="blacksmith-durability-panel"><div class="blacksmith-durability-bar is-large"><span class="blacksmith-durability-fill ${repairPreview.durabilityRate <= 0.25 ? "is-crimson" : repairPreview.durabilityRate <= 0.55 ? "is-gold" : "is-cyan"}" style="width:${Math.round(repairPreview.durabilityRate * 100)}%"></span></div><div class="blacksmith-durability-caption"><span>현재 ${repairPreview.currentUses}</span><span>최대 ${repairPreview.maxUses}</span></div></div>`,
+          '    <div class="blacksmith-resource-state">',
+          `      <div class="status-line"><strong>필요 골드:</strong> ${repairPreview.cost ? `${repairPreview.cost.gold}G` : "-"}</div>`,
+          `      <div class="status-line"><strong>복구 내구:</strong> ${repairPreview.missingUses}</div>`,
+          `      <div class="status-line ${repairPreview.canAffordGold ? "is-cyan" : "is-crimson"}"><strong>보유 골드:</strong> ${repairPreview.canAffordGold ? "충분" : `부족 (${Math.max(0, Number(appState.saveData.partyGold || 0))}/${repairPreview.cost ? repairPreview.cost.gold : 0})`}</div>`,
+          `      <div class="status-line"><strong>장착 상태:</strong> ${selectedItem.equippedBy ? `${getUnitNameById(selectedItem.equippedBy)} 사용 중` : "보관 중"}</div>`,
+          '    </div>',
+          '    <div class="button-row">',
+          `      <button class="primary-button" type="button" data-blacksmith-repair="${selectedItem.id}" ${!repairPreview.needsRepair || !repairPreview.canRepair ? "disabled" : ""}>${repairPreview.needsRepair ? "내구도 수리" : "수리 불필요"}</button>`,
+          '    </div>',
+          `    <p class="inventory-click-hint">${repairPreview.needsRepair ? "수리 시 내구도가 최대치까지 즉시 복구됩니다." : "이 장비는 이미 최대 내구도입니다."}</p>`
+        ].join("") : [
+          '    <div class="blacksmith-detail-grid">',
+          `      <article class="summary-card blacksmith-metric-card"><span class="card-subtitle">현재 강화</span><strong class="card-title">+${reinforcePreview.reinforceLevel} 강화</strong></article>`,
+          `      <article class="summary-card blacksmith-metric-card"><span class="card-subtitle">강화 후</span><strong class="card-title">${reinforcePreview.maxLevelReached ? "최대 도달" : `+${reinforcePreview.cost ? reinforcePreview.cost.targetLevel : reinforcePreview.reinforceLevel} 강화`}</strong></article>`,
+          `      <article class="summary-card blacksmith-metric-card"><span class="card-subtitle">기본 성공률</span><strong class="card-title">${Math.round((reinforcePreview.success.baseRate || 0) * 100)}%</strong></article>`,
+          `      <article class="summary-card blacksmith-metric-card"><span class="card-subtitle">현재 성공률</span><strong class="card-title">${Math.round((reinforcePreview.success.rate || 0) * 100)}%</strong></article>`,
+          '    </div>',
+          '    <div class="blacksmith-resource-state">',
+          `      <div class="status-line"><strong>필요 골드:</strong> ${reinforcePreview.cost ? `${reinforcePreview.cost.gold}G` : "-"}</div>`,
+          `      <div class="status-line"><strong>필요 재련석:</strong> ${reinforcePreview.cost ? `${reinforcePreview.cost.stones}개` : "-"}</div>`,
+          `      <div class="status-line ${reinforcePreview.canAffordGold ? "is-cyan" : "is-crimson"}"><strong>보유 골드:</strong> ${reinforcePreview.canAffordGold ? "충분" : `부족 (${Math.max(0, Number(appState.saveData.partyGold || 0))}/${reinforcePreview.cost ? reinforcePreview.cost.gold : 0})`}</div>`,
+          `      <div class="status-line ${reinforcePreview.canAffordStone ? "is-cyan" : "is-crimson"}"><strong>보유 재련석:</strong> ${reinforcePreview.canAffordStone ? "충분" : `부족 (${reinforcePreview.stoneOwned}/${reinforcePreview.cost ? reinforcePreview.cost.stones : 0})`}</div>`,
+          `      <div class="status-line ${reinforcePreview.success.pityBonus > 0 ? "is-gold" : ""}"><strong>연속 실패 보정:</strong> ${reinforcePreview.success.pityBonus > 0 ? `+${Math.round(reinforcePreview.success.pityBonus * 100)}%` : "없음"}</div>`,
+          '    </div>',
+          '    <div class="button-row">',
+          `      <button class="primary-button" type="button" data-blacksmith-reinforce="${selectedItem.id}" ${reinforcePreview.maxLevelReached || !reinforcePreview.canReinforce ? "disabled" : ""}>${reinforcePreview.maxLevelReached ? "최대 강화" : "강화 시도"}</button>`,
+          '    </div>',
+          `    <p class="inventory-click-hint">${reinforcePreview.maxLevelReached ? "이 무기는 현재 최대 강화 단계입니다." : "실패해도 하락이나 파괴는 없고, 재료만 소모됩니다."}</p>`
+        ].join("")
       ].join("") : [
-        '    <div class="item-title-row"><strong class="card-title">강화 상세</strong><span class="card-subtitle">무기 선택 필요</span></div>',
-        '    <p class="blacksmith-section-copy">좌측 목록에서 강화할 무기를 선택하세요.</p>'
+        `    <div class="item-title-row"><strong class="card-title">${mode === "repair" ? "수리 상세" : "강화 상세"}</strong><span class="card-subtitle">${mode === "repair" ? "장비 선택 필요" : "무기 선택 필요"}</span></div>`,
+        `    <p class="blacksmith-section-copy">좌측 목록에서 ${mode === "repair" ? "수리할 장비" : "강화할 무기"}를 선택하세요.</p>`
       ].join(""),
       '  </section>',
       '</div>'
@@ -5857,9 +6018,24 @@
           const result = InventoryService.reinforceWeapon(appState.saveData, button.dataset.blacksmithReinforce);
           persistSession(appState.saveData, appState.settings);
           appState.blacksmithView.selectedItemId = result.item.id;
+          renderBlacksmithPanel();
           showToast(result.success
             ? `${InventoryService.getItemDisplayName(result.item, { forceShowReinforceLevel: true })} 강화 성공`
             : `${InventoryService.getItemDisplayName(result.item, { forceShowReinforceLevel: true })} 강화 실패`);
+        } catch (error) {
+          showToast(error.message, true);
+        }
+      });
+    });
+
+    root.querySelectorAll("[data-blacksmith-repair]").forEach((button) => {
+      button.addEventListener("click", () => {
+        try {
+          const result = InventoryService.repairItem(appState.saveData, button.dataset.blacksmithRepair);
+          persistSession(appState.saveData, appState.settings);
+          appState.blacksmithView.selectedItemId = null;
+          renderBlacksmithPanel();
+          showToast(`${InventoryService.getItemDisplayName(result.item, { forceShowReinforceLevel: InventoryService.isWeapon(result.item) })}의 내구도를 복구했습니다.`);
         } catch (error) {
           showToast(error.message, true);
         }
@@ -6214,6 +6390,7 @@
     appState.inventoryView.page = 1;
     appState.shopView.category = "equipment";
     appState.shopView.page = 1;
+    appState.blacksmithView.mode = "reinforce";
     appState.blacksmithView.selectedItemId = null;
     appState.blacksmithView.page = 1;
     appState.dispatchView.selectedMissionId = null;
@@ -6342,6 +6519,7 @@
     appState.inventoryView.page = 1;
     appState.shopView.category = "equipment";
     appState.shopView.page = 1;
+    appState.blacksmithView.mode = "reinforce";
     appState.blacksmithView.selectedItemId = null;
     appState.blacksmithView.page = 1;
     appState.dispatchView.selectedMissionId = null;
@@ -6459,6 +6637,13 @@
     });
     getElement("blacksmith-tutorial-button").addEventListener("click", () => {
       openBlacksmithTutorialModal();
+    });
+    document.querySelectorAll("[data-blacksmith-tab]").forEach((button) => {
+      button.addEventListener("click", () => {
+        setBlacksmithMode(button.dataset.blacksmithTab);
+        renderDetailHeaderActions();
+        renderBlacksmithPanel();
+      });
     });
     getElement("dispatch-tutorial-button").addEventListener("click", () => {
       openDispatchTutorialModal();

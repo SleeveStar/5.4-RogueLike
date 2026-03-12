@@ -1403,7 +1403,7 @@
       family: "fortune",
       slotWeights: { ring: 6, bracelet: 4, charm: 4, boots: 2 },
       primaryStatBonus: { luk: 1 },
-      hiddenBonus: { critChance: 2, dropRateBonus: 0.01, lootQualityBonus: 0.006 }
+      hiddenBonus: { critChance: 0.02, dropRateBonus: 0.01, lootQualityBonus: 0.006 }
     },
     {
       id: "ferocity",
@@ -1467,7 +1467,7 @@
       suffix: "개척",
       family: "prosperity",
       slotWeights: { ring: 6, bracelet: 5, charm: 5 },
-      hiddenBonus: { dropRateBonus: 0.015, lootQualityBonus: 0.01, critChance: 1 }
+      hiddenBonus: { dropRateBonus: 0.015, lootQualityBonus: 0.01, critChance: 0.01 }
     },
     {
       id: "slayer",
@@ -2477,6 +2477,61 @@
     });
   }
 
+  function refreshStoredAffixMetadata(item) {
+    if (!item || !Array.isArray(item.affixes) || !item.affixes.length) {
+      return item;
+    }
+
+    item.affixes = item.affixes.map((affix) => {
+      const hydratedAffix = hydrateAffixForNaming(item, affix);
+
+      if (!hydratedAffix || !hydratedAffix.id) {
+        return affix;
+      }
+
+      return Object.assign({}, affix, {
+        label: hydratedAffix.prefix || hydratedAffix.suffix || hydratedAffix.label || affix.label || hydratedAffix.id,
+        description: buildAffixDescription(hydratedAffix)
+      });
+    });
+
+    return item;
+  }
+
+  function normalizeLegacyCritChanceAffixBug(item) {
+    if (!item || !item.hiddenBonus || !Array.isArray(item.affixes) || !item.affixes.length) {
+      return item;
+    }
+
+    let critChance = Number(item.hiddenBonus.critChance || 0);
+
+    if (critChance <= 1) {
+      return item;
+    }
+
+    const correctionByAffixId = {
+      lucky: 1.98,
+      fortune: 0.99
+    };
+
+    let correction = 0;
+
+    item.affixes.forEach((affix) => {
+      correction += Number(correctionByAffixId[affix && affix.id] || 0);
+    });
+
+    if (correction <= 0) {
+      return item;
+    }
+
+    critChance = roundHiddenBonus("critChance", Math.max(0, critChance - correction));
+    item.hiddenBonus = Object.assign({}, item.hiddenBonus, {
+      critChance
+    });
+    item.hiddenBonus = hasAnyBonus(item.hiddenBonus) ? item.hiddenBonus : null;
+    return item;
+  }
+
   function convertLegacyBonusToModern(statBonus) {
     const primaryStatBonus = createPrimaryBonusMap();
     const legacyStatBonus = createLegacyBonusMap();
@@ -3105,6 +3160,8 @@
     item.weaponBonus = hasAnyBonus(item.weaponBonus) ? item.weaponBonus : null;
     item.affixes = Array.isArray(item.affixes) ? item.affixes : [];
 
+    refreshStoredAffixMetadata(item);
+    normalizeLegacyCritChanceAffixBug(item);
     sanitizeItemRangeBonus(item);
     syncWeaponReinforcementStats(item);
     item.name = getItemDisplayName(item);
@@ -3585,6 +3642,154 @@
       canAffordGold: !!cost && goldOwned >= cost.gold,
       canAffordStone: !!cost && stoneOwned >= cost.stones,
       canReinforce: !!cost && goldOwned >= cost.gold && stoneOwned >= cost.stones
+    };
+  }
+
+  function getWeaponBaseUses(item) {
+    if (!item || !Number.isFinite(Number(item.uses))) {
+      return null;
+    }
+
+    if (Number.isFinite(Number(item.baseUses)) && Number(item.baseUses) > 0) {
+      return Math.max(1, Math.round(Number(item.baseUses)));
+    }
+
+    const baseName = String(item.baseName || item.name || "").trim();
+    const itemType = String(item.type || "");
+    const itemRarity = item.rarity || "common";
+    const shopTemplate = (item.shopId
+      ? SHOP_CATALOG.find((entry) => entry.id === item.shopId)
+      : null) || SHOP_CATALOG.find((entry) => (
+      entry
+      && entry.slot === "weapon"
+      && String(entry.name || "").trim() === baseName
+      && String(entry.type || "") === itemType
+      && Number.isFinite(Number(entry.uses))
+    ));
+
+    if (shopTemplate && Number.isFinite(Number(shopTemplate.uses))) {
+      return Math.max(1, Math.round(Number(shopTemplate.uses)));
+    }
+
+    const setTemplate = SET_ITEM_TEMPLATES.find((entry) => (
+      entry
+      && entry.slot === "weapon"
+      && String(entry.name || "").trim() === baseName
+      && String(entry.type || "") === itemType
+      && entry.base
+      && Number.isFinite(Number(entry.base.uses))
+    ));
+
+    if (setTemplate && setTemplate.base && Number.isFinite(Number(setTemplate.base.uses))) {
+      return Math.max(1, Math.round(Number(setTemplate.base.uses)));
+    }
+
+    const lootTemplate = LOOT_TEMPLATES.find((entry) => (
+      entry
+      && entry.slot === "weapon"
+      && String(entry.type || "") === itemType
+      && Object.values(entry.names || {}).some((name) => String(name || "").trim() === baseName)
+      && entry.base
+      && Number.isFinite(Number(entry.base.uses))
+    ));
+
+    if (lootTemplate && lootTemplate.base && Number.isFinite(Number(lootTemplate.base.uses))) {
+      return Math.max(1, Math.round(lootTemplate.base.uses + getRarityIndex(itemRarity) * 3));
+    }
+
+    if (Number.isFinite(Number(item.uses)) && Number(item.uses) > 0) {
+      return Math.max(1, Math.round(Number(item.uses)));
+    }
+
+    return null;
+  }
+
+  function getItemMaxUses(item) {
+    if (!item || !Number.isFinite(Number(item.uses))) {
+      return null;
+    }
+
+    const baseUses = getWeaponBaseUses(item);
+    const bonusUses = Math.max(0, Number(item.weaponBonus && item.weaponBonus.uses || 0));
+    const currentUses = Math.max(0, Math.round(Number(item.uses || 0)));
+
+    if (!Number.isFinite(Number(baseUses))) {
+      return currentUses;
+    }
+
+    return Math.max(currentUses, Math.max(1, Math.round(Number(baseUses) + bonusUses)));
+  }
+
+  function getRepairCost(item, missingUses, maxUses) {
+    if (!item || missingUses <= 0 || maxUses <= 0) {
+      return null;
+    }
+
+    const wearRatio = Math.max(0, Math.min(1, missingUses / Math.max(1, maxUses)));
+    const basePrice = Math.max(1, getItemBasePrice(item));
+    return {
+      gold: Math.max(1, Math.round(basePrice * (0.14 + wearRatio * 0.34)))
+    };
+  }
+
+  function getRepairPreview(saveData, item) {
+    if (!isEquipment(item) || !Number.isFinite(Number(item && item.uses))) {
+      return null;
+    }
+
+    const currentUses = Math.max(0, Math.round(Number(item.uses || 0)));
+    const maxUses = getItemMaxUses(item);
+
+    if (!Number.isFinite(Number(maxUses)) || maxUses <= 0) {
+      return null;
+    }
+
+    const missingUses = Math.max(0, maxUses - currentUses);
+    const cost = getRepairCost(item, missingUses, maxUses);
+    const goldOwned = Math.max(0, Number(saveData && saveData.partyGold || 0));
+
+    return {
+      currentUses,
+      maxUses,
+      missingUses,
+      durabilityRate: Math.max(0, Math.min(1, currentUses / Math.max(1, maxUses))),
+      needsRepair: missingUses > 0,
+      cost,
+      goldOwned,
+      canAffordGold: !cost || goldOwned >= cost.gold,
+      canRepair: !!cost && goldOwned >= cost.gold
+    };
+  }
+
+  function repairItem(saveData, itemId) {
+    const item = getItemById(saveData, itemId);
+
+    if (!item || !isEquipment(item) || !Number.isFinite(Number(item.uses))) {
+      throw new Error("수리할 장비를 찾을 수 없습니다.");
+    }
+
+    const preview = getRepairPreview(saveData, item);
+
+    if (!preview || !preview.needsRepair) {
+      throw new Error("수리가 필요한 장비가 아닙니다.");
+    }
+
+    if (!preview.cost) {
+      throw new Error("수리 비용 정보를 찾을 수 없습니다.");
+    }
+
+    if (!preview.canAffordGold) {
+      throw new Error("골드가 부족합니다.");
+    }
+
+    saveData.partyGold = Math.max(0, Number(saveData.partyGold || 0)) - preview.cost.gold;
+    item.uses = preview.maxUses;
+    normalizeLegacyItem(item);
+
+    return {
+      item,
+      previewBefore: preview,
+      previewAfter: getRepairPreview(saveData, item)
     };
   }
 
@@ -4293,7 +4498,9 @@
     getReinforceCost,
     getReinforceSuccessRate,
     getReinforcePreview,
+    getRepairPreview,
     reinforceWeapon,
+    repairItem,
     getSetDefinition,
     getSetBonusEntries,
     syncEquippedItems,
