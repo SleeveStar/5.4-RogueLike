@@ -6047,6 +6047,7 @@
   function renderStageList() {
     const target = getElement("menu-stage-list");
     const focusTarget = getElement("menu-stage-focus");
+    const headerActionsTarget = getElement("stage-panel-header-actions");
 
     if (!appState.saveData) {
       target.innerHTML = '<article class="stage-card"><p>세이브 데이터가 없습니다.</p></article>';
@@ -6119,16 +6120,17 @@
 
     const focusStage = orderedVisibleStages.find((stage) => stage.selected) || orderedVisibleStages[0] || selectedStage;
 
+    if (headerActionsTarget) {
+      headerActionsTarget.innerHTML = tutorialsCleared
+        ? '<div class="stage-panel-tabs">'
+          + `<button class="stage-panel-tab ${appState.activeStageTab === "main" ? "active" : ""}" type="button" data-stage-tab="main">메인 작전</button>`
+          + `<button class="stage-panel-tab ${appState.activeStageTab === "prologue" ? "active" : ""}" type="button" data-stage-tab="prologue">프롤로그</button>`
+          + "</div>"
+        : "";
+    }
+
     if (focusTarget) {
-      focusTarget.innerHTML = [
-        tutorialsCleared
-          ? '<div class="stage-panel-tabs">'
-            + `<button class="stage-panel-tab ${appState.activeStageTab === "main" ? "active" : ""}" type="button" data-stage-tab="main">메인 작전</button>`
-            + `<button class="stage-panel-tab ${appState.activeStageTab === "prologue" ? "active" : ""}" type="button" data-stage-tab="prologue">프롤로그</button>`
-            + "</div>"
-          : "",
-        buildStageFocusMarkup(focusStage)
-      ].filter(Boolean).join("");
+      focusTarget.innerHTML = buildStageFocusMarkup(focusStage);
     }
 
     target.innerHTML = orderedVisibleStages.map((stage) => {
@@ -6160,17 +6162,19 @@
         `    <span class="meta-pill ${stage.cleared ? "is-cyan" : "is-muted"}">${stage.cleared ? "클리어" : "미클리어"}</span>`,
         `    <span class="meta-pill ${stage.inProgress ? "is-crimson" : "is-muted"}">${stage.inProgress ? "진행 중" : "준비"}</span>`,
         "  </div>",
-        `  <p>${stage.victoryLabel}${stage.id === "endless-rift" ? ` / ${stage.objective}` : ""}</p>`,
-        '  <div class="button-row stage-card-actions">',
-        `    <button class="${stage.selected ? "secondary-button" : "primary-button"} small-button" type="button" data-stage-id="${stage.id}" ${!stage.available || stage.selected ? "disabled" : ""}>${stage.selected ? "선택됨" : "선택"}</button>`,
-        `    <button class="ghost-button small-button" type="button" data-stage-detail="${stage.id}">상세보기</button>`,
+        '  <div class="stage-card-footer">',
+        `    <p>${stage.victoryLabel}${stage.id === "endless-rift" ? ` / ${stage.objective}` : ""}</p>`,
+        '    <div class="button-row stage-card-actions">',
+        `      <button class="${stage.selected ? "secondary-button" : "primary-button"} small-button" type="button" data-stage-id="${stage.id}" ${!stage.available || stage.selected ? "disabled" : ""}>${stage.selected ? "선택됨" : "선택"}</button>`,
+        `      <button class="ghost-button small-button" type="button" data-stage-detail="${stage.id}">상세보기</button>`,
+        "    </div>",
         "  </div>",
         "</article>"
       ].join("");
     }).join("");
 
-    if (focusTarget) {
-      focusTarget.querySelectorAll("[data-stage-tab]").forEach((button) => {
+    if (headerActionsTarget) {
+      headerActionsTarget.querySelectorAll("[data-stage-tab]").forEach((button) => {
         button.addEventListener("click", () => {
           appState.activeStageTab = button.dataset.stageTab;
           renderStageList();

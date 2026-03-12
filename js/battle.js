@@ -4097,7 +4097,7 @@
       for (let x = 0; x < state.battle.map.width; x += 1) {
         const distance = Math.abs(origin.x - x) + Math.abs(origin.y - y);
 
-        if (distance >= range.rangeMin && distance <= range.rangeMax) {
+        if (distance > 0 && distance <= range.rangeMax) {
           tiles.push({ x, y });
         }
       }
@@ -4105,6 +4105,10 @@
 
     if (skill.targetType === "self") {
       return [{ x: origin.x, y: origin.y }];
+    }
+
+    if (range.rangeMin === 0) {
+      tiles.unshift({ x: origin.x, y: origin.y });
     }
 
     return tiles;
