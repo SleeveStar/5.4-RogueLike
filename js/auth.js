@@ -1030,9 +1030,10 @@
     return rankIndex >= 0 ? rankIndex : -1;
   }
 
-  function sortPartyRoster(roster, selectedPartyIds) {
+  function sortPartyRoster(roster, selectedPartyIds, options) {
     const sourceRoster = Array.isArray(roster) ? roster : [];
     const partyIds = Array.isArray(selectedPartyIds) ? selectedPartyIds : [];
+    const nextOptions = options || {};
     const selectedPartyMap = new Map(partyIds.map((unitId, index) => [unitId, index]));
     const rosterIndexMap = new Map(sourceRoster.map((unit, index) => [unit.id, index]));
     const rankOrder = TavernService.GUILD_RANK_ORDER || ["D", "C", "B", "A", "S", "SS", "SSS"];
@@ -1041,8 +1042,12 @@
       const leftSelected = selectedPartyMap.has(left.id);
       const rightSelected = selectedPartyMap.has(right.id);
 
-      if (leftSelected !== rightSelected) {
+      if (nextOptions.prioritizeSelected !== false && leftSelected !== rightSelected) {
         return leftSelected ? -1 : 1;
+      }
+
+      if (nextOptions.prioritizeSelected !== false && leftSelected && rightSelected) {
+        return (selectedPartyMap.get(left.id) || 0) - (selectedPartyMap.get(right.id) || 0);
       }
 
       const rankDiff = getGuildRankSortValue(right.guildRank, rankOrder) - getGuildRankSortValue(left.guildRank, rankOrder);
@@ -1053,10 +1058,6 @@
       const levelDiff = Number(right.level || 0) - Number(left.level || 0);
       if (levelDiff !== 0) {
         return levelDiff;
-      }
-
-      if (leftSelected && rightSelected) {
-        return (selectedPartyMap.get(left.id) || 0) - (selectedPartyMap.get(right.id) || 0);
       }
 
       return (rosterIndexMap.get(left.id) || 0) - (rosterIndexMap.get(right.id) || 0);
@@ -5493,12 +5494,12 @@
       '      <section class="modal-card blacksmith-tutorial-card">',
       '        <div class="item-title-row"><strong class="card-title">무기 재련 흐름</strong><span class="card-subtitle">골드 + 재련석</span></div>',
       '        <p>대장간에서는 무기만 강화할 수 있습니다. 장착 중인 무기도 바로 강화되며, 성공하면 장착자 능력치에 즉시 반영됩니다.</p>',
-      '        <div class="detail-token-list"><span class="detail-token is-gold">강화 성공 시 might +1</span><span class="detail-token is-cyan">실패 시 장비 유지</span><span class="detail-token is-muted">하락 / 파괴 없음</span></div>',
+      '        <div class="detail-token-list"><span class="detail-token is-gold">seed 기반 공격력 상승</span><span class="detail-token is-cyan">11~12 고효율 돌파</span><span class="detail-token is-muted">13+ 하락 / 내구 손실 가능</span></div>',
       '      </section>',
       '      <section class="modal-card blacksmith-tutorial-card">',
       '        <div class="item-title-row"><strong class="card-title">성공률과 보정</strong><span class="card-subtitle">연속 실패 완충</span></div>',
-      '        <p>기본 성공률은 강화 구간에 따라 달라집니다. 같은 무기에서 실패가 누적되면 다음 시도 성공률이 올라가며, 성공하면 누적 실패 수는 초기화됩니다.</p>',
-      '        <div class="detail-token-list"><span class="detail-token is-muted">+0 ~ +3: 100%</span><span class="detail-token is-muted">+4 ~ +6: 75%</span><span class="detail-token is-muted">+7 ~ +8: 55%</span><span class="detail-token is-muted">+9 ~ +10: 35%</span></div>',
+      '        <p>기본 성공률은 강화 구간에 따라 달라집니다. 같은 무기에서 실패가 누적되면 다음 시도 성공률이 올라가며, 성공하면 누적 실패 수는 초기화됩니다. 0~10은 안정적이고, 11~12는 고효율, 13 이상은 고위험 구간입니다.</p>',
+      '        <div class="detail-token-list"><span class="detail-token is-muted">+0 ~ +10: 안정 구간</span><span class="detail-token is-gold">+11 ~ +12: 고효율 구간</span><span class="detail-token is-crimson">+13 ~ +20: 고위험 구간</span></div>',
       '      </section>',
       '      <section class="modal-card blacksmith-tutorial-card">',
       '        <div class="item-title-row"><strong class="card-title">재련석 획득처</strong><span class="card-subtitle">전투 / 파견</span></div>',
@@ -6014,7 +6015,7 @@
           '    <div class="blacksmith-resource-state">',
           `      <div class="status-line"><strong>필요 골드:</strong> ${repairPreview.cost ? `${repairPreview.cost.gold}G` : "-"}</div>`,
           `      <div class="status-line"><strong>복구 내구:</strong> ${repairPreview.missingUses}</div>`,
-          `      <div class="status-line ${repairPreview.canAffordGold ? "is-cyan" : "is-crimson"}"><strong>보유 골드:</strong> ${repairPreview.canAffordGold ? "충분" : `부족 (${Math.max(0, Number(appState.saveData.partyGold || 0))}/${repairPreview.cost ? repairPreview.cost.gold : 0})`}</div>`,
+          `      <div class="status-line ${repairPreview.canAffordGold ? "is-cyan" : "is-crimson"}"><strong>보유 골드:</strong> ${Math.max(0, Number(appState.saveData.partyGold || 0))}G</div>`,
           `      <div class="status-line"><strong>장착 상태:</strong> ${selectedItem.equippedBy ? `${getUnitNameById(selectedItem.equippedBy)} 사용 중` : "보관 중"}</div>`,
           '    </div>',
           '    <div class="button-row">',
@@ -6025,20 +6026,20 @@
           '    <div class="blacksmith-detail-grid">',
           `      <article class="summary-card blacksmith-metric-card"><span class="card-subtitle">현재 강화</span><strong class="card-title">+${reinforcePreview.reinforceLevel} 강화</strong></article>`,
           `      <article class="summary-card blacksmith-metric-card"><span class="card-subtitle">강화 후</span><strong class="card-title">${reinforcePreview.maxLevelReached ? "최대 도달" : `+${reinforcePreview.cost ? reinforcePreview.cost.targetLevel : reinforcePreview.reinforceLevel} 강화`}</strong></article>`,
-          `      <article class="summary-card blacksmith-metric-card"><span class="card-subtitle">기본 성공률</span><strong class="card-title">${Math.round((reinforcePreview.success.baseRate || 0) * 100)}%</strong></article>`,
-          `      <article class="summary-card blacksmith-metric-card"><span class="card-subtitle">현재 성공률</span><strong class="card-title">${Math.round((reinforcePreview.success.rate || 0) * 100)}%</strong></article>`,
+          `      <article class="summary-card blacksmith-metric-card"><span class="card-subtitle">강화 위력</span><strong class="card-title">${reinforcePreview.maxLevelReached ? `${reinforcePreview.currentMight}` : `<span class="blacksmith-metric-current">${reinforcePreview.currentMight}</span> <span class="blacksmith-metric-arrow">-></span> <span class="blacksmith-metric-next">${reinforcePreview.targetMight}(+${Math.max(0, reinforcePreview.targetMight - reinforcePreview.currentMight)})</span>`}</strong></article>`,
+          `      <article class="summary-card blacksmith-metric-card"><span class="card-subtitle">성공률</span><strong class="card-title">${Math.round((reinforcePreview.success.baseRate || 0) * 100)}${reinforcePreview.success.pityBonus > 0 ? `(+${Math.round((reinforcePreview.success.pityBonus || 0) * 100)})` : ""}%</strong></article>`,
           '    </div>',
           '    <div class="blacksmith-resource-state">',
           `      <div class="status-line"><strong>필요 골드:</strong> ${reinforcePreview.cost ? `${reinforcePreview.cost.gold}G` : "-"}</div>`,
           `      <div class="status-line"><strong>필요 재련석:</strong> ${reinforcePreview.cost ? `${reinforcePreview.cost.stones}개` : "-"}</div>`,
-          `      <div class="status-line ${reinforcePreview.canAffordGold ? "is-cyan" : "is-crimson"}"><strong>보유 골드:</strong> ${reinforcePreview.canAffordGold ? "충분" : `부족 (${Math.max(0, Number(appState.saveData.partyGold || 0))}/${reinforcePreview.cost ? reinforcePreview.cost.gold : 0})`}</div>`,
-          `      <div class="status-line ${reinforcePreview.canAffordStone ? "is-cyan" : "is-crimson"}"><strong>보유 재련석:</strong> ${reinforcePreview.canAffordStone ? "충분" : `부족 (${reinforcePreview.stoneOwned}/${reinforcePreview.cost ? reinforcePreview.cost.stones : 0})`}</div>`,
-          `      <div class="status-line ${reinforcePreview.success.pityBonus > 0 ? "is-gold" : ""}"><strong>연속 실패 보정:</strong> ${reinforcePreview.success.pityBonus > 0 ? `+${Math.round(reinforcePreview.success.pityBonus * 100)}%` : "없음"}</div>`,
+          `      <div class="status-line ${reinforcePreview.canAffordGold ? "is-cyan" : "is-crimson"}"><strong>보유 골드:</strong> ${Math.max(0, Number(appState.saveData.partyGold || 0))}G</div>`,
+          `      <div class="status-line ${reinforcePreview.canAffordStone ? "is-cyan" : "is-crimson"}"><strong>보유 재련석:</strong> ${reinforcePreview.stoneOwned}개</div>`,
+          `      <div class="status-line ${reinforcePreview.failureProfile && reinforcePreview.failureProfile.band === "hazard" ? "is-crimson" : reinforcePreview.failureProfile && reinforcePreview.failureProfile.band === "efficient" ? "is-gold" : "is-cyan"}"><strong>강화 구간:</strong> ${reinforcePreview.failureProfile ? reinforcePreview.failureProfile.label : "-"}</div>`,
+          `      <div class="status-line inventory-status-wide"><strong>실패 규칙:</strong> ${reinforcePreview.failureProfile ? reinforcePreview.failureProfile.summary : "-"}</div>`,
           '    </div>',
           '    <div class="button-row">',
           `      <button class="primary-button" type="button" data-blacksmith-reinforce="${selectedItem.id}" ${reinforcePreview.maxLevelReached || !reinforcePreview.canReinforce ? "disabled" : ""}>${reinforcePreview.maxLevelReached ? "최대 강화" : "강화 시도"}</button>`,
-          '    </div>',
-          `    <p class="inventory-click-hint">${reinforcePreview.maxLevelReached ? "이 무기는 현재 최대 강화 단계입니다." : "실패해도 하락이나 파괴는 없고, 재료만 소모됩니다."}</p>`
+          '    </div>'
         ].join("")
       ].join("") : [
         `    <div class="item-title-row"><strong class="card-title">${mode === "repair" ? "수리 상세" : "강화 상세"}</strong><span class="card-subtitle">${mode === "repair" ? "장비 선택 필요" : "무기 선택 필요"}</span></div>`,
@@ -6071,9 +6072,11 @@
           persistSession(appState.saveData, appState.settings);
           appState.blacksmithView.selectedItemId = result.item.id;
           renderBlacksmithPanel();
-          showToast(result.success
-            ? `${InventoryService.getItemDisplayName(result.item, { forceShowReinforceLevel: true })} 강화 성공`
-            : `${InventoryService.getItemDisplayName(result.item, { forceShowReinforceLevel: true })} 강화 실패`);
+          showToast(result.message || (
+            result.success
+              ? `${InventoryService.getItemDisplayName(result.item, { forceShowReinforceLevel: true })} 강화 성공`
+              : `${InventoryService.getItemDisplayName(result.item, { forceShowReinforceLevel: true })} 강화 실패`
+          ), !result.success);
         } catch (error) {
           showToast(error.message, true);
         }

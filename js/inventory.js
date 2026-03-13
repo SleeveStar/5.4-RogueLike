@@ -51,7 +51,7 @@
     }
   };
 
-  const REINFORCE_MAX_LEVEL = 10;
+  const REINFORCE_MAX_LEVEL = 20;
   const REINFORCE_BASE_COST_TABLE = [
     { level: 0, gold: 150, stones: 1 },
     { level: 1, gold: 220, stones: 1 },
@@ -62,8 +62,98 @@
     { level: 6, gold: 1200, stones: 5 },
     { level: 7, gold: 1600, stones: 6 },
     { level: 8, gold: 2100, stones: 7 },
-    { level: 9, gold: 2800, stones: 9 }
+    { level: 9, gold: 2800, stones: 9 },
+    { level: 10, gold: 3600, stones: 11 },
+    { level: 11, gold: 4600, stones: 13 },
+    { level: 12, gold: 5800, stones: 15 },
+    { level: 13, gold: 7200, stones: 17 },
+    { level: 14, gold: 8800, stones: 20 },
+    { level: 15, gold: 10600, stones: 23 },
+    { level: 16, gold: 12700, stones: 27 },
+    { level: 17, gold: 15100, stones: 31 },
+    { level: 18, gold: 17800, stones: 36 },
+    { level: 19, gold: 20800, stones: 42 }
   ];
+  // 0~10: 안정 성장 / 11~12: 고효율 점프 / 13+: 고위험 고보상 구간
+  const REINFORCE_ATTACK_MULTIPLIER_TABLE = {
+    0: 0,
+    1: 0.72,
+    2: 1.58,
+    3: 2.61,
+    4: 3.86,
+    5: 5.31,
+    6: 6.72,
+    7: 8.3,
+    8: 11.11,
+    9: 14.7,
+    10: 18.9,
+    11: 27.25,
+    12: 37.13,
+    13: 43.43,
+    14: 49.8,
+    15: 56.11,
+    16: 62.38,
+    17: 68.59,
+    18: 74.77,
+    19: 80.9,
+    20: 86.98
+  };
+  const REINFORCE_GUARANTEED_BONUS_TABLE = {
+    0: 0,
+    1: 1,
+    2: 1,
+    3: 2,
+    4: 2,
+    5: 3,
+    6: 4,
+    7: 5,
+    8: 6,
+    9: 7,
+    10: 8,
+    11: 11,
+    12: 15,
+    13: 18,
+    14: 21,
+    15: 24,
+    16: 27,
+    17: 30,
+    18: 33,
+    19: 36,
+    20: 40
+  };
+  const REINFORCE_SEED_RARITY_OFFSET = {
+    common: 0,
+    uncommon: 0.008,
+    rare: 0.016,
+    unique: 0.026,
+    legendary: 0.038,
+    epic: 0.05,
+    mystic: 0.064,
+    primordial: 0.08
+  };
+  const REINFORCE_SEED_TYPE_OFFSET = {
+    sword: 0.004,
+    greatsword: 0.006,
+    tachi: 0.005,
+    katana: 0.004,
+    hwando: 0.004,
+    lance: 0.005,
+    spear: 0.005,
+    halberd: 0.006,
+    bow: 0.003,
+    shortbow: 0.002,
+    longbow: 0.004,
+    crossbow: 0.004,
+    axe: 0.006,
+    handaxe: 0.005,
+    battleaxe: 0.006,
+    greataxe: 0.007,
+    staff: 0.002,
+    wand: 0.002,
+    tome: 0.003,
+    grimoire: 0.004,
+    focus: 0.003
+  };
   const REINFORCE_RARITY_MULTIPLIER = {
     common: 1,
     uncommon: 1.15,
@@ -2992,6 +3082,104 @@
     return Math.max(0, Math.floor(Number(item && item.reinforceFailStreak || 0)));
   }
 
+  function hashStringValue(input) {
+    const text = String(input || "");
+    let hash = 2166136261;
+
+    for (let index = 0; index < text.length; index += 1) {
+      hash ^= text.charCodeAt(index);
+      hash = Math.imul(hash, 16777619);
+    }
+
+    return hash >>> 0;
+  }
+
+  function getWeaponSeedValue(item) {
+    if (!item || !isWeapon(item)) {
+      return 0;
+    }
+
+    if (Number.isFinite(Number(item.seedValue)) && Number(item.seedValue) > 0) {
+      return Number(item.seedValue);
+    }
+
+    // seedValue is unique per weapon, but stays in a comparable range for similar rarity/level/type items.
+    const rarityOffset = REINFORCE_SEED_RARITY_OFFSET[item.rarity] || 0;
+    const typeOffset = REINFORCE_SEED_TYPE_OFFSET[item.type] || 0;
+    const level = Math.max(1, Number(item.level || 1));
+    const baseAttack = Math.max(1, Number(item.baseMight || item.might || 1));
+    const varianceRoll = hashStringValue(`${item.id || item.baseName || item.name}:${item.type || "weapon"}:${item.rarity || "common"}:${level}`) % 1000;
+    const variance = varianceRoll / 1000 * 0.018;
+    const seedValue = 0.045 + (baseAttack * 0.0075) + rarityOffset + Math.min(0.028, (level - 1) * 0.0012) + typeOffset + variance;
+
+    item.seedValue = Number(seedValue.toFixed(4));
+    return item.seedValue;
+  }
+
+  function getReinforceAttackMultiplier(level) {
+    const normalizedLevel = Math.max(0, Math.min(REINFORCE_MAX_LEVEL, Math.floor(Number(level || 0))));
+    return Number(REINFORCE_ATTACK_MULTIPLIER_TABLE[normalizedLevel] || 0);
+  }
+
+  function getReinforceGuaranteedBonus(level, baseMight) {
+    const normalizedLevel = Math.max(0, Math.min(REINFORCE_MAX_LEVEL, Math.floor(Number(level || 0))));
+    const normalizedBaseMight = Math.max(1, Number(baseMight || 1));
+
+    if (normalizedLevel <= 0) {
+      return 0;
+    }
+
+    const startingBonus = Math.max(1, Math.round(normalizedBaseMight / 4));
+    const baseOffset = Number(REINFORCE_GUARANTEED_BONUS_TABLE[1] || 0);
+    const scaledOffset = Math.max(0, Number(REINFORCE_GUARANTEED_BONUS_TABLE[normalizedLevel] || 0) - baseOffset);
+    return startingBonus + scaledOffset;
+  }
+
+  function getReinforceMightBonus(level, seedValue, baseMight) {
+    const scaledBonus = Math.max(0, Math.floor(Number(seedValue || 0) * getReinforceAttackMultiplier(level)));
+    return Math.max(getReinforceGuaranteedBonus(level, baseMight), scaledBonus);
+  }
+
+  function getReinforceFailureProfile(targetLevel) {
+    // 0~10: stable growth, 11~12: efficient jump, 13+: high-risk progression with manageable penalties.
+    if (targetLevel <= 10) {
+      return {
+        band: "stable",
+        label: "안정 구간",
+        summary: targetLevel >= 7
+          ? "실패 시 단계는 유지되며, 내구도가 0~1 감소할 수 있습니다."
+          : "실패 시 단계와 내구도가 그대로 유지됩니다.",
+        downgradeChance: 0,
+        durabilityLossMin: targetLevel >= 7 ? 0 : 0,
+        durabilityLossMax: targetLevel >= 7 ? 1 : 0
+      };
+    }
+
+    if (targetLevel <= 12) {
+      return {
+        band: "efficient",
+        label: "고효율 구간",
+        summary: "실패 시 35% 확률로 1단계 하락하며, 내구도가 2~4 감소합니다.",
+        downgradeChance: 0.35,
+        durabilityLossMin: 2,
+        durabilityLossMax: 4
+      };
+    }
+
+    return {
+      band: "hazard",
+      label: "고위험 구간",
+      summary: targetLevel >= 17
+        ? "실패 시 1단계 하락하며, 내구도가 6~8 감소합니다."
+        : targetLevel >= 15
+          ? "실패 시 1단계 하락하며, 내구도가 5~7 감소합니다."
+          : "실패 시 1단계 하락하며, 내구도가 4~6 감소합니다.",
+      downgradeChance: 1,
+      durabilityLossMin: targetLevel >= 17 ? 6 : targetLevel >= 15 ? 5 : 4,
+      durabilityLossMax: targetLevel >= 17 ? 8 : targetLevel >= 15 ? 7 : 6
+    };
+  }
+
   function getDisplayBaseName(item) {
     if (!item) {
       return "이름 없는 아이템";
@@ -3035,7 +3223,9 @@
     item.baseMight = Math.max(0, Number(item.baseMight || item.might || 0));
     item.reinforceLevel = getReinforceLevel(item);
     item.reinforceFailStreak = getReinforceFailStreak(item);
-    item.might = item.baseMight + item.reinforceLevel;
+    item.seedValue = getWeaponSeedValue(item);
+    item.reinforceBonusAttack = getReinforceMightBonus(item.reinforceLevel, item.seedValue, item.baseMight);
+    item.might = item.baseMight + item.reinforceBonusAttack;
     return item;
   }
 
@@ -3576,23 +3766,35 @@
   function getReinforceSuccessRate(item) {
     const reinforceLevel = getReinforceLevel(item);
     const failStreak = getReinforceFailStreak(item);
-    let baseRate = 0.35;
+    const targetLevel = Math.min(REINFORCE_MAX_LEVEL, reinforceLevel + 1);
+    let baseRate = 0.26;
 
-    if (reinforceLevel <= 3) {
+    if (targetLevel <= 3) {
       baseRate = 1;
-    } else if (reinforceLevel <= 6) {
-      baseRate = 0.75;
-    } else if (reinforceLevel <= 8) {
-      baseRate = 0.55;
+    } else if (targetLevel <= 6) {
+      baseRate = 0.9;
+    } else if (targetLevel <= 8) {
+      baseRate = 0.82;
+    } else if (targetLevel <= 10) {
+      baseRate = 0.74;
+    } else if (targetLevel <= 12) {
+      baseRate = 0.58;
+    } else if (targetLevel <= 15) {
+      baseRate = 0.44;
+    } else if (targetLevel <= 18) {
+      baseRate = 0.34;
     }
 
-    const pityBonus = failStreak >= 4
-      ? 0.2
-      : failStreak >= 2
-        ? 0.1
-        : 0;
+    const pityBonus = failStreak >= 6
+      ? 0.18
+      : failStreak >= 4
+        ? 0.12
+        : failStreak >= 2
+          ? 0.06
+          : 0;
 
     return {
+      targetLevel,
       baseRate,
       pityBonus,
       rate: Math.min(1, baseRate + pityBonus)
@@ -3627,20 +3829,32 @@
     }
 
     const reinforceLevel = getReinforceLevel(item);
-    const currentMight = Math.max(0, Number(item.might || item.baseMight || 0));
-    const targetMight = Math.max(currentMight, Math.max(0, Number(item.baseMight || item.might || 0)) + Math.min(REINFORCE_MAX_LEVEL, reinforceLevel + 1));
+    const baseMight = Math.max(0, Number(item.baseMight || item.might || 0));
+    const seedValue = getWeaponSeedValue(item);
+    const targetLevel = Math.min(REINFORCE_MAX_LEVEL, reinforceLevel + 1);
+    const currentBonusAttack = getReinforceMightBonus(reinforceLevel, seedValue, baseMight);
+    const targetBonusAttack = getReinforceMightBonus(targetLevel, seedValue, baseMight);
+    const currentMight = baseMight + currentBonusAttack;
+    const targetMight = baseMight + targetBonusAttack;
     const cost = getReinforceCost(item);
     const success = getReinforceSuccessRate(item);
+    const failureProfile = getReinforceFailureProfile(targetLevel);
     const goldOwned = Math.max(0, Number(saveData && saveData.partyGold || 0));
     const stoneOwned = getMiscItemQuantity(saveData, "refine-stone-basic");
 
     return {
       reinforceLevel,
+      targetLevel,
       maxLevelReached: reinforceLevel >= REINFORCE_MAX_LEVEL || !cost,
+      seedValue,
+      baseMight,
+      currentBonusAttack,
+      targetBonusAttack,
       currentMight,
       targetMight,
       cost,
       success,
+      failureProfile,
       goldOwned,
       stoneOwned,
       canAffordGold: !!cost && goldOwned >= cost.gold,
@@ -3849,6 +4063,12 @@
     };
   }
 
+  function rollIntegerBetween(min, max) {
+    const lower = Math.max(0, Math.floor(Number(min || 0)));
+    const upper = Math.max(lower, Math.floor(Number(max || 0)));
+    return lower + Math.floor(Math.random() * (upper - lower + 1));
+  }
+
   function reinforceWeapon(saveData, itemId) {
     const item = getItemById(saveData, itemId);
 
@@ -3880,21 +4100,48 @@
     consumeMiscItem(saveData, preview.cost.miscItemId, preview.cost.stones);
 
     const success = Math.random() <= preview.success.rate;
+    let levelDelta = 0;
+    let durabilityLost = 0;
+    const previousLevel = getReinforceLevel(item);
 
     if (success) {
-      item.reinforceLevel = Math.min(REINFORCE_MAX_LEVEL, getReinforceLevel(item) + 1);
+      item.reinforceLevel = Math.min(REINFORCE_MAX_LEVEL, previousLevel + 1);
       item.reinforceFailStreak = 0;
       syncWeaponReinforcementStats(item);
       item.name = getItemDisplayName(item);
+      levelDelta = item.reinforceLevel - previousLevel;
     } else {
+      const failureProfile = preview.failureProfile || getReinforceFailureProfile(preview.targetLevel || (previousLevel + 1));
+      const shouldDowngrade = failureProfile.downgradeChance >= 1
+        ? true
+        : (failureProfile.downgradeChance > 0 && Math.random() < failureProfile.downgradeChance);
+      durabilityLost = rollIntegerBetween(failureProfile.durabilityLossMin, failureProfile.durabilityLossMax);
+      item.reinforceLevel = shouldDowngrade
+        ? Math.max(0, previousLevel - 1)
+        : previousLevel;
       item.reinforceFailStreak = getReinforceFailStreak(item) + 1;
+
+      if (Number.isFinite(Number(item.uses))) {
+        item.uses = Math.max(0, Math.round(Number(item.uses || 0)) - durabilityLost);
+      }
+
+      syncWeaponReinforcementStats(item);
+      item.name = getItemDisplayName(item);
+      levelDelta = item.reinforceLevel - previousLevel;
     }
+
+    const previewAfter = getReinforcePreview(saveData, item);
 
     return {
       item,
       success,
       previewBefore: preview,
-      previewAfter: getReinforcePreview(saveData, item)
+      previewAfter,
+      levelDelta,
+      durabilityLost,
+      message: success
+        ? `${getItemDisplayName(item, { forceShowReinforceLevel: true })} 강화 성공 / 위력 +${Math.max(0, previewAfter.currentMight - preview.currentMight)}`
+        : `${getItemDisplayName(item, { forceShowReinforceLevel: true })} 강화 실패${levelDelta < 0 ? ` / ${Math.abs(levelDelta)}단계 하락` : ""}${durabilityLost > 0 ? ` / 내구 ${durabilityLost} 감소` : ""}`
     };
   }
 
@@ -4494,6 +4741,7 @@
     MISC_ITEM_DEFINITIONS,
     REINFORCE_MAX_LEVEL,
     REINFORCE_BASE_COST_TABLE,
+    REINFORCE_ATTACK_MULTIPLIER_TABLE,
     REINFORCE_RARITY_MULTIPLIER,
     WEAPON_DURABILITY_MULTIPLIER,
     ACTION_DURABILITY_CONSUME_CHANCE,
@@ -4552,6 +4800,10 @@
     formatStatBonusLine,
     getEquipmentItemLevel,
     getReinforceLevel,
+    getWeaponSeedValue,
+    getReinforceAttackMultiplier,
+    getReinforceMightBonus,
+    getReinforceFailureProfile,
     getReinforceFailStreak,
     getReinforceCost,
     getReinforceSuccessRate,

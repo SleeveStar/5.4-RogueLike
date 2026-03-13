@@ -3729,6 +3729,15 @@ body.use-floating-stat-tooltip .stat-tooltip-pill::after {
   font-size: 1.02rem;
 }
 
+.blacksmith-metric-current,
+.blacksmith-metric-arrow {
+  color: var(--text-strong);
+}
+
+.blacksmith-metric-next {
+  color: var(--gold-300);
+}
+
 .blacksmith-resource-state {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

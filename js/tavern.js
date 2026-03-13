@@ -140,7 +140,7 @@
     S: { nextRank: "SS", minLevel: 80, minTrainingLevel: 5, cost: 4800, rewardStatPoints: 3, rewardSkillPoints: 2, rewardGrowthPoints: 5 },
     SS: { nextRank: "SSS", minLevel: 99, minTrainingLevel: 6, cost: 9600, rewardStatPoints: 4, rewardSkillPoints: 3, rewardGrowthPoints: 6 }
   };
-  const SSS_NAME_POOL = ["다원", "승일", "대호", "문성", "지훈", "승인", "승민", "형록"];
+  const SSS_NAME_POOL = ["다원", "승일", "대호", "문성", "지훈", "승인", "승민", "형록", "희주", "민경", "애라", "메이", "후우카"];
 
   const CLASS_ARCHETYPES = {
     로드: {
@@ -401,14 +401,18 @@
     return saveData.tavern;
   }
 
-  function pickWeightedRank() {
-    const totalWeight = RANK_WEIGHT_TABLE.reduce((sum, entry) => sum + entry.weight, 0);
+  function pickWeightedRank(options) {
+    const nextOptions = options || {};
+    const rankPool = RANK_WEIGHT_TABLE.filter((entry) => (
+      nextOptions.allowSSS !== false || entry.rank !== "SSS"
+    ));
+    const totalWeight = rankPool.reduce((sum, entry) => sum + entry.weight, 0);
     let roll = Math.random() * totalWeight;
 
-    for (let index = 0; index < RANK_WEIGHT_TABLE.length; index += 1) {
-      roll -= RANK_WEIGHT_TABLE[index].weight;
+    for (let index = 0; index < rankPool.length; index += 1) {
+      roll -= rankPool[index].weight;
       if (roll <= 0) {
-        return RANK_WEIGHT_TABLE[index].rank;
+        return rankPool[index].rank;
       }
     }
 
@@ -434,6 +438,37 @@
     }
 
     return source;
+  }
+
+  function getUnavailableSSSNames(saveData, reservedNames) {
+    const usedNames = new Set();
+
+    ((saveData && saveData.roster) || []).forEach((unit) => {
+      if (unit && unit.guildRank === "SSS" && unit.name) {
+        usedNames.add(String(unit.name));
+      }
+    });
+
+    (((saveData && saveData.tavern && saveData.tavern.lineup) || [])).forEach((candidate) => {
+      const unit = candidate && candidate.unit;
+
+      if (unit && candidate.guildRank === "SSS" && unit.name) {
+        usedNames.add(String(unit.name));
+      }
+    });
+
+    (reservedNames || []).forEach((name) => {
+      if (name) {
+        usedNames.add(String(name));
+      }
+    });
+
+    return usedNames;
+  }
+
+  function getAvailableSSSNames(saveData, reservedNames) {
+    const unavailableNames = getUnavailableSSSNames(saveData, reservedNames);
+    return SSS_NAME_POOL.filter((name) => !unavailableNames.has(name));
   }
 
   function applyBonusStats(unit, bonusStats) {
@@ -588,17 +623,23 @@
     });
   }
 
-  function buildAdventurerCandidate(block, slotIndex) {
-    const rank = pickWeightedRank();
+  function buildAdventurerCandidate(saveData, block, slotIndex, reservedSSSNames) {
+    const availableSSSNames = getAvailableSSSNames(saveData, reservedSSSNames);
+    const rank = pickWeightedRank({
+      allowSSS: availableSSSNames.length > 0
+    });
     const rankMeta = GUILD_RANK_META[rank];
     const className = pickRandom(rankMeta.classPool);
     const archetype = CLASS_ARCHETYPES[className] || CLASS_ARCHETYPES.검사;
     const level = rankMeta.minLevel + Math.floor(Math.random() * (rankMeta.maxLevel - rankMeta.minLevel + 1));
     const potentialScore = rollPotentialScore(rank);
     const unitId = `tavern-${block}-${slotIndex}-${Math.floor(Math.random() * 100000)}`;
+    const unitName = rank === "SSS"
+      ? pickRandom(availableSSSNames)
+      : pickRandom(archetype.namePool);
     const unit = {
       id: unitId,
-      name: rank === "SSS" ? pickRandom(SSS_NAME_POOL) : pickRandom(archetype.namePool),
+      name: unitName,
       team: "ally",
       className,
       level: 1,
@@ -677,11 +718,20 @@
   function refreshLineup(saveData) {
     const tavern = ensureTavernShape(saveData);
     const block = getRefreshBlock();
+    const reservedSSSNames = [];
 
     tavern.refreshBlock = block;
     tavern.lastRefreshAt = new Date().toISOString();
     tavern.nextRefreshAt = new Date(getNextRefreshTimestamp(block)).toISOString();
-    tavern.lineup = Array.from({ length: LINEUP_SIZE }, (_, index) => buildAdventurerCandidate(block, index));
+    tavern.lineup = Array.from({ length: LINEUP_SIZE }, (_, index) => {
+      const candidate = buildAdventurerCandidate(saveData, block, index, reservedSSSNames);
+
+      if (candidate && candidate.guildRank === "SSS" && candidate.unit && candidate.unit.name) {
+        reservedSSSNames.push(candidate.unit.name);
+      }
+
+      return candidate;
+    });
     return tavern;
   }
 
