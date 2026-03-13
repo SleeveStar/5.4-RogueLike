@@ -2049,7 +2049,12 @@
   function renderStatusBanner(snapshot) {
     const banner = getElement("battle-status-banner");
 
-    if (!snapshot || !snapshot.battle || snapshot.battle.status === "in_progress") {
+    if (
+      !snapshot
+      || !snapshot.battle
+      || snapshot.battle.status === "in_progress"
+      || snapshot.battle.resultOverlaySuppressed
+    ) {
       viewState.statusOverlayKey = null;
       banner.classList.add("hidden");
       banner.innerHTML = "";
@@ -2166,7 +2171,12 @@
   }
 
   function maybeAnnounceStatus(snapshot) {
-    if (!snapshot || !snapshot.battle || snapshot.battle.status === "in_progress") {
+    if (
+      !snapshot
+      || !snapshot.battle
+      || snapshot.battle.status === "in_progress"
+      || snapshot.battle.resultOverlaySuppressed
+    ) {
       return;
     }
 
@@ -2469,6 +2479,8 @@
     BattleService.leaveBattle();
     viewState.aiRunning = false;
     viewState.sessionRef = null;
+    viewState.statusAnnounced = null;
+    viewState.statusOverlayKey = null;
     viewState.progressionDrafts = {};
     if (viewState.config && typeof viewState.config.onReturnMenu === "function") {
       viewState.config.onReturnMenu();

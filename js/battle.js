@@ -4091,6 +4091,7 @@
   function leaveBattle() {
     if (isRiftDefenseBattle(state.battle) && state.battle.status === "in_progress") {
       state.battle.status = "defeat";
+      state.battle.resultOverlaySuppressed = true;
       applyRiftDefenseRewards();
       state.saveData.battleState = null;
       markCampaignDefeat();
