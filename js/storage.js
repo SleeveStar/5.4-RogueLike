@@ -6,6 +6,8 @@
     USERS: "users",
     CURRENT_USER: "currentUser"
   };
+  const EXPORT_BUNDLE_TYPE = "roguelike-srpg-save";
+  const EXPORT_BUNDLE_VERSION = 1;
 
   const DEFAULT_SETTINGS = {
     cameraMode: "isometric",
@@ -450,8 +452,89 @@
     };
   }
 
+  function buildUserExportBundle(userId) {
+    if (!userId) {
+      throw new Error("내보낼 사용자 아이디가 필요합니다.");
+    }
+
+    const users = getUsers();
+    const userRecord = users[userId];
+
+    if (!userRecord) {
+      throw new Error("내보낼 계정 정보를 찾을 수 없습니다.");
+    }
+
+    const bundle = ensureUserData(userId);
+
+    return {
+      type: EXPORT_BUNDLE_TYPE,
+      version: EXPORT_BUNDLE_VERSION,
+      exportedAt: new Date().toISOString(),
+      user: cloneValue(Object.assign({}, userRecord, { userId })),
+      saveData: cloneValue(bundle.saveData),
+      settings: cloneValue(bundle.settings)
+    };
+  }
+
+  function importUserBundle(bundleInput) {
+    const bundle = cloneValue(bundleInput);
+
+    if (!bundle || typeof bundle !== "object") {
+      throw new Error("불러올 세이브 파일 형식이 올바르지 않습니다.");
+    }
+
+    const userRecord = bundle.user || bundle.userRecord || null;
+    const userId = String(
+      bundle.userId ||
+      (userRecord && userRecord.userId) ||
+      (bundle.saveData && bundle.saveData.ownerId) ||
+      ""
+    ).trim();
+
+    if (!userId) {
+      throw new Error("세이브 파일에 사용자 아이디가 없습니다.");
+    }
+
+    if (bundle.type && bundle.type !== EXPORT_BUNDLE_TYPE) {
+      throw new Error("이 파일은 지원하지 않는 세이브 형식입니다.");
+    }
+
+    if (!userRecord || typeof userRecord !== "object" || typeof userRecord.password !== "string" || !userRecord.password) {
+      throw new Error("계정 정보가 누락된 세이브 파일입니다.");
+    }
+
+    if (!bundle.saveData || typeof bundle.saveData !== "object") {
+      throw new Error("세이브 데이터가 누락된 파일입니다.");
+    }
+
+    if (!bundle.settings || typeof bundle.settings !== "object") {
+      throw new Error("설정 데이터가 누락된 파일입니다.");
+    }
+
+    const users = getUsers();
+    const overwritten = Boolean(users[userId]);
+    const now = new Date().toISOString();
+
+    users[userId] = Object.assign({}, userRecord, {
+      userId,
+      createdAt: userRecord.createdAt || now,
+      updatedAt: now
+    });
+
+    saveUsers(users);
+    setUserSave(userId, bundle.saveData);
+    setUserSettings(userId, bundle.settings);
+
+    return {
+      userId,
+      overwritten
+    };
+  }
+
   global.StorageService = {
     KEYS: STORAGE_KEYS,
+    EXPORT_BUNDLE_TYPE,
+    EXPORT_BUNDLE_VERSION,
     DEFAULT_SETTINGS,
     DEFAULT_SAVE,
     getUsers,
@@ -467,6 +550,8 @@
     buildDefaultSave,
     buildDefaultSettings,
     getUserBundle,
+    buildUserExportBundle,
+    importUserBundle,
     cloneValue,
     normalizeSaveData,
     normalizeSettings

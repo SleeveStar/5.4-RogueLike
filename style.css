@@ -7303,6 +7303,30 @@ body.use-floating-stat-tooltip .stat-tooltip-pill::after {
   gap: var(--space-8);
 }
 
+.profile-save-actions-wrap {
+  display: grid;
+  gap: 10px;
+  align-content: start;
+}
+
+.profile-save-actions-title {
+  font-size: 0.66rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(255, 226, 173, 0.82);
+}
+
+.profile-save-actions-copy {
+  margin: 0;
+  font-size: 0.75rem;
+  line-height: 1.34;
+  color: rgba(220, 228, 238, 0.78);
+}
+
+.profile-save-actions {
+  justify-content: flex-start;
+}
+
 .detail-actions > .small-button,
 .detail-actions > .tooltip-anchor,
 .detail-actions > .button-tooltip-anchor {

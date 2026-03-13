@@ -33,6 +33,7 @@
           <div class="hero-actions">
             <button id="go-login-button" class="primary-button" type="button">로그인</button>
             <button id="go-register-button" class="secondary-button" type="button">회원가입</button>
+            <button id="start-import-save-button" class="ghost-button" type="button">세이브 불러오기</button>
             <button id="continue-session-button" class="ghost-button hidden" type="button">이전 세션으로 이동</button>
           </div>
 
@@ -73,6 +74,7 @@
 
             <div class="button-row">
               <button class="primary-button" type="submit">로그인</button>
+              <button id="login-import-save-button" class="secondary-button" type="button">세이브 불러오기</button>
               <button id="back-from-login-button" class="ghost-button" type="button">뒤로</button>
             </div>
           </form>
@@ -106,6 +108,7 @@
 
             <div class="button-row">
               <button class="primary-button" type="submit">계정 생성</button>
+              <button id="register-import-save-button" class="secondary-button" type="button">세이브 불러오기</button>
               <button id="back-from-register-button" class="ghost-button" type="button">뒤로</button>
             </div>
           </form>
@@ -327,6 +330,7 @@
     <div id="toast" class="toast" aria-live="polite"></div>
     <div id="menu-modal-host"></div>
   </div>
+  <input id="save-import-input" class="hidden" type="file" accept=".txt,.json,text/plain,application/json">
 
   <script src="./js/storage.js"></script>
   <script src="./js/crypto.js"></script>

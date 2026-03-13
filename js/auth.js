@@ -2666,8 +2666,103 @@
           }).join("")
           : '  <span class="detail-token is-stat">새 명단 대기 중</span>'),
         '</div>'
-      ].join(""), "is-set")
+      ].join(""), "is-set"),
+      buildItemFeatureSection("세이브 관리", buildProfileSaveActionMarkup(), "is-set")
     ].join("");
+  }
+
+  function buildSaveExportFilename(userId) {
+    const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+    return `roguelike-save-${userId}-${timestamp}.txt`;
+  }
+
+  function buildProfileSaveActionMarkup() {
+    return [
+      '<div class="profile-save-actions-wrap">',
+      '  <div class="profile-save-actions-title">세이브 입출력</div>',
+      '  <p class="profile-save-actions-copy">현재 세이브를 텍스트 파일로 저장하거나 같은 형식의 백업 파일을 다시 불러옵니다.</p>',
+      '  <div class="detail-actions profile-save-actions">',
+      '    <button class="ghost-button small-button" type="button" data-profile-save-action="import">세이브 불러오기</button>',
+      '    <button class="secondary-button small-button" type="button" data-profile-save-action="export">세이브 다운로드</button>',
+      "  </div>",
+      "</div>"
+    ].join("");
+  }
+
+  function downloadCurrentUserSaveFile() {
+    if (!appState.currentUserId) {
+      throw new Error("다운로드할 세이브가 없습니다.");
+    }
+
+    const bundle = StorageService.buildUserExportBundle(appState.currentUserId);
+    const blob = new Blob([JSON.stringify(bundle, null, 2)], {
+      type: "text/plain;charset=utf-8"
+    });
+    const downloadUrl = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+
+    link.href = downloadUrl;
+    link.download = buildSaveExportFilename(appState.currentUserId);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(downloadUrl), 0);
+    showToast(`${appState.currentUserId} 세이브를 텍스트 파일로 저장했습니다.`);
+  }
+
+  function openSaveImportPicker() {
+    const input = getElement("save-import-input");
+
+    if (!input) {
+      throw new Error("세이브 불러오기 입력 요소를 찾을 수 없습니다.");
+    }
+
+    input.value = "";
+    input.click();
+  }
+
+  async function handleSaveImportSelection(event) {
+    const file = event.target.files && event.target.files[0];
+
+    if (!file) {
+      return;
+    }
+
+    try {
+      const importedBundle = JSON.parse(await file.text());
+      const result = StorageService.importUserBundle(importedBundle);
+
+      loadUserSession(result.userId);
+      showToast(result.overwritten
+        ? `${result.userId} 세이브를 불러와 기존 로컬 데이터를 갱신했습니다.`
+        : `${result.userId} 세이브를 불러왔습니다.`);
+    } catch (error) {
+      console.error(error);
+      showToast(error.message || "세이브 불러오기 중 오류가 발생했습니다.", true);
+    } finally {
+      event.target.value = "";
+    }
+  }
+
+  function handleProfileDetailInteraction(event) {
+    const button = event.target.closest("button[data-profile-save-action]");
+
+    if (!button) {
+      return;
+    }
+
+    try {
+      if (button.dataset.profileSaveAction === "import") {
+        openSaveImportPicker();
+        return;
+      }
+
+      if (button.dataset.profileSaveAction === "export") {
+        downloadCurrentUserSaveFile();
+      }
+    } catch (error) {
+      showToast(error.message, true);
+    }
   }
 
   function getDetailModalConfig() {
@@ -3026,7 +3121,7 @@
       });
     });
 
-    if (appState.detailModal.type === "unit" || appState.detailModal.type === "equip-target" || appState.detailModal.type === "sortie") {
+    if (appState.detailModal.type === "unit" || appState.detailModal.type === "equip-target" || appState.detailModal.type === "sortie" || appState.detailModal.type === "profile") {
       const detailCard = host.querySelector(".menu-detail-card");
 
       if (detailCard) {
@@ -3038,6 +3133,11 @@
 
           if (appState.detailModal.type === "equip-target") {
             handleEquipTargetModalInteraction(event, String(appState.detailModal.id));
+            return;
+          }
+
+          if (appState.detailModal.type === "profile") {
+            handleProfileDetailInteraction(event);
             return;
           }
 
@@ -6600,6 +6700,13 @@
   function bindEvents() {
     getElement("go-login-button").addEventListener("click", () => showScreen("screen-login"));
     getElement("go-register-button").addEventListener("click", () => showScreen("screen-register"));
+    getElement("start-import-save-button").addEventListener("click", () => {
+      try {
+        openSaveImportPicker();
+      } catch (error) {
+        showToast(error.message, true);
+      }
+    });
     getElement("continue-session-button").addEventListener("click", () => {
       if (appState.currentUserId) {
         loadUserSession(appState.currentUserId);
@@ -6615,6 +6722,21 @@
     });
     getElement("login-form").addEventListener("submit", handleLoginSubmit);
     getElement("register-form").addEventListener("submit", handleRegisterSubmit);
+    getElement("login-import-save-button").addEventListener("click", () => {
+      try {
+        openSaveImportPicker();
+      } catch (error) {
+        showToast(error.message, true);
+      }
+    });
+    getElement("register-import-save-button").addEventListener("click", () => {
+      try {
+        openSaveImportPicker();
+      } catch (error) {
+        showToast(error.message, true);
+      }
+    });
+    getElement("save-import-input").addEventListener("change", handleSaveImportSelection);
     getElement("start-battle-button").addEventListener("click", () => {
       try {
         const selectedStage = getSelectedStageMeta();
