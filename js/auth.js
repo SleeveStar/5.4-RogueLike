@@ -1836,7 +1836,7 @@
     ].join("");
   }
 
-  function buildProgressionStatButtonsMarkup(unit, previewPrimaryStats, remainingStatPoints) {
+  function buildProgressionStatButtonsMarkup(unit, previewPrimaryStats, remainingStatPoints, spentStats, spentSkills) {
     if (!unit) {
       return "";
     }
@@ -1845,11 +1845,18 @@
 
     return [
       `<div class="detail-stats progression-stat-buttons ${canSpendStats ? "is-available" : "is-empty"}">`,
-      '  <div class="progression-stat-button-list">',
+      '  <div class="progression-stat-controls">',
+      '    <div class="progression-stat-button-list">',
       StatsService.PRIMARY_STATS.map((statName) => {
         const isLimited = Number(previewPrimaryStats[statName] || 0) >= Number(StatsService.STAT_LIMITS[statName] || 0);
-        return `<button class="ghost-button small-button progression-stat-button" type="button" data-menu-stat-draft="${statName}" ${!canSpendStats || isLimited ? "disabled" : ""}>+ ${StatsService.PRIMARY_STAT_LABELS[statName]}</button>`;
+        return `      <button class="ghost-button small-button progression-stat-button" type="button" data-menu-stat-draft="${statName}" ${!canSpendStats || isLimited ? "disabled" : ""}>+ ${StatsService.PRIMARY_STAT_LABELS[statName]}</button>`;
       }).join(""),
+      "    </div>",
+      '    <div class="detail-actions progression-stat-actions">',
+      `      <span class="meta-pill ${remainingStatPoints > 0 ? "is-gold" : "is-muted"}">남은 스탯 ${remainingStatPoints}</span>`,
+      `      <button class="primary-button small-button ${(spentStats || spentSkills) ? "" : "is-placeholder-action"}" type="button" data-progression-confirm="true" ${(spentStats || spentSkills) ? "" : "disabled aria-hidden=\"true\" tabindex=\"-1\""}>확정</button>`,
+      `      <button class="ghost-button small-button ${(spentStats || spentSkills) ? "" : "is-placeholder-action"}" type="button" data-progression-cancel="true" ${(spentStats || spentSkills) ? "" : "disabled aria-hidden=\"true\" tabindex=\"-1\""}>되돌리기</button>`,
+      "    </div>",
       "  </div>",
       `  ${buildProgressionStatRecommendationMarkup(unit)}`,
       "</div>"
@@ -2453,12 +2460,7 @@
       buildItemFeatureSection("장비", equipmentSectionMarkup, "is-set"),
       !isReadOnly ? '  <div class="detail-footer-split">' : "",
       !isReadOnly ? '    <div class="progression-stat-section">' : "",
-      !isReadOnly ? buildProgressionStatButtonsMarkup(unit, previewPrimaryStats, remainingStatPoints) : "",
-      !isReadOnly ? '      <div class="detail-actions progression-stat-actions">' : "",
-      !isReadOnly ? `        <span class="meta-pill ${remainingStatPoints > 0 ? "is-gold" : "is-muted"}">남은 스탯 ${remainingStatPoints}</span>` : "",
-      !isReadOnly ? `        <button class="primary-button small-button ${(spentStats || spentSkills) ? "" : "is-placeholder-action"}" type="button" data-progression-confirm="true" ${(spentStats || spentSkills) ? "" : "disabled aria-hidden=\"true\" tabindex=\"-1\""}>확정</button>` : "",
-      !isReadOnly ? `        <button class="ghost-button small-button ${(spentStats || spentSkills) ? "" : "is-placeholder-action"}" type="button" data-progression-cancel="true" ${(spentStats || spentSkills) ? "" : "disabled aria-hidden=\"true\" tabindex=\"-1\""}>되돌리기</button>` : "",
-      !isReadOnly ? "      </div>" : "",
+      !isReadOnly ? buildProgressionStatButtonsMarkup(unit, previewPrimaryStats, remainingStatPoints, spentStats, spentSkills) : "",
       !isReadOnly ? "    </div>" : "",
       !isReadOnly ? '    <div class="detail-actions">' : "",
       !isReadOnly ? `      <button class="primary-button small-button" type="button" data-train-unit="true" ${canTrain ? "" : "disabled"}>${canTrain ? `훈련 ${trainingCost}G` : "훈련 한계"}</button>` : "",

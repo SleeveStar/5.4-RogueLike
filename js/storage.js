@@ -363,12 +363,7 @@
 
     const rosterIds = normalized.roster.map((unit) => unit.id);
     const reservedDispatchIds = normalized.dispatch.reservedUnitIds || [];
-    const availableSortieIds = rosterIds.filter((unitId) => !reservedDispatchIds.includes(unitId));
     normalized.selectedPartyIds = normalized.selectedPartyIds.filter((unitId) => rosterIds.includes(unitId) && !reservedDispatchIds.includes(unitId));
-
-    if (!normalized.selectedPartyIds.length) {
-      normalized.selectedPartyIds = availableSortieIds.slice(0, MAX_SORTIE_SIZE);
-    }
 
     normalized.selectedPartyIds = normalized.selectedPartyIds.slice(0, MAX_SORTIE_SIZE);
     normalized.leaderUnitId = rosterIds.includes(normalized.leaderUnitId)

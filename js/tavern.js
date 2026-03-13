@@ -966,12 +966,6 @@
       .filter((selectedId) => selectedId !== unitId)
       .slice(0, MAX_SORTIE_SIZE);
 
-    if (!saveData.selectedPartyIds.length) {
-      saveData.selectedPartyIds = (saveData.roster || [])
-        .slice(0, MAX_SORTIE_SIZE)
-        .map((entry) => entry.id);
-    }
-
     const nextLeader = (saveData.roster || []).find((entry) => entry.id === saveData.leaderUnitId)
       || (saveData.roster || [])[0]
       || null;
