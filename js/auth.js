@@ -818,7 +818,7 @@
       `임무: ${stage.objective}`,
       `보상: ${stage.rewardGold}G`,
       `상태: ${stage.inProgress ? "진행 중" : stage.cleared ? "클리어" : "준비"}`
-    ].join("\n");
+    ].concat(stage.focusLines || []).join("\n");
   }
 
   function getDisplayedStageOrder(stage) {
@@ -882,7 +882,7 @@
     const displayOrder = getDisplayedStageOrder(stage);
 
     return [
-      `<div class="stage-focus-body ${stage.category === "main" ? "is-main" : "is-tutorial"} ${stage.id === "endless-rift" ? "is-endless" : ""}">`,
+      `<div class="stage-focus-body ${stage.category === "main" ? "is-main" : "is-tutorial"} ${stage.id === "endless-rift" ? "is-endless" : ""} ${stage.id === "rift-defense" ? "is-defense" : ""}">`,
       '  <div class="stage-focus-topline">',
       `    <div><div class="detail-hero-label">MISSION FOCUS</div><strong class="stage-focus-title">${displayOrder}. ${stage.name}</strong></div>`,
       `    <div class="stage-focus-status ${stage.inProgress ? "is-live" : stage.cleared ? "is-cleared" : "is-ready"}">${statusText}</div>`,
@@ -899,6 +899,7 @@
       `    ${buildDetailKeyValue("임무 목표", stage.objective, "cyan")}`,
       "  </div>",
       `  <p class="stage-focus-copy">${stageFlavor}</p>`,
+      (stage.focusLines || []).map((line) => `  <p class="stage-focus-note">${line}</p>`).join(""),
       "</div>"
     ].join("");
   }
@@ -914,6 +915,8 @@
 
     return stage.id === "endless-rift"
       ? "층마다 지형과 적 구성이 재편되는 장기전."
+      : stage.id === "rift-defense"
+        ? "짧은 웨이브 방어전. 탱커와 힐러, 위치 선정의 가치가 크게 올라간다."
       : stage.category === "main"
         ? "편성과 장비 조정이 중요한 메인 전장."
         : "전투 흐름을 익히기 좋은 프롤로그.";
@@ -2475,6 +2478,7 @@
 
   function buildStageDetailMarkup(stage) {
     const isEndless = stage.id === "endless-rift";
+    const isDefense = stage.id === "rift-defense";
     const statusText = stage.inProgress ? "진행 중" : stage.cleared ? "클리어" : "준비";
     const availabilityText = stage.available ? "개방" : "잠김";
     const displayOrder = getDisplayedStageOrder(stage);
@@ -2484,11 +2488,13 @@
       `임무 목표: ${stage.objective}`,
       isEndless
         ? "층마다 랜덤 지형, 적 편성, 정예/휴식 이벤트가 바뀝니다."
+        : isDefense
+          ? "거점 HP가 0이 되거나 아군이 전멸하면 실패합니다. 웨이브 클리어 보상은 실패 시에도 정산됩니다."
         : "고정 지형 전장으로 임무 목표에 맞춰 파티를 준비합니다.",
       `보상 골드: ${stage.rewardGold}G`,
       `현재 상태: ${statusText}`,
       stage.selected ? "현재 출격 대상으로 지정된 스테이지입니다." : "선택하면 출격 대상이 이 스테이지로 바뀝니다."
-    ];
+    ].concat(stage.focusLines || []);
 
     return [
       `<div class="item-title-row"><strong class="card-title">${displayOrder}. ${stage.name}</strong><span class="card-subtitle">${availabilityText}</span></div>`,
@@ -6193,6 +6199,10 @@
       classes.push(stage.category === "main" ? "is-main-stage" : "is-tutorial-stage");
       if (stage.inProgress) {
         classes.push("is-in-progress");
+      }
+
+      if (stage.id === "rift-defense") {
+        classes.push("is-defense-stage");
       }
 
       if (stage.cleared) {

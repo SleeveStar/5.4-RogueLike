@@ -8,6 +8,7 @@
   const StatsService = global.StatsService;
   const SkillsService = global.SkillsService;
   const ENDLESS_STAGE_ID = "endless-rift";
+  const RIFT_DEFENSE_STAGE_ID = "rift-defense";
   const MAP_WIDTH = 14;
   const MAP_HEIGHT = 8;
   const ACTION_DURABILITY_CONSUME_CHANCE = Number(InventoryService && InventoryService.ACTION_DURABILITY_CONSUME_CHANCE || 0.5);
@@ -38,6 +39,29 @@
     { x: 10, y: 2 },
     { x: 12, y: 3 },
     { x: 11, y: 3 }
+  ];
+  const RIFT_DEFENSE_ENEMY_SPAWNS = [
+    { x: 12, y: 1 },
+    { x: 11, y: 1 },
+    { x: 12, y: 2 },
+    { x: 13, y: 2 },
+    { x: 11, y: 2 },
+    { x: 12, y: 3 }
+  ];
+  const RIFT_DEFENSE_OBJECTIVE = {
+    x: 3,
+    y: 3,
+    hp: 40,
+    label: "거점"
+  };
+  const RIFT_DEFENSE_MAP_TILES = [
+    ["plain", "plain", "plain", "plain", "plain", "forest", "plain", "plain", "plain", "forest", "plain", "plain"],
+    ["plain", "forest", "plain", "plain", "plain", "plain", "plain", "forest", "plain", "plain", "plain", "plain"],
+    ["plain", "plain", "plain", "hill", "plain", "plain", "forest", "plain", "plain", "hill", "plain", "plain"],
+    ["plain", "plain", "plain", "plain", "plain", "plain", "plain", "plain", "plain", "plain", "plain", "plain"],
+    ["plain", "forest", "plain", "plain", "plain", "hill", "plain", "forest", "plain", "plain", "plain", "plain"],
+    ["plain", "plain", "plain", "forest", "plain", "plain", "plain", "plain", "forest", "plain", "plain", "plain"],
+    ["plain", "plain", "plain", "plain", "plain", "plain", "plain", "plain", "plain", "plain", "plain", "plain"]
   ];
 
   const TILE_ELEVATION_BY_TYPE = {
@@ -287,6 +311,59 @@
     id: ENDLESS_STAGE_ID,
     name: "무한 균열"
   };
+  const RIFT_DEFENSE_STAGE_META = {
+    id: RIFT_DEFENSE_STAGE_ID,
+    name: "균열 봉쇄전"
+  };
+  const RIFT_DEFENSE_WAVES = [
+    {
+      banner: "제1웨이브 시작 - 전선 형성",
+      enemyArchetypeIds: ["slime_mass", "goblin_skirmisher", "raider_soldier"],
+      spawnIndices: [0, 1, 2],
+      reward: { gold: 40, refineStone: 1, exp: 16 }
+    },
+    {
+      banner: "제2웨이브 시작 - 원거리 견제",
+      enemyArchetypeIds: ["raider_hunter", "ghoul", "raider_swordsman"],
+      spawnIndices: [0, 2, 4],
+      reward: { gold: 48, refineStone: 1, exp: 18 }
+    },
+    {
+      banner: "제3웨이브 시작 - 기동 압박",
+      enemyArchetypeIds: ["dire_wolf", "harpy", "goblin_skirmisher"],
+      spawnIndices: [1, 2, 3],
+      reward: { gold: 56, refineStone: 1, exp: 22 }
+    },
+    {
+      banner: "제4웨이브 시작 - 정예 반응 감지",
+      enemyArchetypeIds: ["orc_reaver", "gargoyle", "skeleton_pikeman"],
+      spawnIndices: [0, 2, 4],
+      reward: { gold: 68, refineStone: 1, exp: 26 },
+      variantBudget: 1
+    },
+    {
+      banner: "최종 웨이브 - 균열 핵심체 출현",
+      enemyArchetypeIds: ["harpy", "basilisk", "orc_reaver"],
+      spawnIndices: [1, 3, 4],
+      reward: { gold: 82, refineStone: 1, exp: 30 },
+      variantBudget: 1,
+      boss: {
+        id: "rift-defense-boss",
+        name: "모르가스",
+        title: "균열 돌격대장",
+        className: "솔저",
+        weaponType: "lance",
+        spawn: { x: 12, y: 2 },
+        levelBonus: 3,
+        maxHpBonus: 8,
+        statBonuses: { str: 3, skl: 2, spd: 1, def: 2 },
+        movBonus: 1,
+        specialSkillIds: ["fortress_heart"],
+        specialActiveSkillIds: ["guard_roar"]
+      }
+    }
+  ];
+  const RIFT_DEFENSE_GRADE_ORDER = ["S", "A", "B", "C"];
 
   const ENDLESS_RELICS = {
     vanguard_emblem: {
@@ -1100,7 +1177,7 @@
   }
 
   function isTilePassable(x, y) {
-    return isTileInside(x, y) && getTileType(x, y) !== "wall";
+    return isTileInside(x, y) && getTileType(x, y) !== "wall" && !isObjectiveTile(x, y);
   }
 
   function getAliveUnitsByTeam(team) {
@@ -1785,6 +1862,154 @@
     state.saveData.endless.currentRun = clone(state.saveData.endless.currentRun || null);
     state.saveData.endless.lastRun = clone(state.saveData.endless.lastRun || null);
     return state.saveData.endless;
+  }
+
+  function ensureRiftDefenseState(targetSaveData) {
+    const saveData = targetSaveData || state.saveData;
+
+    if (!saveData) {
+      return {
+        bestWave: 0,
+        bestGrade: null,
+        clears: 0,
+        highestObjectiveHp: 0,
+        lastReachedWave: 0,
+        lastGrade: null
+      };
+    }
+
+    saveData.riftDefense = saveData.riftDefense || {
+      bestWave: 0,
+      bestGrade: null,
+      clears: 0,
+      highestObjectiveHp: 0,
+      lastReachedWave: 0,
+      lastGrade: null
+    };
+    saveData.riftDefense.bestWave = Math.max(0, Number(saveData.riftDefense.bestWave || 0));
+    saveData.riftDefense.clears = Math.max(0, Number(saveData.riftDefense.clears || 0));
+    saveData.riftDefense.highestObjectiveHp = Math.max(0, Number(saveData.riftDefense.highestObjectiveHp || 0));
+    saveData.riftDefense.lastReachedWave = Math.max(0, Number(saveData.riftDefense.lastReachedWave || 0));
+    saveData.riftDefense.bestGrade = saveData.riftDefense.bestGrade || null;
+    saveData.riftDefense.lastGrade = saveData.riftDefense.lastGrade || null;
+    return saveData.riftDefense;
+  }
+
+  function isRiftDefenseStage(stageDefinition) {
+    return !!stageDefinition && (
+      stageDefinition.id === RIFT_DEFENSE_STAGE_ID
+      || stageDefinition.contentMode === "rift-defense"
+    );
+  }
+
+  function isRiftDefenseBattle(battle) {
+    return !!battle && (
+      battle.stageId === RIFT_DEFENSE_STAGE_ID
+      || battle.contentMode === "rift-defense"
+    );
+  }
+
+  function getRiftDefenseWaveDefinition(stageDefinition, waveIndex) {
+    if (!isRiftDefenseStage(stageDefinition)) {
+      return null;
+    }
+
+    const waves = Array.isArray(stageDefinition.waves) ? stageDefinition.waves : [];
+    const index = Math.max(0, Math.min(waves.length - 1, Number(waveIndex || 1) - 1));
+    return waves[index] || null;
+  }
+
+  function getRiftDefenseObjectivePosition(battle) {
+    const targetBattle = battle || state.battle;
+    const defenseState = targetBattle && targetBattle.defenseState;
+
+    if (!defenseState || !defenseState.objectivePosition) {
+      return null;
+    }
+
+    return {
+      x: Number(defenseState.objectivePosition.x || 0),
+      y: Number(defenseState.objectivePosition.y || 0)
+    };
+  }
+
+  function isObjectiveTile(x, y, battleOverride) {
+    const objective = getRiftDefenseObjectivePosition(battleOverride);
+    return !!objective && objective.x === x && objective.y === y;
+  }
+
+  function getRiftDefenseGradeFromBattle(battle) {
+    if (!isRiftDefenseBattle(battle) || !battle.defenseState) {
+      return null;
+    }
+
+    const defenseState = battle.defenseState;
+    const ratio = Number(defenseState.objectiveMaxHp || 0) > 0
+      ? Number(defenseState.objectiveHp || 0) / Number(defenseState.objectiveMaxHp || 1)
+      : 0;
+    const allAlliesAlive = battle.units
+      .filter((unit) => unit.team === "ally")
+      .every((unit) => unit.alive);
+
+    if (battle.status === "victory") {
+      if (ratio >= 0.7 && allAlliesAlive) {
+        return "S";
+      }
+
+      if (ratio >= 0.4) {
+        return "A";
+      }
+
+      return "B";
+    }
+
+    return Number(defenseState.waveIndex || 1) >= 3 ? "C" : null;
+  }
+
+  function compareDefenseGrades(left, right) {
+    const leftIndex = left ? RIFT_DEFENSE_GRADE_ORDER.indexOf(left) : Number.POSITIVE_INFINITY;
+    const rightIndex = right ? RIFT_DEFENSE_GRADE_ORDER.indexOf(right) : Number.POSITIVE_INFINITY;
+    return leftIndex - rightIndex;
+  }
+
+  function buildRiftDefenseStageDefinition() {
+    const progress = ensureRiftDefenseState();
+    const totalBaseGold = RIFT_DEFENSE_WAVES.reduce(
+      (sum, wave) => sum + Number(wave.reward && wave.reward.gold || 0),
+      0
+    );
+
+    return {
+      id: RIFT_DEFENSE_STAGE_ID,
+      name: RIFT_DEFENSE_STAGE_META.name,
+      category: "main",
+      contentMode: "rift-defense",
+      objective: "마지막 웨이브까지 거점을 방어",
+      mapTiles: RIFT_DEFENSE_MAP_TILES,
+      allySpawns: ALLY_SPAWNS,
+      enemySpawns: RIFT_DEFENSE_ENEMY_SPAWNS,
+      rewardGold: totalBaseGold + 70,
+      introLines: [
+        "리아: 균열이 열린다. 거점 앞 전열을 유지해.",
+        "도윤: 증원은 파도처럼 밀려온다. 라인이 열리면 거점이 먼저 무너진다."
+      ],
+      cutsceneTitle: "균열 봉쇄 브리핑",
+      victoryCondition: "defense_hold",
+      defeatCondition: "objective_or_all_allies_down",
+      mapMarkers: [
+        { x: ALLY_SPAWNS[0].x, y: ALLY_SPAWNS[0].y, type: "entry", label: "진입" },
+        { x: RIFT_DEFENSE_OBJECTIVE.x, y: RIFT_DEFENSE_OBJECTIVE.y, type: "defense", label: RIFT_DEFENSE_OBJECTIVE.label }
+      ],
+      waves: clone(RIFT_DEFENSE_WAVES),
+      defenseObjective: clone(RIFT_DEFENSE_OBJECTIVE),
+      description: "짧고 밀도 높은 웨이브 방어전. 위치 선정과 거점 유지가 핵심이다.",
+      focusLines: [
+        `현재 단계: 일반 봉쇄`,
+        `최고 도달 웨이브: ${progress.bestWave > 0 ? `${progress.bestWave} / ${RIFT_DEFENSE_WAVES.length}` : "기록 없음"}`,
+        `최고 방어 등급: ${progress.bestGrade || "기록 없음"}`,
+        "추천 편성: 전열 2, 힐러 1, 광역 또는 관통 화력 1"
+      ]
+    };
   }
 
   function buildEndlessRunState() {
@@ -2600,6 +2825,10 @@
       return buildEndlessStageDefinition(ensureEndlessState().currentFloor);
     }
 
+    if (selectedStageId === RIFT_DEFENSE_STAGE_ID) {
+      return buildRiftDefenseStageDefinition();
+    }
+
     if (selectedStageId) {
       return getStageDefinitionById(selectedStageId);
     }
@@ -2612,6 +2841,10 @@
   function getStageDefinitionById(stageId) {
     if (stageId === ENDLESS_STAGE_ID) {
       return buildEndlessStageDefinition(ensureEndlessState().currentFloor);
+    }
+
+    if (stageId === RIFT_DEFENSE_STAGE_ID) {
+      return buildRiftDefenseStageDefinition();
     }
 
     return STAGE_DEFINITIONS.find((stage) => stage.id === stageId) || STAGE_DEFINITIONS[0];
@@ -3263,6 +3496,166 @@
     return bossUnit;
   }
 
+  function getRiftDefenseObjectivePressure(archetypeId, options) {
+    if (options && options.isBoss) {
+      return 18;
+    }
+
+    const pressureByArchetype = {
+      dire_wolf: 12,
+      harpy: 11,
+      gargoyle: 10,
+      basilisk: 10,
+      orc_reaver: 9,
+      skeleton_pikeman: 8,
+      goblin_skirmisher: 8,
+      raider_brute: 7,
+      raider_soldier: 7,
+      ghoul: 7
+    };
+
+    return pressureByArchetype[archetypeId] || 5;
+  }
+
+  function buildEnemyUnitFromArchetype(stageDefinition, averageLevel, partyProfile, archetype, spawn, index, options) {
+    const nextOptions = options || {};
+    const statBonuses = archetype.statBonuses || {};
+    const level = Math.max(
+      1,
+      rollEnemyLevel(stageDefinition, averageLevel, partyProfile) + Number(nextOptions.levelBonus || 0)
+    );
+    const maxHp = Math.max(
+      8,
+      11 + level * 2 + (archetype.weaponType === "axe" ? 1 : 0) + (statBonuses.maxHp || 0)
+        + Number(nextOptions.maxHpBonus || 0)
+    );
+    const unit = {
+      id: `enemy-${Date.now()}-${index}-${Math.floor(Math.random() * 10000)}`,
+      name: archetype.namePool[Math.floor(Math.random() * archetype.namePool.length)],
+      team: "enemy",
+      className: archetype.className,
+      level,
+      exp: 0,
+      hp: maxHp,
+      maxHp,
+      str: Math.max(1, 3 + level + (statBonuses.str || 0)),
+      skl: Math.max(1, 3 + level + (statBonuses.skl || 0)),
+      spd: Math.max(1, 2 + level + (statBonuses.spd || 0)),
+      def: Math.max(0, 1 + level + (statBonuses.def || 0)),
+      mov: Math.max(3, archetype.mov || (archetype.weaponType === "axe" ? 4 : 5)),
+      x: spawn.x,
+      y: spawn.y,
+      acted: false,
+      alive: true,
+      weapon: buildEnemyWeapon(archetype.weaponType, level, archetype.weaponProfile),
+      statusEffects: [],
+      skillCooldowns: {},
+      specialSkillIds: clone(archetype.specialSkillIds || []),
+      specialActiveSkillIds: clone(archetype.specialActiveSkillIds || [])
+    };
+
+    if (stageDefinition.id === ENDLESS_STAGE_ID) {
+      applyEndlessPartyPressure(unit, partyProfile, stageDefinition);
+      applyEnemyEquipmentPackage(unit, buildEndlessEnemyEquipmentPackage(unit, stageDefinition));
+      applyEnemyVariant(unit, rollEnemyVariant(level, 2));
+    } else if (Number(nextOptions.variantBudget || 0) > 0 || Number(stageDefinition.enemyBonus || 0) >= 2) {
+      applyEnemyVariant(unit, rollEnemyVariant(level, Math.max(1, Number(nextOptions.variantBudget || 0))));
+    }
+
+    if (isRiftDefenseStage(stageDefinition)) {
+      unit.objectivePressure = getRiftDefenseObjectivePressure(archetype.id, nextOptions);
+      unit.objectiveDamageBonus = Math.max(0, Number(nextOptions.objectiveDamageBonus || 0));
+      unit.waveIndex = Number(nextOptions.waveIndex || 1);
+    }
+
+    unit.hp = nextOptions.forceFullHp
+      ? unit.maxHp
+      : Math.max(8, unit.maxHp - Math.max(0, Number(nextOptions.hpOffset || 0)));
+    return unit;
+  }
+
+  function buildRiftDefenseBossUnit(stageDefinition, bossDefinition, averageLevel, partyProfile, waveIndex) {
+    if (!bossDefinition) {
+      return null;
+    }
+
+    const level = Math.max(
+      2,
+      averageLevel + Number(bossDefinition.levelBonus || 0) + Math.max(0, Number(waveIndex || 1) - 2)
+    );
+    const maxHp = 14 + level * 2 + Number(bossDefinition.maxHpBonus || 0);
+    const bossUnit = {
+      id: bossDefinition.id || `rift-defense-boss-${waveIndex}`,
+      name: bossDefinition.name,
+      bossTitle: bossDefinition.title,
+      isBoss: true,
+      team: "enemy",
+      className: bossDefinition.className,
+      level,
+      exp: 0,
+      hp: maxHp,
+      maxHp,
+      str: 3 + level + Number(bossDefinition.statBonuses && bossDefinition.statBonuses.str || 0),
+      skl: 3 + level + Number(bossDefinition.statBonuses && bossDefinition.statBonuses.skl || 0),
+      spd: 2 + level + Number(bossDefinition.statBonuses && bossDefinition.statBonuses.spd || 0),
+      def: 1 + level + Number(bossDefinition.statBonuses && bossDefinition.statBonuses.def || 0),
+      mov: (bossDefinition.weaponType === "axe" ? 4 : 5) + Number(bossDefinition.movBonus || 0),
+      x: bossDefinition.spawn.x,
+      y: bossDefinition.spawn.y,
+      acted: false,
+      alive: true,
+      weapon: buildEnemyWeapon(bossDefinition.weaponType, level + 1),
+      statusEffects: [],
+      skillCooldowns: {},
+      specialSkillIds: clone(bossDefinition.specialSkillIds || []),
+      specialActiveSkillIds: clone(bossDefinition.specialActiveSkillIds || []),
+      objectivePressure: getRiftDefenseObjectivePressure(null, { isBoss: true }),
+      objectiveDamageBonus: 2,
+      waveIndex: Number(waveIndex || 1)
+    };
+
+    return bossUnit;
+  }
+
+  function buildRiftDefenseWaveUnits(stageDefinition, waveIndex, options) {
+    const selectedParty = getSelectedPartyUnits();
+    const partyProfile = summarizePartyCombatProfile(selectedParty);
+    const averageLevel = partyProfile.averageLevel;
+    const waveDefinition = getRiftDefenseWaveDefinition(stageDefinition, waveIndex);
+
+    if (!waveDefinition) {
+      return [];
+    }
+
+    const nextOptions = options || {};
+    const phase = nextOptions.phase || "player";
+    const enemies = (waveDefinition.enemyArchetypeIds || []).map((archetypeId, index) => {
+      const archetype = getEnemyArchetypeById(archetypeId);
+      const spawnIndex = waveDefinition.spawnIndices && waveDefinition.spawnIndices[index] != null
+        ? waveDefinition.spawnIndices[index]
+        : index;
+      const spawn = stageDefinition.enemySpawns[spawnIndex] || stageDefinition.enemySpawns[index] || stageDefinition.enemySpawns[0];
+      const unit = buildEnemyUnitFromArchetype(stageDefinition, averageLevel, partyProfile, archetype, spawn, index, {
+        waveIndex,
+        forceFullHp: true,
+        levelBonus: Math.max(0, waveIndex - 2),
+        variantBudget: Number(waveDefinition.variantBudget || 0),
+        objectiveDamageBonus: waveIndex >= 4 ? 1 : 0
+      });
+      unit.acted = phase === "enemy";
+      return unit;
+    });
+
+    const bossUnit = buildRiftDefenseBossUnit(stageDefinition, waveDefinition.boss, averageLevel, partyProfile, waveIndex);
+
+    if (bossUnit) {
+      bossUnit.acted = phase === "enemy";
+      enemies.push(bossUnit);
+    }
+
+    return enemies;
+  }
+
   function prepareAlliesForBattle(stageDefinition) {
     return getSelectedPartyUnits().map((unit, index) => {
       const spawn = stageDefinition.allySpawns[index] || stageDefinition.allySpawns[stageDefinition.allySpawns.length - 1];
@@ -3338,6 +3731,10 @@
       return [];
     }
 
+    if (isRiftDefenseStage(stageDefinition)) {
+      return buildRiftDefenseWaveUnits(stageDefinition, 1);
+    }
+
     const selectedParty = getSelectedPartyUnits();
     const allyCount = selectedParty.length || 3;
     const partyProfile = summarizePartyCombatProfile(selectedParty);
@@ -3359,44 +3756,10 @@
     const archetypeSequence = buildEnemyArchetypeSequence(stageDefinition, enemyCount);
     const enemies = stageDefinition.enemySpawns.slice(0, enemyCount).map((spawn, index) => {
       const archetype = archetypeSequence[index] || pickEnemyArchetype(stageDefinition);
-      const statBonuses = archetype.statBonuses || {};
-      const level = rollEnemyLevel(stageDefinition, averageLevel, partyProfile);
-      const maxHp = Math.max(8, 11 + level * 2 + (archetype.weaponType === "axe" ? 1 : 0) + (statBonuses.maxHp || 0));
-      const unit = {
-        id: `enemy-${Date.now()}-${index}`,
-        name: archetype.namePool[Math.floor(Math.random() * archetype.namePool.length)],
-        team: "enemy",
-        className: archetype.className,
-        level,
-        exp: 0,
-        hp: maxHp,
-        maxHp,
-        str: Math.max(1, 3 + level + (statBonuses.str || 0)),
-        skl: Math.max(1, 3 + level + (statBonuses.skl || 0)),
-        spd: Math.max(1, 2 + level + (statBonuses.spd || 0)),
-        def: Math.max(0, 1 + level + (statBonuses.def || 0)),
-        mov: Math.max(3, archetype.mov || (archetype.weaponType === "axe" ? 4 : 5)),
-        x: spawn.x,
-        y: spawn.y,
-        acted: false,
-        alive: true,
-        weapon: buildEnemyWeapon(archetype.weaponType, level, archetype.weaponProfile),
-        statusEffects: [],
-        skillCooldowns: {},
-        specialSkillIds: clone(archetype.specialSkillIds || []),
-        specialActiveSkillIds: clone(archetype.specialActiveSkillIds || [])
-      };
-
-      if (isEndlessStage) {
-        applyEndlessPartyPressure(unit, partyProfile, stageDefinition);
-        applyEnemyEquipmentPackage(unit, buildEndlessEnemyEquipmentPackage(unit, stageDefinition));
-        applyEnemyVariant(unit, rollEnemyVariant(level, 2));
-      } else if (Number(stageDefinition.enemyBonus || 0) >= 2) {
-        applyEnemyVariant(unit, rollEnemyVariant(level, 1));
-      }
-
-      unit.hp = index === enemyCount - 1 ? Math.max(8, unit.maxHp - 3) : unit.maxHp;
-      return unit;
+      return buildEnemyUnitFromArchetype(stageDefinition, averageLevel, partyProfile, archetype, spawn, index, {
+        hpOffset: index === enemyCount - 1 ? 3 : 0,
+        variantBudget: Number(stageDefinition.enemyBonus || 0) >= 2 ? 1 : 0
+      });
     });
 
     const bossUnit = buildBossUnit(stageDefinition, averageLevel, partyProfile);
@@ -3438,6 +3801,7 @@
       stageName: stageDefinition.name,
       status: "in_progress",
       objective: stageDefinition.objective,
+      contentMode: stageDefinition.contentMode || (stageDefinition.id === ENDLESS_STAGE_ID ? "endless-rift" : "normal"),
       allySpawns: clone(stageDefinition.allySpawns),
       bossUnitId: bossUnit ? bossUnit.id : null,
       victoryCondition: stageDefinition.victoryCondition || "route_enemy",
@@ -3459,7 +3823,40 @@
       grantedRewardIds: [],
       lastEventText: stageIntroLines[stageIntroLines.length - 1] || "",
       rewardHistory: [],
-      rewardGold: stageDefinition.rewardGold
+      rewardGold: stageDefinition.rewardGold,
+      rewardExp: 0,
+      rewardsGranted: false,
+      defenseState: isRiftDefenseStage(stageDefinition)
+        ? {
+            objectiveHp: Number(stageDefinition.defenseObjective && stageDefinition.defenseObjective.hp || 40),
+            objectiveMaxHp: Number(stageDefinition.defenseObjective && stageDefinition.defenseObjective.hp || 40),
+            objectivePosition: {
+              x: Number(stageDefinition.defenseObjective && stageDefinition.defenseObjective.x || 0),
+              y: Number(stageDefinition.defenseObjective && stageDefinition.defenseObjective.y || 0)
+            },
+            waveIndex: 1,
+            totalWaves: Array.isArray(stageDefinition.waves) ? stageDefinition.waves.length : 0,
+            enemiesRemainingInWave: enemies.filter((unit) => unit.team === "enemy" && unit.alive).length,
+            pendingReinforcement: null,
+            waveTransitionLocked: false,
+            battleResolved: false,
+            clearedWaves: [],
+            lastBanner: "제1웨이브 시작 - 전선 형성",
+            earnedRewards: {
+              base: {
+                gold: 0,
+                refineStone: 0,
+                exp: 0
+              },
+              bonus: {
+                gold: 0,
+                refineStone: 0,
+                exp: 0,
+                equipment: []
+              }
+            }
+          }
+        : null
     };
 
     applySupportFloorBenefits(stageDefinition, battle);
@@ -3474,7 +3871,166 @@
       battle.lastEventText = `정예 적 ${eliteUnits.length}체가 전장에 섞여 있다.`;
     }
 
+    if (isRiftDefenseStage(stageDefinition) && battle.defenseState) {
+      battle.rewardGold = 0;
+      battle.logs.push("거점 방어를 시작합니다. 적을 막아 거점 HP를 유지하세요.");
+      battle.logs.push(battle.defenseState.lastBanner);
+      battle.lastEventText = battle.defenseState.lastBanner;
+    }
+
     return battle;
+  }
+
+  function getRiftDefenseRewardTotals(defenseState) {
+    const earnedRewards = defenseState && defenseState.earnedRewards
+      ? defenseState.earnedRewards
+      : { base: {}, bonus: { equipment: [] } };
+    return {
+      gold: Number(earnedRewards.base.gold || 0) + Number(earnedRewards.bonus.gold || 0),
+      refineStone: Number(earnedRewards.base.refineStone || 0) + Number(earnedRewards.bonus.refineStone || 0),
+      exp: Number(earnedRewards.base.exp || 0) + Number(earnedRewards.bonus.exp || 0),
+      equipment: clone(earnedRewards.bonus.equipment || [])
+    };
+  }
+
+  function updateRiftDefenseRewardPreview() {
+    if (!isRiftDefenseBattle(state.battle) || !state.battle.defenseState) {
+      return;
+    }
+
+    const totals = getRiftDefenseRewardTotals(state.battle.defenseState);
+    state.battle.rewardGold = totals.gold;
+    state.battle.rewardExp = totals.exp;
+  }
+
+  function awardRiftDefenseWaveRewards(waveIndex) {
+    if (!isRiftDefenseBattle(state.battle) || !state.battle.defenseState) {
+      return;
+    }
+
+    const defenseState = state.battle.defenseState;
+
+    if (defenseState.clearedWaves.includes(waveIndex)) {
+      return;
+    }
+
+    const waveDefinition = getRiftDefenseWaveDefinition(getStageDefinitionById(state.battle.stageId), waveIndex);
+    const reward = waveDefinition && waveDefinition.reward
+      ? waveDefinition.reward
+      : { gold: 0, refineStone: 0, exp: 0 };
+
+    defenseState.clearedWaves.push(waveIndex);
+    defenseState.earnedRewards.base.gold += Number(reward.gold || 0);
+    defenseState.earnedRewards.base.refineStone += Number(reward.refineStone || 0);
+    defenseState.earnedRewards.base.exp += Number(reward.exp || 0);
+    updateRiftDefenseRewardPreview();
+    addLog(`웨이브 ${waveIndex} 방어 성공. 누적 보상: ${reward.gold || 0}G / 재련석 ${reward.refineStone || 0} / EXP ${reward.exp || 0}`);
+  }
+
+  function prepareRiftDefenseVictoryBonus() {
+    if (!isRiftDefenseBattle(state.battle) || !state.battle.defenseState) {
+      return;
+    }
+
+    const defenseState = state.battle.defenseState;
+
+    if (defenseState.bonusPrepared) {
+      return;
+    }
+
+    const objectiveRatio = Number(defenseState.objectiveMaxHp || 0) > 0
+      ? Number(defenseState.objectiveHp || 0) / Number(defenseState.objectiveMaxHp || 1)
+      : 0;
+    const objectiveGoldBonus = objectiveRatio >= 0.7
+      ? 24
+      : objectiveRatio >= 0.4
+        ? 12
+        : 0;
+    const objectiveStoneBonus = objectiveRatio >= 0.7 ? 1 : 0;
+    const selectedParty = getSelectedPartyUnits();
+    const averageLevel = summarizePartyCombatProfile(selectedParty).averageLevel || 1;
+    const bonusItem = InventoryService.createLootDrop(averageLevel + 2, { qualityBias: 0.08 });
+
+    defenseState.earnedRewards.bonus.gold += 42 + objectiveGoldBonus;
+    defenseState.earnedRewards.bonus.refineStone += 1 + objectiveStoneBonus;
+    defenseState.earnedRewards.bonus.exp += 24;
+    defenseState.earnedRewards.bonus.equipment = [bonusItem];
+    defenseState.bonusPrepared = true;
+    updateRiftDefenseRewardPreview();
+  }
+
+  function applyRiftDefenseRewards() {
+    if (!isRiftDefenseBattle(state.battle) || !state.battle.defenseState) {
+      return;
+    }
+
+    if (state.battle.rewardsGranted) {
+      return;
+    }
+
+    if (state.battle.status === "victory") {
+      prepareRiftDefenseVictoryBonus();
+    }
+
+    const totals = getRiftDefenseRewardTotals(state.battle.defenseState);
+    state.battle.rewardGold = totals.gold;
+    state.battle.rewardExp = totals.exp;
+
+    if (totals.gold > 0) {
+      state.saveData.partyGold += totals.gold;
+    }
+
+    if (totals.exp > 0) {
+      grantPartyExperience(totals.exp);
+    }
+
+    if (totals.refineStone > 0) {
+      const item = InventoryService.createMiscItemStack("refine-stone-basic", totals.refineStone);
+      InventoryService.addItemToInventory(state.saveData, item);
+      state.battle.rewardHistory.push(item);
+    }
+
+    totals.equipment.forEach((item) => {
+      InventoryService.addItemToInventory(state.saveData, item);
+      state.battle.rewardHistory.push(item);
+    });
+
+    state.battle.rewardsGranted = true;
+  }
+
+  function beginNextRiftDefenseWave() {
+    if (!isRiftDefenseBattle(state.battle) || !state.battle.defenseState || state.battle.defenseState.waveTransitionLocked) {
+      return false;
+    }
+
+    const defenseState = state.battle.defenseState;
+    const stageDefinition = getStageDefinitionById(state.battle.stageId);
+    const currentWave = Number(defenseState.waveIndex || 1);
+
+    if (currentWave >= Number(defenseState.totalWaves || 0)) {
+      return false;
+    }
+
+    defenseState.waveTransitionLocked = true;
+    awardRiftDefenseWaveRewards(currentWave);
+    addLog(`웨이브 ${currentWave} 정리 완료.`);
+    defenseState.waveIndex = currentWave + 1;
+    const reinforcements = buildRiftDefenseWaveUnits(stageDefinition, defenseState.waveIndex, {
+      phase: state.battle.phase
+    });
+    state.battle.units = state.battle.units.concat(reinforcements);
+    state.battle.bossUnitId = reinforcements.find((unit) => unit.isBoss)
+      ? reinforcements.find((unit) => unit.isBoss).id
+      : null;
+    defenseState.pendingReinforcement = reinforcements.map((unit) => unit.id);
+    defenseState.enemiesRemainingInWave = reinforcements.filter((unit) => unit.team === "enemy" && unit.alive).length;
+    defenseState.lastBanner = (getRiftDefenseWaveDefinition(stageDefinition, defenseState.waveIndex) || {}).banner || "";
+    addLog(defenseState.lastBanner || `제${defenseState.waveIndex}웨이브 시작`);
+    state.battle.lastEventText = defenseState.lastBanner || `제${defenseState.waveIndex}웨이브 시작`;
+    defenseState.pendingReinforcement = null;
+    defenseState.waveTransitionLocked = false;
+    updateRiftDefenseRewardPreview();
+    return true;
   }
 
   function resetUiState() {
@@ -3500,6 +4056,7 @@
     SkillsService.normalizeRosterLearnedSkills(state.saveData);
     ensureCampaignState();
     ensureEndlessState();
+    ensureRiftDefenseState();
 
     if (!options.resume && isStageReplayLocked(state.saveData, state.saveData.stageId)) {
       throw new Error("프롤로그는 클리어 후 다시 입장할 수 없습니다.");
@@ -3532,6 +4089,15 @@
   }
 
   function leaveBattle() {
+    if (isRiftDefenseBattle(state.battle) && state.battle.status === "in_progress") {
+      state.battle.status = "defeat";
+      applyRiftDefenseRewards();
+      state.saveData.battleState = null;
+      markCampaignDefeat();
+      finishBattlePersistence();
+      state.saveData.stageStatus = "ready";
+    }
+
     state.active = false;
     resetUiState();
     notify();
@@ -3609,6 +4175,11 @@
   function getVictoryProgressText() {
     if (!state.battle) {
       return "없음";
+    }
+
+    if (isRiftDefenseBattle(state.battle) && state.battle.defenseState) {
+      const defenseState = state.battle.defenseState;
+      return `웨이브 ${defenseState.waveIndex}/${defenseState.totalWaves} / 거점 ${defenseState.objectiveHp}/${defenseState.objectiveMaxHp}`;
     }
 
     if (state.battle.victoryCondition === "support_complete") {
@@ -4413,6 +4984,7 @@
     });
     grantBossFixedReward(unit);
     evaluateStageEvents("boss_defeated", { unit });
+    updateRiftDefenseEnemyCount();
   }
 
   function maybeGrantLoot(defeatedUnit, attacker) {
@@ -4972,25 +5544,57 @@
     const bossUnit = getBossUnit();
     const allEnemiesDead = getAliveUnitsByTeam("enemy").length === 0;
     const bossDefeated = !bossUnit || !bossUnit.alive;
+    const defenseState = state.battle.defenseState;
+    const defenseObjectiveBroken = isRiftDefenseBattle(state.battle) && defenseState
+      ? Number(defenseState.objectiveHp || 0) <= 0
+      : false;
     const defeatMet = state.battle.defeatCondition === "all_allies_down"
       ? allAlliesDead
-      : (leaderUnit ? !leaderUnit.alive : allAlliesDead);
-    const victoryMet = state.battle.victoryCondition === "support_complete"
-      ? false
-      : state.battle.victoryCondition === "boss_defeat"
-      ? bossDefeated
-      : state.battle.victoryCondition === "boss_or_route"
-        ? (bossDefeated || allEnemiesDead)
-        : allEnemiesDead;
+      : state.battle.defeatCondition === "objective_or_all_allies_down"
+        ? (allAlliesDead || defenseObjectiveBroken)
+        : (leaderUnit ? !leaderUnit.alive : allAlliesDead);
+    const victoryMet = isRiftDefenseBattle(state.battle)
+      ? (
+          allEnemiesDead
+          && defenseState
+          && Number(defenseState.waveIndex || 1) >= Number(defenseState.totalWaves || 0)
+          && Number(defenseState.objectiveHp || 0) > 0
+        )
+      : state.battle.victoryCondition === "support_complete"
+        ? false
+        : state.battle.victoryCondition === "boss_defeat"
+          ? bossDefeated
+          : state.battle.victoryCondition === "boss_or_route"
+            ? (bossDefeated || allEnemiesDead)
+            : allEnemiesDead;
+
+    if (isRiftDefenseBattle(state.battle) && defenseState) {
+      updateRiftDefenseEnemyCount();
+
+      if (!defeatMet && allEnemiesDead && Number(defenseState.waveIndex || 1) < Number(defenseState.totalWaves || 0)) {
+        beginNextRiftDefenseWave();
+        syncPersistentFromBattle({ keepBattleState: true });
+        return false;
+      }
+    }
 
     if (defeatMet) {
+      if (defenseState) {
+        defenseState.battleResolved = true;
+      }
+
       state.battle.status = "defeat";
+      applyRiftDefenseRewards();
       state.saveData.battleState = null;
       resetUiState();
       markCampaignDefeat();
       addLog(state.battle.defeatCondition === "all_allies_down"
         ? "아군이 전멸했습니다. 패배했습니다."
-        : "리더가 쓰러졌습니다. 패배했습니다.");
+        : state.battle.defeatCondition === "objective_or_all_allies_down"
+          ? defenseObjectiveBroken
+            ? "거점이 붕괴했습니다. 방어전에 실패했습니다."
+            : "아군이 전멸했습니다. 방어전에 실패했습니다."
+          : "리더가 쓰러졌습니다. 패배했습니다.");
       return true;
     }
 
@@ -5008,11 +5612,16 @@
       }
 
       state.battle.status = "victory";
+      if (defenseState) {
+        defenseState.battleResolved = true;
+      }
       state.saveData.battleState = null;
       resetUiState();
       applyStageRewards();
       advanceCampaignOnVictory();
-      addLog("모든 적을 쓰러뜨렸습니다. 승리했습니다.");
+      addLog(isRiftDefenseBattle(state.battle)
+        ? "최종 웨이브를 막아냈습니다. 균열 봉쇄에 성공했습니다."
+        : "모든 적을 쓰러뜨렸습니다. 승리했습니다.");
       return true;
     }
 
@@ -5084,6 +5693,31 @@
   function applyStageRewards() {
     const campaign = ensureCampaignState();
     const endless = ensureEndlessState();
+
+    if (isRiftDefenseBattle(state.battle)) {
+      applyRiftDefenseRewards();
+      const defenseGrade = getRiftDefenseGradeFromBattle(state.battle);
+      const defenseState = state.battle.defenseState || {};
+      const rewardItems = (state.battle.rewardHistory || []).map((item) => formatRewardHistoryItemName(item));
+
+      campaign.lastResult = {
+        stageId: state.battle.stageId,
+        stageName: state.battle.stageName,
+        result: state.battle.status,
+        rewardGold: Number(state.battle.rewardGold || 0),
+        rewardExp: Number(state.battle.rewardExp || 0),
+        rewardItems,
+        recruitedUnits: [],
+        endlessFloor: null,
+        defenseWave: Number(defenseState.waveIndex || 1),
+        defenseGrade,
+        defenseObjectiveHp: Number(defenseState.objectiveHp || 0),
+        defenseObjectiveMaxHp: Number(defenseState.objectiveMaxHp || 0),
+        clearedAt: new Date().toISOString()
+      };
+      return;
+    }
+
     const rewardGold = state.battle.rewardGold || 0;
     const rewardExp = grantStageClearExperience();
     grantRefineStoneStageReward();
@@ -5111,6 +5745,25 @@
     const campaign = ensureCampaignState();
     const endless = ensureEndlessState();
     const currentStage = getCurrentStageDefinition();
+
+    if (currentStage.id === RIFT_DEFENSE_STAGE_ID) {
+      const defenseProgress = ensureRiftDefenseState();
+      const defenseState = state.battle.defenseState || {};
+      const defenseGrade = getRiftDefenseGradeFromBattle(state.battle);
+      defenseProgress.bestWave = Math.max(defenseProgress.bestWave, Number(defenseState.waveIndex || 1));
+      defenseProgress.clears += 1;
+      defenseProgress.highestObjectiveHp = Math.max(defenseProgress.highestObjectiveHp, Number(defenseState.objectiveHp || 0));
+      defenseProgress.lastReachedWave = Number(defenseState.waveIndex || 1);
+      defenseProgress.lastGrade = defenseGrade;
+
+      if (!defenseProgress.bestGrade || compareDefenseGrades(defenseGrade, defenseProgress.bestGrade) < 0) {
+        defenseProgress.bestGrade = defenseGrade;
+      }
+
+      state.saveData.stageId = RIFT_DEFENSE_STAGE_ID;
+      state.saveData.stageStatus = "ready";
+      return;
+    }
 
     if (currentStage.id === ENDLESS_STAGE_ID) {
       endless.bestFloor = Math.max(endless.bestFloor, endless.currentFloor);
@@ -5152,13 +5805,38 @@
     const campaign = ensureCampaignState();
     const endless = ensureEndlessState();
     const currentStage = getCurrentStageDefinition();
+    const defenseState = state.battle && state.battle.defenseState ? state.battle.defenseState : null;
+    const defenseGrade = isRiftDefenseBattle(state.battle) ? getRiftDefenseGradeFromBattle(state.battle) : null;
+
+    if (currentStage.id === RIFT_DEFENSE_STAGE_ID) {
+      const defenseProgress = ensureRiftDefenseState();
+      defenseProgress.bestWave = Math.max(defenseProgress.bestWave, Number(defenseState && defenseState.waveIndex || 1));
+      defenseProgress.highestObjectiveHp = Math.max(
+        defenseProgress.highestObjectiveHp,
+        Number(defenseState && defenseState.objectiveHp || 0)
+      );
+      defenseProgress.lastReachedWave = Number(defenseState && defenseState.waveIndex || 1);
+      defenseProgress.lastGrade = defenseGrade;
+
+      if (defenseGrade && (!defenseProgress.bestGrade || compareDefenseGrades(defenseGrade, defenseProgress.bestGrade) < 0)) {
+        defenseProgress.bestGrade = defenseGrade;
+      }
+    }
 
     campaign.lastResult = {
       stageId: currentStage.id,
       stageName: currentStage.name,
       result: "defeat",
-      rewardGold: 0,
+      rewardGold: currentStage.id === RIFT_DEFENSE_STAGE_ID ? Number(state.battle && state.battle.rewardGold || 0) : 0,
+      rewardExp: currentStage.id === RIFT_DEFENSE_STAGE_ID ? Number(state.battle && state.battle.rewardExp || 0) : 0,
+      rewardItems: currentStage.id === RIFT_DEFENSE_STAGE_ID
+        ? (state.battle && state.battle.rewardHistory || []).map((item) => formatRewardHistoryItemName(item))
+        : [],
       endlessFloor: currentStage.id === ENDLESS_STAGE_ID ? endless.currentFloor : null,
+      defenseWave: currentStage.id === RIFT_DEFENSE_STAGE_ID ? Number(defenseState && defenseState.waveIndex || 1) : null,
+      defenseGrade,
+      defenseObjectiveHp: currentStage.id === RIFT_DEFENSE_STAGE_ID ? Number(defenseState && defenseState.objectiveHp || 0) : null,
+      defenseObjectiveMaxHp: currentStage.id === RIFT_DEFENSE_STAGE_ID ? Number(defenseState && defenseState.objectiveMaxHp || 0) : null,
       clearedAt: new Date().toISOString()
     };
 
@@ -5177,6 +5855,10 @@
   function getVictoryConditionLabel(victoryCondition) {
     if (victoryCondition === "support_complete") {
       return "정비 후 이동";
+    }
+
+    if (victoryCondition === "defense_hold") {
+      return "5개 웨이브 방어";
     }
 
     if (victoryCondition === "boss_defeat") {
@@ -5233,6 +5915,13 @@
           currentFloor: 1,
           bestFloor: 1
         };
+    const defenseProgress = saveData && saveData.riftDefense
+      ? saveData.riftDefense
+      : {
+          bestWave: 0,
+          bestGrade: null,
+          clears: 0
+        };
     const endlessUnlocked = isEndlessUnlocked(saveData);
 
     return STAGE_DEFINITIONS.map((stage, index) => {
@@ -5268,6 +5957,31 @@
         inProgress: saveData && saveData.stageStatus === "in_progress" && saveData.stageId === ENDLESS_STAGE_ID,
         order: STAGE_DEFINITIONS.length + 1,
         hidden: !endlessUnlocked
+      },
+      {
+        id: RIFT_DEFENSE_STAGE_ID,
+        name: RIFT_DEFENSE_STAGE_META.name,
+        objective: "거점을 지키며 5개 웨이브를 버틴다.",
+        rewardGold: RIFT_DEFENSE_WAVES.reduce((sum, wave) => sum + Number(wave.reward && wave.reward.gold || 0), 0) + 70,
+        category: "main",
+        contentMode: "rift-defense",
+        victoryCondition: "defense_hold",
+        victoryLabel: defenseProgress.bestWave > 0
+          ? `최고 ${defenseProgress.bestWave}웨이브 / 등급 ${defenseProgress.bestGrade || "없음"}`
+          : "5개 웨이브 방어",
+        available: endlessUnlocked,
+        cleared: Number(defenseProgress.clears || 0) > 0,
+        selected: saveData ? saveData.stageId === RIFT_DEFENSE_STAGE_ID && endlessUnlocked : false,
+        inProgress: saveData && saveData.stageStatus === "in_progress" && saveData.stageId === RIFT_DEFENSE_STAGE_ID,
+        order: STAGE_DEFINITIONS.length + 2,
+        hidden: !endlessUnlocked,
+        description: "짧고 밀도 높은 방어전. 거점 HP와 포지셔닝이 핵심이다.",
+        focusLines: [
+          "현재 단계: 일반 봉쇄",
+          `최고 도달 웨이브: ${defenseProgress.bestWave > 0 ? `${defenseProgress.bestWave} / ${RIFT_DEFENSE_WAVES.length}` : "기록 없음"}`,
+          `최고 방어 등급: ${defenseProgress.bestGrade || "기록 없음"}`,
+          "핵심 보상: 골드, 재련석, 최종 클리어 장비 1개"
+        ]
       }
     ]);
   }
@@ -5393,6 +6107,46 @@
       }
 
       return buildEndlessStageDefinition(saveData.endless.currentFloor);
+    }
+
+    if (stageId === RIFT_DEFENSE_STAGE_ID) {
+      if (!isEndlessUnlocked(saveData)) {
+        throw new Error("균열 봉쇄전은 프롤로그를 모두 클리어한 뒤 개방됩니다.");
+      }
+
+      const isChangingFromActiveBattle =
+        saveData.stageStatus === "in_progress" &&
+        saveData.battleState &&
+        saveData.stageId !== stageId;
+
+      if (isChangingFromActiveBattle && !(options && options.abandonCurrentBattle)) {
+        throw new Error("진행 중인 전투가 있어 다른 스테이지로 변경할 수 없습니다.");
+      }
+
+      if (isChangingFromActiveBattle) {
+        saveData.battleState = null;
+        saveData.stageStatus = "ready";
+        saveData.phase = "player";
+        saveData.turnNumber = 1;
+      }
+
+      saveData.campaign = saveData.campaign || {
+        currentStageIndex: 0,
+        clearedStageIds: [],
+        availableStageIds: [STAGE_DEFINITIONS[0].id],
+        lastResult: null
+      };
+      ensureRiftDefenseState(saveData);
+      saveData.stageId = RIFT_DEFENSE_STAGE_ID;
+
+      if (saveData.stageStatus !== "in_progress") {
+        saveData.stageStatus = "ready";
+        saveData.battleState = null;
+        saveData.phase = "player";
+        saveData.turnNumber = 1;
+      }
+
+      return buildRiftDefenseStageDefinition();
     }
 
     const stageIndex = STAGE_DEFINITIONS.findIndex((stage) => stage.id === stageId);
@@ -5771,6 +6525,77 @@
     unit.y = position.y;
   }
 
+  function updateRiftDefenseEnemyCount() {
+    if (!isRiftDefenseBattle(state.battle) || !state.battle.defenseState) {
+      return;
+    }
+
+    state.battle.defenseState.enemiesRemainingInWave = getAliveUnitsByTeam("enemy").length;
+  }
+
+  function buildRiftDefenseObjectiveTarget(enemy) {
+    if (!isRiftDefenseBattle(state.battle) || !state.battle.defenseState) {
+      return null;
+    }
+
+    const objectivePosition = getRiftDefenseObjectivePosition();
+    const defenseState = state.battle.defenseState;
+    const objectiveRatio = Number(defenseState.objectiveMaxHp || 0) > 0
+      ? Number(defenseState.objectiveHp || 0) / Number(defenseState.objectiveMaxHp || 1)
+      : 0;
+    const pressure = Number(enemy && enemy.objectivePressure || 0);
+
+    if (!objectivePosition || pressure <= 0) {
+      return null;
+    }
+
+    return {
+      kind: "objective",
+      id: "rift-defense-objective",
+      name: RIFT_DEFENSE_OBJECTIVE.label,
+      x: objectivePosition.x,
+      y: objectivePosition.y,
+      hp: defenseState.objectiveHp,
+      maxHp: defenseState.objectiveMaxHp,
+      priority: pressure + (objectiveRatio <= 0.4 ? 5 : objectiveRatio <= 0.7 ? 2 : 0)
+    };
+  }
+
+  function maybeResolveRiftDefenseObjectiveStrike(enemy, action) {
+    if (!isRiftDefenseBattle(state.battle) || !state.battle.defenseState || !enemy || !enemy.alive) {
+      return false;
+    }
+
+    const defenseState = state.battle.defenseState;
+    const objectivePosition = getRiftDefenseObjectivePosition();
+    const distance = objectivePosition
+      ? Math.abs(enemy.x - objectivePosition.x) + Math.abs(enemy.y - objectivePosition.y)
+      : Number.POSITIVE_INFINITY;
+    const shouldPrioritizeObjective = Number(enemy.objectivePressure || 0) >= 10;
+
+    if (distance !== 1) {
+      return false;
+    }
+
+    if (action && action.type === "attack" && action.targetId && !shouldPrioritizeObjective) {
+      return false;
+    }
+
+    const damage = Math.max(
+      1,
+      Math.floor(Number(enemy.str || enemy.level || 1) / 3)
+        + (enemy.isBoss ? 2 : 0)
+        + (enemy.isElite ? 1 : 0)
+        + Number(enemy.objectiveDamageBonus || 0)
+    );
+
+    defenseState.objectiveHp = Math.max(0, Number(defenseState.objectiveHp || 0) - damage);
+    state.battle.lastEventText = `${enemy.name}이(가) 거점을 공격했다.`;
+    addLog(`${enemy.name}이(가) 거점에 ${damage} 피해`);
+    updateRiftDefenseRewardPreview();
+    return true;
+  }
+
   async function runEnemyPhase() {
     if (!state.battle || state.battle.phase !== "enemy" || state.battle.status !== "in_progress") {
       return;
@@ -5794,7 +6619,8 @@
         allies,
         reachableTiles,
         attackOptions,
-        skillOptions
+        skillOptions,
+        objectiveTarget: buildRiftDefenseObjectiveTarget(enemy)
       });
 
       if (action.moveTo) {
@@ -5803,6 +6629,9 @@
       }
 
       try {
+        if (maybeResolveRiftDefenseObjectiveStrike(enemy, action)) {
+          addLog(`${enemy.name} 방어선 돌파 시도`);
+        } else
         if (action.type === "skill" && action.skillId) {
           const skill = getSkillById(enemy, action.skillId);
           const target = getUnitById(action.targetId || enemy.id);
@@ -5873,6 +6702,7 @@
       }
 
       enemy.acted = true;
+      updateRiftDefenseEnemyCount();
       syncPersistentFromBattle({ keepBattleState: true });
       notify();
 

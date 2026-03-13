@@ -91,12 +91,12 @@
   --shadow-glow-cyan: 0 0 0 1px rgba(103, 215, 232, 0.16), 0 0 24px rgba(53, 191, 214, 0.14);
   --shadow-glow-gold: 0 0 0 1px rgba(245, 208, 113, 0.18), 0 0 24px rgba(215, 165, 58, 0.14);
 
-  --shell-width: min(1740px, calc(100vw - 24px));
-  --battle-unit-width: minmax(270px, 310px);
-  --battle-map-width: minmax(0, 1.95fr);
-  --battle-side-width: minmax(270px, 330px);
-  --tile-size: clamp(42px, 3vw, 56px);
-  --tile-gap: clamp(5px, 0.5vw, 8px);
+  --shell-width: min(1600px, calc(100vw - 20px));
+  --battle-unit-width: minmax(232px, 276px);
+  --battle-map-width: minmax(0, 1.72fr);
+  --battle-side-width: minmax(232px, 296px);
+  --tile-size: clamp(38px, 2.6vw, 50px);
+  --tile-gap: clamp(3px, 0.38vw, 6px);
   --transition-fast: 140ms ease;
   --transition-base: 180ms ease;
 }
@@ -1647,6 +1647,13 @@ body.use-floating-stat-tooltip .stat-tooltip-pill::after {
     linear-gradient(145deg, rgba(22, 29, 43, 0.96), rgba(10, 15, 25, 0.98));
 }
 
+.stage-focus-body.is-defense {
+  background:
+    radial-gradient(circle at top left, rgba(255, 155, 120, 0.16), transparent 36%),
+    radial-gradient(circle at bottom right, rgba(255, 214, 120, 0.12), transparent 42%),
+    linear-gradient(145deg, rgba(31, 22, 24, 0.96), rgba(14, 12, 16, 0.98));
+}
+
 .stage-focus-body.is-empty {
   min-height: 88px;
   align-content: center;
@@ -1717,6 +1724,13 @@ body.use-floating-stat-tooltip .stat-tooltip-pill::after {
   color: rgba(220, 227, 237, 0.82);
   line-height: 1.3;
   font-size: 0.82rem;
+}
+
+.stage-focus-note {
+  margin: 0;
+  color: rgba(255, 226, 187, 0.82);
+  font-size: 0.76rem;
+  line-height: 1.3;
 }
 
 .stage-focus-grid .detail-kv {
@@ -3255,6 +3269,17 @@ body.use-floating-stat-tooltip .stat-tooltip-pill::after {
   background: linear-gradient(180deg, rgba(245, 208, 113, 0.92), transparent 88%);
 }
 
+.stage-card.is-defense-stage {
+  border-color: rgba(255, 151, 108, 0.24);
+  background:
+    radial-gradient(circle at top right, rgba(255, 151, 108, 0.08), transparent 34%),
+    linear-gradient(180deg, rgba(30, 21, 23, 0.96), rgba(14, 12, 16, 0.98));
+}
+
+.stage-card.is-defense-stage::after {
+  background: linear-gradient(180deg, rgba(255, 151, 108, 0.92), transparent 88%);
+}
+
 .stage-card.is-in-progress {
   border-color: rgba(255, 107, 124, 0.24);
   box-shadow: 0 16px 30px rgba(70, 17, 26, 0.34);
@@ -3528,7 +3553,7 @@ body.use-floating-stat-tooltip .stat-tooltip-pill::after {
 }
 
 #menu-panel-inventory .inventory-filter-field::after {
-  right: 12px;
+  right: 30px;
   top: calc(50% + 7px);
 }
 
@@ -4569,7 +4594,8 @@ body.use-floating-stat-tooltip .stat-tooltip-pill::after {
 .battle-scene {
   position: relative;
   /*min-height: 720px;*/
-  overflow: hidden;
+  overflow: auto;
+  padding: var(--space-8);
   border-radius: calc(var(--radius-xl) + 2px);
   border: 1px solid var(--line-base);
   background:
@@ -4798,7 +4824,7 @@ body.use-floating-stat-tooltip .stat-tooltip-pill::after {
   min-width: max-content;
   min-height: max-content;
   margin: auto;
-  padding: var(--space-8);
+  padding: var(--space-6);
   display: flex;
   justify-content: center;
   align-items: center;
@@ -4813,7 +4839,7 @@ body.use-floating-stat-tooltip .stat-tooltip-pill::after {
   grid-template-columns: repeat(var(--grid-cols), var(--tile-size));
   grid-template-rows: repeat(var(--grid-rows), var(--tile-size));
   gap: var(--tile-gap);
-  padding: var(--space-6);
+  padding: var(--space-4);
   border-radius: calc(var(--radius-xl) + 4px);
   border: 1px solid rgba(255, 255, 255, 0.06);
   background:
@@ -5476,6 +5502,12 @@ body.use-floating-stat-tooltip .stat-tooltip-pill::after {
 .tile-marker-boss {
   border-color: rgba(255, 138, 159, 0.38);
   color: var(--crimson-300);
+}
+
+.tile-marker-defense {
+  border-color: rgba(255, 182, 114, 0.38);
+  color: #ffd37c;
+  background: rgba(35, 20, 12, 0.9);
 }
 
 .unit-summary {
@@ -7684,7 +7716,8 @@ body.use-floating-stat-tooltip .stat-tooltip-pill::after {
 @media (max-width: 1340px) {
   :root {
     --shell-width: min(100vw - 28px, 1420px);
-    --tile-size: 56px;
+    --tile-size: 50px;
+    --tile-gap: 5px;
   }
 
   .command-layout {
@@ -7718,8 +7751,8 @@ body.use-floating-stat-tooltip .stat-tooltip-pill::after {
   }
 
   :root {
-    --tile-size: 52px;
-    --tile-gap: 6px;
+    --tile-size: 46px;
+    --tile-gap: 4px;
   }
 
   .command-layout {
@@ -7855,8 +7888,8 @@ body.use-floating-stat-tooltip .stat-tooltip-pill::after {
 
   :root {
     --shell-width: min(100vw - 20px, 1280px);
-    --tile-size: 46px;
-    --tile-gap: 5px;
+    --tile-size: 40px;
+    --tile-gap: 3px;
   }
 
   .app-header {
@@ -7896,11 +7929,11 @@ body.use-floating-stat-tooltip .stat-tooltip-pill::after {
   }
 
   .battle-map-root {
-    min-height: 680px;
+    min-height: 620px;
   }
 
   .battle-scene {
-    min-height: 580px;
+    min-height: 520px;
   }
 
   .battle-toolbar {

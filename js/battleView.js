@@ -362,6 +362,10 @@
       return false;
     }
 
+    if (marker.type === "defense") {
+      return true;
+    }
+
     if (!snapshot.battle.cutsceneSeen) {
       return true;
     }
@@ -1035,6 +1039,42 @@
     return "전투층";
   }
 
+  function getDefenseSummary(snapshotOrBattle) {
+    const battle = snapshotOrBattle && snapshotOrBattle.battle ? snapshotOrBattle.battle : snapshotOrBattle;
+    const defenseState = battle && battle.defenseState ? battle.defenseState : null;
+
+    if (!battle || battle.contentMode !== "rift-defense" || !defenseState) {
+      return null;
+    }
+
+    const objectiveRatio = defenseState.objectiveMaxHp > 0
+      ? defenseState.objectiveHp / defenseState.objectiveMaxHp
+      : 0;
+    const alliesAlive = battle.units.filter((unit) => unit.team === "ally" && unit.alive).length;
+    const allAlliesAlive = battle.units.filter((unit) => unit.team === "ally").every((unit) => unit.alive);
+    const grade = battle.status === "victory"
+      ? objectiveRatio >= 0.7 && allAlliesAlive
+        ? "S"
+        : objectiveRatio >= 0.4
+          ? "A"
+          : "B"
+      : defenseState.waveIndex >= 3
+        ? "C"
+        : null;
+
+    return {
+      waveIndex: Number(defenseState.waveIndex || 1),
+      totalWaves: Number(defenseState.totalWaves || 0),
+      objectiveHp: Number(defenseState.objectiveHp || 0),
+      objectiveMaxHp: Number(defenseState.objectiveMaxHp || 0),
+      objectiveRatio,
+      clearedWaves: Array.isArray(defenseState.clearedWaves) ? defenseState.clearedWaves.length : 0,
+      grade,
+      banner: defenseState.lastBanner || battle.lastEventText || battle.objective,
+      alliesAlive
+    };
+  }
+
   function getBattleBriefingContext(snapshot) {
     const alliesAlive = snapshot.battle.units.filter((unit) => unit.team === "ally" && unit.alive).length;
     const enemiesAlive = snapshot.battle.units.filter((unit) => unit.team === "enemy" && unit.alive).length;
@@ -1046,8 +1086,11 @@
     const endlessCurrentRun = snapshot.battle.stageId === "endless-rift" && snapshot.saveData
       ? BattleService.getEndlessCurrentRunSummary(snapshot.saveData)
       : null;
+    const defenseSummary = getDefenseSummary(snapshot);
     const activeChain = endlessCurrentRun && endlessCurrentRun.chainState ? endlessCurrentRun.chainState : null;
-    const leadCopy = snapshot.battle.specialRule
+    const leadCopy = defenseSummary
+      ? `${defenseSummary.banner} / 거점 ${defenseSummary.objectiveHp}/${defenseSummary.objectiveMaxHp}`
+      : snapshot.battle.specialRule
       ? snapshot.battle.specialRule.description
       : snapshot.battle.lastEventText || snapshot.battle.objective;
 
@@ -1058,6 +1101,7 @@
       bossUnit,
       relicCount,
       endlessCurrentRun,
+      defenseSummary,
       activeChain,
       leadCopy
     };
@@ -1086,6 +1130,11 @@
       }
     }
 
+    if (context.defenseSummary) {
+      chips.push(`<span class="flavor-chip rule">웨이브 ${context.defenseSummary.waveIndex}/${context.defenseSummary.totalWaves}</span>`);
+      chips.push(`<span class="flavor-chip elite">거점 ${context.defenseSummary.objectiveHp}/${context.defenseSummary.objectiveMaxHp}</span>`);
+    }
+
     return chips;
   }
 
@@ -1109,6 +1158,7 @@
     const currentRunText = context.endlessCurrentRun
       ? `${context.endlessCurrentRun.floorsCleared}층 돌파 / 정예 ${context.endlessCurrentRun.eliteDefeated} / 피해 ${context.endlessCurrentRun.damageDealt}`
       : "없음";
+    const defenseSummary = context.defenseSummary;
 
     return [
       `<article class="battle-briefing${nextOptions.compact ? " compact" : ""}">`,
@@ -1126,13 +1176,18 @@
           buildBattleBriefingMetric("목표", snapshot.battle.objective, "cyan"),
           buildBattleBriefingMetric("진행", progressText, "gold"),
           buildBattleBriefingMetric("생존", `아군 ${context.alliesAlive} / 적 ${context.enemiesAlive}`, "muted"),
-          buildBattleBriefingMetric("보스", bossText, context.bossUnit ? "crimson" : "muted"),
+          defenseSummary
+            ? buildBattleBriefingMetric("거점", `${defenseSummary.objectiveHp}/${defenseSummary.objectiveMaxHp}`, defenseSummary.objectiveRatio <= 0.4 ? "crimson" : "gold")
+            : buildBattleBriefingMetric("보스", bossText, context.bossUnit ? "crimson" : "muted"),
           buildBattleBriefingMetric("보상", `${snapshot.battle.rewardGold || 0}G`, "gold"),
-          buildBattleBriefingMetric("현재 런", currentRunText, "violet"),
+          defenseSummary
+            ? buildBattleBriefingMetric("방어 등급", defenseSummary.grade || "판정 없음", defenseSummary.grade === "S" ? "violet" : "muted")
+            : buildBattleBriefingMetric("현재 런", currentRunText, "violet"),
           "  </div>",
           '  <div class="battle-briefing-notes">',
-          `    <p><span>전장 규칙</span>${snapshot.battle.specialRule ? `${snapshot.battle.specialRule.name} - ${snapshot.battle.specialRule.description}` : "특수 규칙 없음"}</p>`,
+          `    <p><span>전장 규칙</span>${defenseSummary ? "거점 HP가 0이 되면 즉시 패배합니다. 다음 웨이브 증원은 직후 턴부터 움직입니다." : snapshot.battle.specialRule ? `${snapshot.battle.specialRule.name} - ${snapshot.battle.specialRule.description}` : "특수 규칙 없음"}</p>`,
           `    <p><span>최근 연출</span>${snapshot.battle.lastEventText || "없음"}</p>`,
+          defenseSummary ? `    <p><span>방어 성과</span>완료 웨이브 ${defenseSummary.clearedWaves} / 생존 아군 ${defenseSummary.alliesAlive}</p>` : "",
           context.activeChain ? `    <p><span>연속 사건</span>${context.activeChain.name}</p>` : "",
           "  </div>"
         ].filter(Boolean).join(""),
@@ -2002,12 +2057,18 @@
       ? BattleService.getEndlessRunSummary(snapshot.saveData)
       : null;
     const endlessStats = endlessSummary && endlessSummary.stats ? endlessSummary.stats : null;
+    const defenseSummary = getDefenseSummary(snapshot);
     const overlayKey = `${snapshot.battle.id}:${snapshot.battle.status}`;
 
     banner.innerHTML = [
       `<strong>${snapshot.battle.status === "victory" ? "승리" : "패배"}</strong>`,
-      `<span>${snapshot.battle.status === "victory" ? `${snapshot.battle.rewardGold || 0}G를 획득했습니다.` : "전열이 붕괴되어 작전을 정비해야 합니다."}</span>`,
+      `<span>${snapshot.battle.status === "victory"
+        ? `${snapshot.battle.rewardGold || 0}G를 획득했습니다.`
+        : defenseSummary
+          ? "거점이 버티지 못했습니다. 방어선을 재정비해야 합니다."
+          : "전열이 붕괴되어 작전을 정비해야 합니다."}</span>`,
       snapshot.battle.status === "victory" ? `<span>획득 아이템: ${rewardItems}</span>` : "",
+      defenseSummary ? `<span>도달 웨이브: ${defenseSummary.waveIndex}/${defenseSummary.totalWaves} / 거점 ${defenseSummary.objectiveHp}/${defenseSummary.objectiveMaxHp} / 등급 ${defenseSummary.grade || "없음"}</span>` : "",
       endlessSummary ? `<span>균열 기록: ${endlessSummary.floor}층 / 유물 ${endlessSummary.relicNames.length}개 / 최고 ${endlessSummary.bestFloor}층</span>` : "",
       endlessStats ? `<span>런 통계: 적 ${endlessStats.enemiesDefeated} / 정예 ${endlessStats.eliteDefeated} / 보스 ${endlessStats.bossesDefeated} / 피해 ${endlessStats.damageDealt} / 획득 ${endlessStats.goldEarned}G</span>` : ""
     ].join("");
@@ -2019,6 +2080,7 @@
     viewState.statusOverlayKey = overlayKey;
     showBattleResultOverlay(snapshot, {
       rewardItems,
+      defenseSummary,
       endlessSummary,
       endlessStats
     });
@@ -2034,6 +2096,7 @@
     const rewardCopy = isVictory
       ? (nextContext.rewardItems && nextContext.rewardItems !== "없음" ? nextContext.rewardItems : "획득 아이템 없음")
       : "지휘 라인을 재정비해야 합니다.";
+    const defenseSummary = nextContext.defenseSummary;
     const endlessSummary = nextContext.endlessSummary;
     const endlessStats = nextContext.endlessStats;
 
@@ -2041,21 +2104,29 @@
       `<article class="battle-result-modal ${isVictory ? "is-victory" : "is-defeat"}">`,
       '  <div class="battle-result-hero">',
       `    <span class="battle-result-kicker">${isVictory ? "Operation Clear" : "Operation Lost"}</span>`,
-      `    <strong>${isVictory ? "작전 승리" : "작전 실패"}</strong>`,
-      `    <p>${summaryCopy}</p>`,
+      `    <strong>${defenseSummary ? (isVictory ? "봉쇄 성공" : "봉쇄 실패") : (isVictory ? "작전 승리" : "작전 실패")}</strong>`,
+      `    <p>${defenseSummary
+        ? (isVictory
+          ? `최종 ${defenseSummary.totalWaves}웨이브를 막아내고 거점 ${defenseSummary.objectiveHp}/${defenseSummary.objectiveMaxHp}를 지켜냈습니다.`
+          : `${defenseSummary.waveIndex}웨이브에서 전선이 붕괴했습니다. 완료한 웨이브 기준 보상만 정산됩니다.`)
+        : summaryCopy}</p>`,
       "  </div>",
       buildBattleBriefingMarkup(snapshot, { compact: true }),
       '  <section class="battle-result-summary">',
       '    <div class="battle-result-summary-grid">',
-      buildBattleBriefingMetric("결과", isVictory ? "스테이지 클리어" : "전투 패배", isVictory ? "gold" : "crimson"),
-      buildBattleBriefingMetric("골드", `${snapshot.battle.rewardGold || 0}G`, "gold"),
-      buildBattleBriefingMetric("전리품", rewardCopy, isVictory ? "cyan" : "muted"),
-      endlessSummary
+      buildBattleBriefingMetric("결과", defenseSummary ? `${defenseSummary.grade || "없음"} 등급` : (isVictory ? "스테이지 클리어" : "전투 패배"), defenseSummary && defenseSummary.grade === "S" ? "violet" : isVictory ? "gold" : "crimson"),
+      buildBattleBriefingMetric(defenseSummary ? "도달 웨이브" : "골드", defenseSummary ? `${defenseSummary.waveIndex}/${defenseSummary.totalWaves}` : `${snapshot.battle.rewardGold || 0}G`, "gold"),
+      buildBattleBriefingMetric(defenseSummary ? "거점" : "전리품", defenseSummary ? `${defenseSummary.objectiveHp}/${defenseSummary.objectiveMaxHp}` : rewardCopy, defenseSummary && defenseSummary.objectiveRatio <= 0.4 ? "crimson" : isVictory ? "cyan" : "muted"),
+      defenseSummary
+        ? buildBattleBriefingMetric("획득 골드", `${snapshot.battle.rewardGold || 0}G`, "gold")
+        : endlessSummary
         ? buildBattleBriefingMetric("균열 기록", `${endlessSummary.floor}층 / 최고 ${endlessSummary.bestFloor}층`, "violet")
         : buildBattleBriefingMetric("다음 행동", isVictory ? "다음 구역 진입 가능" : "파티 정비 필요", "muted"),
       "    </div>",
       endlessStats
         ? `<p class="battle-result-footnote">런 통계: 적 ${endlessStats.enemiesDefeated} / 정예 ${endlessStats.eliteDefeated} / 보스 ${endlessStats.bossesDefeated} / 피해 ${endlessStats.damageDealt} / 획득 ${endlessStats.goldEarned}G</p>`
+        : defenseSummary
+          ? `<p class="battle-result-footnote">전리품: ${rewardCopy}</p>`
         : `<p class="battle-result-footnote">${isVictory ? "메뉴에서 바로 다음 전투를 시작할 수 있습니다." : "메뉴에서 편성과 장비를 다시 정리한 뒤 재도전할 수 있습니다."}</p>`,
       "  </section>",
       '  <div class="button-row battle-result-actions">',

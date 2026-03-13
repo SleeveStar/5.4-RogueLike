@@ -6,6 +6,11 @@
       return 0;
     }
 
+    if (unit.kind === "objective") {
+      const hpRatio = unit.maxHp > 0 ? unit.hp / unit.maxHp : 1;
+      return Number(unit.priority || 0) + (hpRatio <= 0.4 ? 6 : hpRatio <= 0.7 ? 3 : 0);
+    }
+
     const hpRatio = unit.maxHp > 0 ? unit.hp / unit.maxHp : 1;
     const lowHpPressure = hpRatio <= 0.35 ? 18 : hpRatio <= 0.55 ? 10 : 0;
     const leaderPressure = unit.isLeader ? 16 : 0;
@@ -15,18 +20,18 @@
     return leaderPressure + lowHpPressure + rangedPressure + lowDefensePressure + actedPressure;
   }
 
-  function chooseClosestTarget(enemy, allies) {
+  function chooseClosestTarget(enemy, allies, objectiveTarget) {
     let bestTarget = null;
     let bestScore = Number.NEGATIVE_INFINITY;
 
-    allies.forEach((ally) => {
-      const distance = Math.abs(enemy.x - ally.x) + Math.abs(enemy.y - ally.y);
-      const priority = getTargetPriority(ally);
+    allies.concat(objectiveTarget ? [objectiveTarget] : []).forEach((target) => {
+      const distance = Math.abs(enemy.x - target.x) + Math.abs(enemy.y - target.y);
+      const priority = getTargetPriority(target);
       const score = priority - (distance * 2);
 
       if (score > bestScore) {
         bestScore = score;
-        bestTarget = ally;
+        bestTarget = target;
       }
     });
 
@@ -146,7 +151,7 @@
     const reachableTiles = context.reachableTiles;
     const attackOptions = context.attackOptions;
     const skillOptions = context.skillOptions || [];
-    const target = chooseClosestTarget(enemy, allies);
+    const target = chooseClosestTarget(enemy, allies, context.objectiveTarget || null);
     const chosenAttack = chooseAttackOption(attackOptions);
     const chosenSkill = chooseSkillOption(skillOptions);
 
