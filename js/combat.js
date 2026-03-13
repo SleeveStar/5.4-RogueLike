@@ -86,8 +86,11 @@
 
     const attackerTileType = context && context.attackerTileType;
     const rangedHighGroundBonus = isBowFamilyWeapon(weapon) && attackerTileType === "hill" ? 1 : 0;
+    const baseRangeMin = isBowFamilyWeapon(weapon)
+      ? Math.min(1, Number(weapon.rangeMin || 1))
+      : Number(weapon.rangeMin || 0);
     return {
-      rangeMin: weapon.rangeMin,
+      rangeMin: baseRangeMin,
       rangeMax: weapon.rangeMax + rangedHighGroundBonus,
       bonus: rangedHighGroundBonus
     };

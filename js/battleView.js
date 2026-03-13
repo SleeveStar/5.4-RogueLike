@@ -75,6 +75,19 @@
     return displayName;
   }
 
+  function getUnitNameById(unitId, snapshot) {
+    if (!unitId) {
+      return "";
+    }
+
+    const nextSnapshot = snapshot || viewState.snapshot;
+    const roster = nextSnapshot && nextSnapshot.saveData && Array.isArray(nextSnapshot.saveData.roster)
+      ? nextSnapshot.saveData.roster
+      : [];
+    const unit = roster.find((entry) => entry.id === unitId) || null;
+    return unit ? unit.name : String(unitId);
+  }
+
   function getBaseClassName(className) {
     const normalizedClassName = String(className || "").trim();
 
@@ -878,19 +891,32 @@
     }
   }
 
-  function openEndTurnConfirmModal() {
+  function openEndTurnConfirmModal(options) {
     const snapshot = viewState.snapshot;
+    const nextOptions = options || {};
 
-    if (!shouldOfferSpaceEndTurn(snapshot)) {
+    if (!snapshot || !snapshot.battle) {
       return;
     }
+
+    if (!nextOptions.force && !shouldOfferSpaceEndTurn(snapshot)) {
+      return;
+    }
+
+    const remainingAllies = snapshot.battle.units.filter((unit) => unit.team === "ally" && unit.alive && !unit.acted).length;
+    const confirmCopy = remainingAllies > 0
+      ? `아직 행동하지 않은 아군이 ${remainingAllies}명 있습니다. 그래도 턴을 종료하고 적 턴으로 넘길까요?`
+      : "현재 아군 전원의 행동이 확정되었습니다. 턴을 종료하고 적 턴으로 넘길까요?";
+    const hintCopy = remainingAllies > 0
+      ? "취소하면 남은 아군을 계속 조작할 수 있습니다."
+      : "스페이스바를 한 번 더 누르면 바로 턴이 종료됩니다.";
 
     const body = [
       "<h3>턴 종료 확인</h3>",
       '<div class="modal-list">',
       '<article class="modal-card">',
-      '  <p class="wait-confirm-copy">현재 아군 전원의 행동이 확정되었습니다. 턴을 종료하고 적 턴으로 넘길까요?</p>',
-      '  <p class="action-hint">스페이스바를 한 번 더 누르면 바로 턴이 종료됩니다.</p>',
+      `  <p class="wait-confirm-copy">${confirmCopy}</p>`,
+      `  <p class="action-hint">${hintCopy}</p>`,
       '  <div class="button-row">',
       '    <button class="primary-button small-button" type="button" data-space-confirm="true" data-confirm-end-turn="true">턴 종료</button>',
       '    <button class="ghost-button small-button" type="button" data-cancel-end-turn="true">취소</button>',
@@ -1317,18 +1343,6 @@
     const elevation = snapshot.battle.map.elevations && snapshot.battle.map.elevations[selectedUnit.y]
       ? snapshot.battle.map.elevations[selectedUnit.y][selectedUnit.x] || 0
       : 0;
-    const terrainLabel = getTerrainLabel(tileType);
-    const effectiveRange = selectedUnit.weapon
-      ? CombatService.getEffectiveWeaponRange(selectedUnit, {
-        attackerTileType: tileType,
-        attackerElevation: elevation,
-        defenderElevation: 0
-      })
-      : null;
-    const activeSkillText = BattleService.getActiveSkills(selectedUnit)
-      .map((skill) => `${skill.name} Lv.${skill.skillLevel} (${skill.cooldownRemaining > 0 ? `${skill.cooldownRemaining}턴` : "준비"})`)
-      .join(", ") || "없음";
-    const statusText = formatStatusEffects(selectedUnit);
     const committedMove = snapshot.ui.pendingMove && snapshot.ui.pendingMove.unitId === selectedUnit.id
       ? snapshot.ui.pendingMove
       : selectedUnit.turnMoveCommit || null;
@@ -1436,19 +1450,10 @@
       `    <div class="resource-bar hp"><span class="bar-fill" style="width:${Math.max(0, Math.min(100, (selectedUnit.hp / Math.max(1, selectedUnit.maxHp)) * 100))}%"></span></div>`,
       `    <div class="resource-bar exp"><span class="bar-fill" style="width:${Math.max(0, Math.min(100, selectedUnit.exp || 0))}%"></span></div>`,
       "  </div>",
-      `  <div class="detail-stats detail-stat-strip">${StatsService.PRIMARY_STATS.map((statName) => buildPrimaryStatMetaPill(statName, previewPrimaryStats[statName], draft.stats && draft.stats[statName])).join("")}</div>`,
-      `  <p>위치: ${terrainLabel}${elevation > 0 ? ` / 고도 ${elevation}` : ""}${effectiveRange && effectiveRange.bonus > 0 ? ` / 사거리 +${effectiveRange.bonus}` : ""}</p>`,
-      selectedUnit.enemyEquipmentSummary ? `  <p>장비: ${selectedUnit.weapon ? `${selectedUnit.weapon.name}, ` : ""}${selectedUnit.enemyEquipmentSummary}</p>` : "",
-      selectedUnit.eliteTraitName ? `  <p>정예 특성: ${selectedUnit.eliteTraitName}</p>` : "",
-      activeSkillText !== "없음" ? `  <p>액티브: ${activeSkillText}</p>` : "",
-      statusText !== "없음" ? `  <p>상태: ${statusText}</p>` : "",
+      `  <div class="battle-unit-stat-grid">${StatsService.PRIMARY_STATS.map((statName) => buildPrimaryStatMetaPill(statName, previewPrimaryStats[statName], draft.stats && draft.stats[statName])).join("")}</div>`,
       enemyMoveHint ? `  <p class="action-hint enemy-range-hint">${enemyMoveHint}</p>` : "",
       postMoveHint ? `  <p class="action-hint">${postMoveHint}</p>` : "",
       attackPreviewText ? `  <div class="preview-list">${attackPreviewText}</div>` : "",
-      committedMove ? `  <p>확정 이동 누적: ${committedMove.spentCost} / ${selectedUnit.mov}</p>` : "",
-      selectedUnit.team === "ally" && ((selectedUnit.statPoints || 0) > 0 || (selectedUnit.skillPoints || 0) > 0)
-        ? `  <p>남은 성장 포인트: 스탯 ${Math.max(0, (selectedUnit.statPoints || 0) - spentStats)} / 스킬 ${Math.max(0, (selectedUnit.skillPoints || 0) - spentSkills)}</p>`
-        : "",
       selectedUnit.team === "ally" && (spentStats || spentSkills)
         ? `  <p class="action-hint">예약 중: 스탯 ${spentStats} / 스킬 ${spentSkills}. 성장 배분 창에서 확정해야 적용됩니다.</p>`
         : "",
@@ -2450,7 +2455,8 @@
 
     const session = getLiveSession();
 
-    if (session.settings.confirmEndTurn && !global.confirm("현재 아군 턴을 종료하고 적 턴으로 넘기시겠습니까?")) {
+    if (session.settings.confirmEndTurn) {
+      openEndTurnConfirmModal({ force: true });
       return;
     }
 
@@ -2484,12 +2490,13 @@
       const rarityMeta = InventoryService.getRarityMeta(item.rarity);
       const disabled = !canEquip ? "disabled" : "";
       const equipLabel = item.equippedBy === unit.id ? "장착 중" : "장착";
+      const equippedByText = item.equippedBy ? getUnitNameById(item.equippedBy, snapshot) : "";
 
       body.push([
         `<article class="modal-card">`,
         `  <div class="item-title-row"><strong style="color: var(${rarityMeta.colorVar});">${item.name}</strong><span>${rarityMeta.label}</span></div>`,
         `  <p>${InventoryService.describeItem(item)}</p>`,
-        `  <p>${item.equippedBy ? `현재 장착: ${item.equippedBy}` : "미장착"}</p>`,
+        `  <p>${item.equippedBy ? `현재 장착: ${equippedByText}` : "미장착"}</p>`,
         `  <button class="secondary-button small-button" type="button" data-equip-item="${item.id}" ${disabled}>${equipLabel}</button>`,
         "</article>"
       ].join(""));
