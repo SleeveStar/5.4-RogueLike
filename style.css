@@ -7664,21 +7664,18 @@ body.use-floating-stat-tooltip .stat-tooltip-pill::after {
     box-shadow:
       0 0 0 1px rgba(245, 208, 113, 0.14),
       0 0 10px rgba(245, 208, 113, 0.12);
-    transform: translateY(0);
   }
 
   50% {
     box-shadow:
       0 0 0 1px rgba(245, 208, 113, 0.26),
       0 0 22px rgba(245, 208, 113, 0.22);
-    transform: translateY(-1px);
   }
 
   100% {
     box-shadow:
       0 0 0 1px rgba(245, 208, 113, 0.14),
       0 0 10px rgba(245, 208, 113, 0.12);
-    transform: translateY(0);
   }
 }
 
