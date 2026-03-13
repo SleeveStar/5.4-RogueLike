@@ -1504,8 +1504,10 @@
         : '<span class="meta-pill is-muted">아직 출전 파티가 비어 있습니다.</span>',
       `    <span class="meta-pill is-cyan">평균 Lv.${averageLevel}</span>`,
       `    <span class="meta-pill">${classSummary}</span>`,
-      '    <button class="ghost-button small-button inventory-meta-action" type="button" data-open-party-tutorial="true">안내 다시보기</button>',
-      '    <button class="primary-button small-button inventory-meta-action" type="button" data-open-sortie-manager="true">편성 관리</button>',
+      '    <div class="sortie-strip-actions">',
+      '      <button class="ghost-button small-button inventory-meta-action" type="button" data-open-party-tutorial="true">안내 다시보기</button>',
+      '      <button class="primary-button small-button inventory-meta-action" type="button" data-open-sortie-manager="true">편성 관리</button>',
+      '    </div>',
       "  </div>",
       selectedUnits.length
         ? [

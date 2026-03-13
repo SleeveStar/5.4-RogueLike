@@ -1007,6 +1007,14 @@ body.use-floating-stat-tooltip .stat-tooltip-pill::after {
   gap: 10px;
 }
 
+.sortie-strip-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  flex: 0 0 auto;
+}
+
 .sortie-strip-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
