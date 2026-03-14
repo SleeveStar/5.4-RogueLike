@@ -73,7 +73,8 @@
     detailModal: {
       type: null,
       id: null,
-      page: 1
+      page: 1,
+      returnTo: null
     },
     pendingEquipAction: null,
     pendingClassChangeAction: null,
@@ -1216,7 +1217,11 @@
     appState.skillModal.passivePage = 1;
   }
 
-  function closeDetailModal() {
+  function closeDetailModal(options) {
+    const nextOptions = options || {};
+    const shouldReturnToSortie = nextOptions.restoreParent === true
+      && appState.detailModal.type === "unit"
+      && appState.detailModal.returnTo === "sortie";
     const host = getEquipmentModalHost();
 
     if (host) {
@@ -1228,9 +1233,14 @@
     appState.detailModal.type = null;
     appState.detailModal.id = null;
     appState.detailModal.page = 1;
+    appState.detailModal.returnTo = null;
     appState.pendingEquipAction = null;
     appState.pendingClassChangeAction = null;
     appState.quickSwapSlotIndex = null;
+
+    if (shouldReturnToSortie) {
+      openDetailModal("sortie", "party");
+    }
   }
 
   function closeMenuModals() {
@@ -3161,10 +3171,12 @@
 
     const backdrop = host.querySelector(".menu-modal-backdrop");
 
-    getElement("menu-detail-modal-close-button").addEventListener("click", closeDetailModal);
+    getElement("menu-detail-modal-close-button").addEventListener("click", () => {
+      closeDetailModal({ restoreParent: true });
+    });
     backdrop.addEventListener("click", (event) => {
       if (event.target === backdrop) {
-        closeDetailModal();
+        closeDetailModal({ restoreParent: true });
       }
     });
 
@@ -3225,18 +3237,21 @@
     }
   }
 
-  function openDetailModal(type, id) {
+  function openDetailModal(type, id, options) {
+    const nextOptions = options || {};
     closeEquipmentModal();
     closeSkillModal();
     appState.detailModal.type = type;
     appState.detailModal.id = id;
     appState.detailModal.page = 1;
+    appState.detailModal.returnTo = nextOptions.returnTo || null;
     renderDetailModal();
   }
 
   function refreshUnitDetailModal(unitId) {
+    const returnTo = appState.detailModal.returnTo || null;
     renderMainMenu();
-    openDetailModal("unit", unitId);
+    openDetailModal("unit", unitId, { returnTo });
   }
 
   function handleUnitDetailModalInteraction(event, unitId) {
@@ -3487,7 +3502,7 @@
       const unitId = String(button.dataset.sortieFocus);
       appState.selectedMenuUnitId = unitId;
       renderMainMenu();
-      openDetailModal("unit", unitId);
+      openDetailModal("unit", unitId, { returnTo: "sortie" });
       return;
     }
 
@@ -7011,7 +7026,7 @@
       }
 
       if (event.key === "Escape" && appState.detailModal.type) {
-        closeDetailModal();
+        closeDetailModal({ restoreParent: true });
       }
     });
   }
