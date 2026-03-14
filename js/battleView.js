@@ -746,6 +746,18 @@
     autoBattleController.maybeSchedule(snapshot, delayMs);
   }
 
+  function resumeAutoBattleAfterSupportChoice() {
+    global.setTimeout(() => {
+      const snapshot = viewState.snapshot;
+
+      if (!snapshot || !viewState.autoBattle.enabled || !isAutoBattleAvailable(snapshot) || viewState.modal) {
+        return;
+      }
+
+      maybeScheduleAutoBattle(snapshot, 120);
+    }, 0);
+  }
+
   function handleAutoBattleSnapshot(previousSnapshot, snapshot) {
     autoBattleController.handleSnapshot(previousSnapshot, snapshot);
   }
@@ -2575,6 +2587,7 @@
             viewState.modal.dataset.locked = "false";
             closeModal();
             maybeShowSupportChoice(viewState.snapshot);
+            resumeAutoBattleAfterSupportChoice();
             return;
           }
 
@@ -2582,6 +2595,7 @@
           viewState.config.showToast(`${choice.title} 선택`);
           viewState.modal.dataset.locked = "false";
           closeModal();
+          resumeAutoBattleAfterSupportChoice();
         } catch (error) {
           viewState.config.showToast(error.message, true);
         }
@@ -2593,6 +2607,7 @@
         if (BattleService.dismissEndlessChoice()) {
           viewState.modal.dataset.locked = "false";
           closeModal();
+          resumeAutoBattleAfterSupportChoice();
         }
       });
     });

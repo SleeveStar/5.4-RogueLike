@@ -3323,9 +3323,16 @@
     unit.turnMoveCommit = clone(committedMove);
     state.ui.pendingMove = committedMove;
     clearMovePreview();
-    triggerContactEncounter(unit, unit.x, unit.y);
-    refreshSelectionState(unit);
-    addLog(`${unit.name} 이동 확정: (${unit.x}, ${unit.y}) / 남은 이동 ${getRemainingMovement(unit)}`);
+    const triggeredContactEncounter = triggerContactEncounter(unit, unit.x, unit.y);
+
+    if (triggeredContactEncounter) {
+      finalizeUnitAction(unit);
+      addLog(`${unit.name} 이동 확정: (${unit.x}, ${unit.y}) / 접촉 이벤트 진행으로 행동 종료`);
+    } else {
+      refreshSelectionState(unit);
+      addLog(`${unit.name} 이동 확정: (${unit.x}, ${unit.y}) / 남은 이동 ${getRemainingMovement(unit)}`);
+    }
+
     syncPersistentFromBattle({ keepBattleState: true });
     notify();
     return unit;
@@ -5359,6 +5366,8 @@
       throw new Error("선택할 보상이 없습니다.");
     }
 
+    const pendingChoiceType = state.battle.pendingChoice.type;
+    const pendingChoiceUnitId = state.battle.pendingChoice.unitId || null;
     const choice = (state.battle.pendingChoice.choices || []).find((entry) => entry.id === choiceId);
 
     if (!choice) {
@@ -5367,7 +5376,7 @@
 
     ensureEndlessState();
 
-    if (state.battle.pendingChoice.type === "relic") {
+    if (pendingChoiceType === "relic") {
       if (!state.saveData.endless.relicIds.includes(choice.id)) {
         state.saveData.endless.relicIds.push(choice.id);
       }
@@ -5379,7 +5388,7 @@
       state.battle.lastEventText = `${choice.title}의 힘이 파티에 스며들었다.`;
     }
 
-    if (state.battle.pendingChoice.type === "event") {
+    if (pendingChoiceType === "event") {
       if ((choice.goldCost || 0) > 0) {
         if ((state.saveData.partyGold || 0) < (choice.goldCost || 0)) {
           throw new Error("골드가 부족합니다.");
@@ -5488,7 +5497,7 @@
       }
     }
 
-    if (state.battle.pendingChoice.type === "contact") {
+    if (pendingChoiceType === "contact") {
       if ((choice.goldCost || 0) > 0) {
         if ((state.saveData.partyGold || 0) < (choice.goldCost || 0)) {
           throw new Error("골드가 부족합니다.");
@@ -5547,6 +5556,17 @@
     }
 
     state.battle.pendingChoice = null;
+
+    if (
+      pendingChoiceType === "contact"
+      && state.battle.phase === "player"
+      && state.battle.status === "in_progress"
+      && pendingChoiceUnitId
+      && !state.ui.selectedUnitId
+    ) {
+      autoSelectNextControllableAlly(pendingChoiceUnitId);
+    }
+
     syncPersistentFromBattle({ keepBattleState: true });
     notify();
     return choice;

@@ -3905,11 +3905,11 @@
 
     host.querySelectorAll("[data-equip-slot]").forEach((slotCard) => {
       const slotKey = slotCard.dataset.equipSlot;
-      const slotItemId = slotCard.dataset.slotItemId || null;
 
       slotCard.addEventListener("click", () => {
-        appState.equipmentModal.hoveredItemId = slotItemId;
+        appState.equipmentModal.hoveredItemId = null;
         appState.equipmentModal.hoveredSlotKey = slotKey;
+        appState.equipmentModal.page = 1;
         renderEquipmentModal();
       });
       slotCard.addEventListener("dragover", (event) => {
