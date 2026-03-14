@@ -49,6 +49,19 @@
       return currentRun && currentRun.chainState ? clone(currentRun.chainState) : null;
     }
 
+    function getRecentEndlessFloorTypes() {
+      const saveData = getSaveData();
+      const endless = saveData && saveData.endless ? saveData.endless : null;
+      const currentRun = endless && endless.currentRun ? endless.currentRun : null;
+      return currentRun && Array.isArray(currentRun.floorTypeHistory)
+        ? currentRun.floorTypeHistory.slice()
+        : [];
+    }
+
+    function isSupportFloorType(floorType) {
+      return floorType === "rest" || floorType === "supply" || floorType === "shop" || floorType === "relic";
+    }
+
     function createSeededRandom(seed) {
       let value = seed % 2147483647;
 
@@ -621,6 +634,8 @@
 
     function chooseEndlessFloorType(floor, random) {
       const normalizedFloor = Math.max(1, floor || 1);
+      const floorTypeHistory = getRecentEndlessFloorTypes();
+      const lastFloorType = floorTypeHistory.length ? floorTypeHistory[floorTypeHistory.length - 1] : null;
 
       if (normalizedFloor % 10 === 0) {
         return "boss";
@@ -639,6 +654,14 @@
 
       if (normalizedFloor >= 5) {
         candidates.push({ type: "shop", weight: 8 });
+      }
+
+      if (isSupportFloorType(lastFloorType)) {
+        candidates.forEach((candidate) => {
+          if (isSupportFloorType(candidate.type)) {
+            candidate.weight = 0;
+          }
+        });
       }
 
       const totalWeight = candidates.reduce((sum, entry) => sum + entry.weight, 0);

@@ -347,6 +347,11 @@
     normalized.endless.bestFloor = Math.max(normalized.endless.currentFloor, Number(normalized.endless.bestFloor || 1));
     normalized.endless.relicIds = cloneValue(normalized.endless.relicIds || []);
     normalized.endless.currentRun = cloneValue(normalized.endless.currentRun || null);
+    if (normalized.endless.currentRun) {
+      normalized.endless.currentRun.floorTypeHistory = Array.isArray(normalized.endless.currentRun.floorTypeHistory)
+        ? cloneValue(normalized.endless.currentRun.floorTypeHistory).slice(-4)
+        : [];
+    }
     normalized.endless.lastRun = cloneValue(normalized.endless.lastRun || null);
     normalized.collection = Object.assign({}, cloneValue(DEFAULT_SAVE.collection), normalized.collection || {});
     normalized.collection.discoveredRewardIds = cloneValue(normalized.collection.discoveredRewardIds || []);

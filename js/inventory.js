@@ -3353,6 +3353,14 @@
 
     item.baseName = item.baseName || item.name;
 
+    if (isWeapon(item) && item.base) {
+      item.might = Number.isFinite(Number(item.might)) ? Number(item.might) : Number(item.base.might || 0);
+      item.hit = Number.isFinite(Number(item.hit)) ? Number(item.hit) : Number(item.base.hit || 0);
+      item.rangeMin = Number.isFinite(Number(item.rangeMin)) ? Number(item.rangeMin) : Number(item.base.rangeMin || 1);
+      item.rangeMax = Number.isFinite(Number(item.rangeMax)) ? Number(item.rangeMax) : Number(item.base.rangeMax || item.rangeMin || 1);
+      item.uses = Number.isFinite(Number(item.uses)) ? Number(item.uses) : Number(item.base.uses || 0);
+    }
+
     if (item.statBonus && !item.primaryStatBonus) {
       const converted = convertLegacyBonusToModern(item.statBonus);
       item.primaryStatBonus = hasAnyBonus(converted.primaryStatBonus) ? converted.primaryStatBonus : null;
@@ -4600,6 +4608,11 @@
     });
 
     normalizeLegacyItem(item);
+    finalizeGeneratedEquipment(
+      item,
+      item.rarity || rewardDefinition.rarity || "common",
+      Number(item.level || rewardDefinition.level || rewardDefinition.minLevel || 1)
+    );
     return item;
   }
 

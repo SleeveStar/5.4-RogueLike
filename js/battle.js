@@ -1220,14 +1220,29 @@
       purchases: 0,
       damageDealt: 0,
       damageTaken: 0,
-      chainState: null
+      chainState: null,
+      floorTypeHistory: []
     };
   }
 
   function ensureEndlessRunState() {
     const endless = ensureEndlessState();
     endless.currentRun = endless.currentRun || buildEndlessRunState();
+    endless.currentRun.floorTypeHistory = Array.isArray(endless.currentRun.floorTypeHistory)
+      ? endless.currentRun.floorTypeHistory.slice(-4)
+      : [];
     return endless.currentRun;
+  }
+
+  function recordEndlessFloorType(floorType) {
+    if (!floorType) {
+      return;
+    }
+
+    const currentRun = ensureEndlessRunState();
+    currentRun.floorTypeHistory = currentRun.floorTypeHistory || [];
+    currentRun.floorTypeHistory.push(floorType);
+    currentRun.floorTypeHistory = currentRun.floorTypeHistory.slice(-4);
   }
 
   function beginEndlessRunIfNeeded() {
@@ -4203,6 +4218,7 @@
         currentRun.battlesWon += 1;
         currentRun.highestFloor = Math.max(currentRun.highestFloor || endless.currentFloor, endless.currentFloor + 1);
       });
+      recordEndlessFloorType(currentStage.floorType || null);
       recordEndlessRun("victory");
       endless.currentFloor += 1;
       endless.bestFloor = Math.max(endless.bestFloor, endless.currentFloor);
