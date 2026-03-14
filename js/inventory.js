@@ -1071,6 +1071,16 @@
       effect: { kind: "class_change" }
     },
     {
+      id: "shop-weapon-retune-tool",
+      name: "룬이 새겨진 정",
+      type: "consumable",
+      slot: "consumable",
+      rarity: "rare",
+      price: 260,
+      description: "대장간에서 무기의 무작위 각인을 다시 벼려낸다. 강화 수치와 내구는 유지되지만 세트 장비에는 사용할 수 없다.",
+      effect: { kind: "blacksmith_weapon_reroll" }
+    },
+    {
       id: "shop-iron-sword",
       name: "철검 보급품",
       type: "sword",
@@ -2602,6 +2612,46 @@
     return item;
   }
 
+  function subtractBonusMaps(baseBonus, subtractBonus, normalizeValue) {
+    const result = {};
+    const keys = new Set(
+      Object.keys(baseBonus || {}).concat(Object.keys(subtractBonus || {}))
+    );
+
+    keys.forEach((key) => {
+      const nextValue = Number((baseBonus && baseBonus[key]) || 0) - Number((subtractBonus && subtractBonus[key]) || 0);
+      result[key] = typeof normalizeValue === "function"
+        ? normalizeValue(key, nextValue)
+        : nextValue;
+    });
+
+    return result;
+  }
+
+  function getHydratedAffixes(item) {
+    return (item && Array.isArray(item.affixes) ? item.affixes : [])
+      .map((affix) => hydrateAffixForNaming(item, affix))
+      .filter(Boolean);
+  }
+
+  function summarizeAffixBonuses(affixes) {
+    const bonus = {
+      primary: createPrimaryBonusMap(),
+      hidden: createHiddenBonusMap(),
+      legacy: createLegacyBonusMap(),
+      weapon: createWeaponBonusMap()
+    };
+
+    (affixes || []).forEach((affix) => {
+      addBonusMaps(bonus.primary, affix.primaryStatBonus || {}, clampPrimaryBonus);
+      addBonusMaps(bonus.hidden, affix.hiddenBonus || {}, roundHiddenBonus);
+      addBonusMaps(bonus.legacy, affix.legacyStatBonus || {}, null);
+      addBonusMaps(bonus.weapon, affix.weaponBonus || {}, null);
+    });
+
+    return bonus;
+  }
+
   function normalizeLegacyCritChanceAffixBug(item) {
     if (!item || !item.hiddenBonus || !Array.isArray(item.affixes) || !item.affixes.length) {
       return item;
@@ -4082,6 +4132,44 @@
     };
   }
 
+  function findInventoryItemByTemplateId(saveData, templateId) {
+    return (saveData && saveData.inventory || []).find((item) => (
+      item
+      && !isMisc(item)
+      && (item.shopId === templateId || item.id === templateId)
+    )) || null;
+  }
+
+  function countInventoryItemsByTemplateId(saveData, templateId) {
+    return (saveData && saveData.inventory || []).filter((item) => (
+      item
+      && !isMisc(item)
+      && (item.shopId === templateId || item.id === templateId)
+    )).length;
+  }
+
+  function getWeaponRerollPreview(saveData, item) {
+    const consumableId = "shop-weapon-retune-tool";
+    const consumableTemplate = SHOP_CATALOG.find((entry) => entry.id === consumableId) || null;
+    const consumableCount = countInventoryItemsByTemplateId(saveData, consumableId);
+    let blockedReason = "";
+
+    if (!item || !isWeapon(item)) {
+      blockedReason = "옵션을 재조율할 무기를 선택하세요.";
+    } else if (item.setId) {
+      blockedReason = "세트 무기는 옵션 재조율 대상이 아닙니다.";
+    }
+
+    return {
+      consumableId,
+      consumableName: consumableTemplate ? consumableTemplate.name : "룬이 새겨진 정",
+      consumableCount,
+      affixCount: Array.isArray(item && item.affixes) ? item.affixes.length : 0,
+      canReroll: !blockedReason && consumableCount > 0,
+      blockedReason: blockedReason || (consumableCount > 0 ? "" : "룬이 새겨진 정이 부족합니다.")
+    };
+  }
+
   function rollIntegerBetween(min, max) {
     const lower = Math.max(0, Math.floor(Number(min || 0)));
     const upper = Math.max(lower, Math.floor(Number(max || 0)));
@@ -4161,6 +4249,71 @@
       message: success
         ? `${getItemDisplayName(item, { forceShowReinforceLevel: true })} 강화 성공 / 위력 +${Math.max(0, previewAfter.currentMight - preview.currentMight)}`
         : `${getItemDisplayName(item, { forceShowReinforceLevel: true })} 강화 실패${levelDelta < 0 ? ` / ${Math.abs(levelDelta)}단계 하락` : ""}${durabilityLost > 0 ? ` / 내구 ${durabilityLost} 감소` : ""}`
+    };
+  }
+
+  function rerollWeaponAffixes(saveData, itemId) {
+    const item = getItemById(saveData, itemId);
+
+    if (!item || !isWeapon(item)) {
+      throw new Error("옵션을 재조율할 무기를 찾을 수 없습니다.");
+    }
+
+    if (item.setId) {
+      throw new Error("세트 무기는 옵션을 재조율할 수 없습니다.");
+    }
+
+    const preview = getWeaponRerollPreview(saveData, item);
+
+    if (!preview.canReroll) {
+      throw new Error(preview.blockedReason || "재조율 조건을 만족하지 않습니다.");
+    }
+
+    const consumable = findInventoryItemByTemplateId(saveData, preview.consumableId);
+
+    if (!consumable) {
+      throw new Error(`${preview.consumableName}이(가) 부족합니다.`);
+    }
+
+    const previousAffixes = getHydratedAffixes(item);
+    const previousBonuses = summarizeAffixBonuses(previousAffixes);
+    const basePrimaryBonus = subtractBonusMaps(item.primaryStatBonus || createPrimaryBonusMap(), previousBonuses.primary, clampPrimaryBonus);
+    const baseHiddenBonus = subtractBonusMaps(item.hiddenBonus || createHiddenBonusMap(), previousBonuses.hidden, roundHiddenBonus);
+    const baseLegacyBonus = subtractBonusMaps(item.statBonus || createLegacyBonusMap(), previousBonuses.legacy, null);
+    const baseWeaponBonus = subtractBonusMaps(item.weaponBonus || createWeaponBonusMap(), previousBonuses.weapon, null);
+    const baseHit = Math.max(0, Number(item.hit || 0) - Number(previousBonuses.weapon.hit || 0));
+    const baseUses = Math.max(0, Number(item.uses || 0) - Number(previousBonuses.weapon.uses || 0));
+
+    removeItemFromInventory(saveData, consumable.id);
+
+    item.affixes = [];
+    item.primaryStatBonus = hasAnyBonus(basePrimaryBonus) ? basePrimaryBonus : null;
+    item.hiddenBonus = hasAnyBonus(baseHiddenBonus) ? baseHiddenBonus : null;
+    item.statBonus = hasAnyBonus(baseLegacyBonus) ? baseLegacyBonus : null;
+    item.weaponBonus = hasAnyBonus(baseWeaponBonus) ? baseWeaponBonus : null;
+    item.generatedAffixVersion = 0;
+    item.name = item.baseName || item.name;
+
+    syncWeaponReinforcementStats(item);
+    item.hit = baseHit;
+    item.uses = baseUses;
+    item.rangeMin = Number.isFinite(Number(item.rangeMin)) ? Number(item.rangeMin) : 1;
+    item.rangeMax = Number.isFinite(Number(item.rangeMax)) ? Number(item.rangeMax) : item.rangeMin;
+
+    finalizeGeneratedEquipment(
+      item,
+      item.rarity || "common",
+      Number(item.level || getRarityIndex(item.rarity) + 1)
+    );
+    normalizeLegacyItem(item);
+    normalizeInventoryState(saveData);
+    const rerolledItem = getItemById(saveData, item.id);
+
+    return {
+      item: rerolledItem || item,
+      previousAffixCount: previousAffixes.length,
+      nextAffixCount: Array.isArray((rerolledItem || item).affixes) ? (rerolledItem || item).affixes.length : 0,
+      consumableName: preview.consumableName
     };
   }
 
@@ -4453,6 +4606,10 @@
         grantedActiveSkills: classChangeResult.grantedActiveSkills || [],
         unequippedItems: classChangeResult.unequippedItems || []
       };
+    }
+
+    if (item.effect.kind === "blacksmith_weapon_reroll") {
+      throw new Error("룬이 새겨진 정은 대장간에서만 사용할 수 있습니다.");
     }
 
     throw new Error("지원하지 않는 소모품 효과입니다.");
@@ -4871,9 +5028,11 @@
     getReinforceCost,
     getReinforceSuccessRate,
     getReinforcePreview,
+    getWeaponRerollPreview,
     scaleWeaponDurabilityUses,
     getRepairPreview,
     reinforceWeapon,
+    rerollWeaponAffixes,
     repairItem,
     getSetDefinition,
     getSetBonusEntries,

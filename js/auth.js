@@ -4476,7 +4476,11 @@
   }
 
   function getBlacksmithMode() {
-    return appState.blacksmithView.mode === "repair" ? "repair" : "reinforce";
+    return appState.blacksmithView.mode === "repair"
+      ? "repair"
+      : appState.blacksmithView.mode === "reroll"
+        ? "reroll"
+        : "reinforce";
   }
 
   function syncBlacksmithModeTabs() {
@@ -4488,7 +4492,11 @@
   }
 
   function setBlacksmithMode(mode) {
-    appState.blacksmithView.mode = mode === "repair" ? "repair" : "reinforce";
+    appState.blacksmithView.mode = mode === "repair"
+      ? "repair"
+      : mode === "reroll"
+        ? "reroll"
+        : "reinforce";
     appState.blacksmithView.page = 1;
     appState.blacksmithView.selectedItemId = null;
     syncBlacksmithModeTabs();
@@ -5742,6 +5750,43 @@
       });
   }
 
+  function getBlacksmithRerollWeapons() {
+    return getBlacksmithWeapons()
+      .slice()
+      .sort((left, right) => {
+        const leftPreview = InventoryService.getWeaponRerollPreview(appState.saveData, left);
+        const rightPreview = InventoryService.getWeaponRerollPreview(appState.saveData, right);
+        const leftEligible = leftPreview && leftPreview.canReroll ? 1 : 0;
+        const rightEligible = rightPreview && rightPreview.canReroll ? 1 : 0;
+
+        if (leftEligible !== rightEligible) {
+          return rightEligible - leftEligible;
+        }
+
+        const leftEquipped = left.equippedBy ? 1 : 0;
+        const rightEquipped = right.equippedBy ? 1 : 0;
+
+        if (leftEquipped !== rightEquipped) {
+          return rightEquipped - leftEquipped;
+        }
+
+        const leftAffixCount = leftPreview ? Number(leftPreview.affixCount || 0) : 0;
+        const rightAffixCount = rightPreview ? Number(rightPreview.affixCount || 0) : 0;
+
+        if (leftAffixCount !== rightAffixCount) {
+          return rightAffixCount - leftAffixCount;
+        }
+
+        const rarityGap = InventoryService.RARITY_ORDER.indexOf(right.rarity) - InventoryService.RARITY_ORDER.indexOf(left.rarity);
+        if (rarityGap !== 0) {
+          return rarityGap;
+        }
+
+        return InventoryService.getItemDisplayName(left, { forceShowReinforceLevel: true })
+          .localeCompare(InventoryService.getItemDisplayName(right, { forceShowReinforceLevel: true }), "ko");
+      });
+  }
+
   function ensureBlacksmithSelection(weapons) {
     const availableWeapons = Array.isArray(weapons) ? weapons : [];
     const currentSelection = availableWeapons.find((item) => item.id === appState.blacksmithView.selectedItemId);
@@ -6193,7 +6238,13 @@
     }
 
     const mode = getBlacksmithMode();
-    const items = mode === "repair" ? getBlacksmithRepairItems() : getBlacksmithWeapons();
+    const isRepairMode = mode === "repair";
+    const isRerollMode = mode === "reroll";
+    const items = isRepairMode
+      ? getBlacksmithRepairItems()
+      : isRerollMode
+        ? getBlacksmithRerollWeapons()
+        : getBlacksmithWeapons();
     const selectedItem = ensureBlacksmithSelection(items);
     const totalPages = Math.max(1, Math.ceil(items.length / BLACKSMITH_PAGE_SIZE));
     const currentPage = Math.max(1, Math.min(totalPages, Number(appState.blacksmithView.page || 1)));
@@ -6207,9 +6258,11 @@
     const equippedCount = items.filter((item) => !!item.equippedBy).length;
     const maxedCount = weapons.filter((item) => InventoryService.getReinforceLevel(item) >= InventoryService.REINFORCE_MAX_LEVEL).length;
     const reinforcePreview = selectedItem ? InventoryService.getReinforcePreview(appState.saveData, selectedItem) : null;
+    const rerollPreview = selectedItem ? InventoryService.getWeaponRerollPreview(appState.saveData, selectedItem) : null;
     const repairPreview = selectedItem ? InventoryService.getRepairPreview(appState.saveData, selectedItem) : null;
-    const repairItems = mode === "repair" ? items : getBlacksmithRepairItems();
+    const repairItems = isRepairMode ? items : getBlacksmithRepairItems();
     const repairNeededCount = repairItems.length;
+    const rerollToolSummary = InventoryService.getWeaponRerollPreview(appState.saveData, selectedItem || null);
     const totalMissingUses = repairItems.reduce((sum, item) => {
       const preview = InventoryService.getRepairPreview(appState.saveData, item);
       return sum + Math.max(0, Number(preview && preview.missingUses || 0));
@@ -6222,18 +6275,19 @@
 
     root.innerHTML = [
       '<div class="summary-card blacksmith-status-card">',
-      mode === "repair"
+      isRepairMode
         ? `  <div class="inventory-status-grid"><p class="status-line is-gold">보유 골드: ${Math.max(0, Number(appState.saveData.partyGold || 0))}G</p><p class="status-line is-cyan">수리 필요 장비: ${repairNeededCount}개</p><p class="status-line">장착 중 수리 대상 ${equippedCount}개 / 총 손상 ${totalMissingUses}</p><p class="status-line">위험 내구 장비 ${repairItems.filter((item) => { const preview = InventoryService.getRepairPreview(appState.saveData, item); return preview && preview.currentUses <= Math.max(1, Math.ceil(preview.maxUses * 0.2)); }).length}개</p><p class="status-line inventory-status-wide">${selectedItem ? `${InventoryService.getItemDisplayName(selectedItem, { forceShowReinforceLevel: InventoryService.isWeapon(selectedItem) })} 선택 중` : "수리 대상 장비가 없습니다."}</p></div>`
-        : `  <div class="inventory-status-grid"><p class="status-line is-gold">보유 골드: ${Math.max(0, Number(appState.saveData.partyGold || 0))}G</p><p class="status-line is-cyan">보유 재련석: ${refineStoneCount}개</p><p class="status-line">무기 ${weapons.length}개 / 즉시 강화 가능 ${affordableCount}개</p><p class="status-line">장착 중 무기 ${equippedCount}개 / 최대 강화 ${maxedCount}개</p><p class="status-line inventory-status-wide">${selectedItem ? `${InventoryService.getItemDisplayName(selectedItem, { forceShowReinforceLevel: true })} 선택 중` : "강화 가능한 무기 없음"}</p></div>`,
+        : isRerollMode
+          ? `  <div class="inventory-status-grid"><p class="status-line is-gold">보유 골드: ${Math.max(0, Number(appState.saveData.partyGold || 0))}G</p><p class="status-line is-violet">보유 룬이 새겨진 정: ${rerollToolSummary.consumableCount}개</p><p class="status-line">무기 ${weapons.length}개 / 재조율 가능 ${items.filter((item) => InventoryService.getWeaponRerollPreview(appState.saveData, item).canReroll).length}개</p><p class="status-line">장착 중 무기 ${equippedCount}개 / 세트 무기 ${weapons.filter((item) => !!item.setId).length}개</p><p class="status-line inventory-status-wide">${selectedItem ? `${InventoryService.getItemDisplayName(selectedItem, { forceShowReinforceLevel: true })} 선택 중` : "재조율 가능한 무기 없음"}</p></div>`
+          : `  <div class="inventory-status-grid"><p class="status-line is-gold">보유 골드: ${Math.max(0, Number(appState.saveData.partyGold || 0))}G</p><p class="status-line is-cyan">보유 재련석: ${refineStoneCount}개</p><p class="status-line">무기 ${weapons.length}개 / 즉시 강화 가능 ${affordableCount}개</p><p class="status-line">장착 중 무기 ${equippedCount}개 / 최대 강화 ${maxedCount}개</p><p class="status-line inventory-status-wide">${selectedItem ? `${InventoryService.getItemDisplayName(selectedItem, { forceShowReinforceLevel: true })} 선택 중` : "강화 가능한 무기 없음"}</p></div>`,
       '</div>',
       '<div class="blacksmith-layout">',
       '  <section class="inventory-card blacksmith-weapon-list-card">',
-      mode === "repair"
+      isRepairMode
         ? `    <div class="item-title-row"><strong class="card-title">수리 대상 장비</strong><span class="card-subtitle">${currentPage} / ${totalPages} 페이지</span></div>`
-        : `    <div class="item-title-row"><strong class="card-title">강화 가능한 무기</strong><span class="card-subtitle">${currentPage} / ${totalPages} 페이지</span></div>`,
-      mode === "repair"
-        ? '    <p class="blacksmith-section-copy">내구도가 깎인 장비만 표시됩니다. 상태가 나쁜 장비가 먼저 보입니다.</p>'
-        : '    <p class="blacksmith-section-copy">장착 중 무기와 지금 바로 강화 가능한 무기가 먼저 보이도록 정렬됩니다.</p>',
+        : isRerollMode
+          ? `    <div class="item-title-row"><strong class="card-title">재조율 대상 무기</strong><span class="card-subtitle">${currentPage} / ${totalPages} 페이지</span></div>`
+          : `    <div class="item-title-row"><strong class="card-title">강화 가능한 무기</strong><span class="card-subtitle">${currentPage} / ${totalPages} 페이지</span></div>`,
       `    <div class="blacksmith-weapon-list">${items.length ? visibleItems.map((item) => {
         const rarity = InventoryService.getRarityMeta(item.rarity);
         const itemRepairPreview = InventoryService.getRepairPreview(appState.saveData, item);
@@ -6251,12 +6305,23 @@
             ? "is-gold"
             : "is-cyan";
 
-        if (mode === "repair") {
+        if (isRepairMode) {
           return [
             `<button class="inventory-card blacksmith-weapon-row blacksmith-repair-row rarity-${item.rarity} ${isSelected ? "is-selected" : ""}" type="button" data-blacksmith-item="${item.id}">`,
             `  <div class="item-title-row"><strong class="card-title">${InventoryService.getItemDisplayName(item, { forceShowReinforceLevel: InventoryService.isWeapon(item) })}</strong><span class="card-subtitle">${rarity.label}</span></div>`,
             `  <div class="inventory-meta"><span class="meta-pill ${item.equippedBy ? "is-gold" : "is-muted"}">${ownerText}</span><span class="meta-pill ${durabilityToneClass}">내구 ${itemRepairPreview.currentUses}/${itemRepairPreview.maxUses}</span><span class="meta-pill is-muted">손상 ${itemRepairPreview.missingUses}</span><span class="meta-pill ${itemRepairPreview.canRepair ? "is-cyan" : "is-crimson"}">${itemRepairPreview.cost ? `${itemRepairPreview.cost.gold}G` : "-"}</span></div>`,
             `  <div class="blacksmith-durability-bar"><span class="blacksmith-durability-fill ${durabilityToneClass}" style="width:${durabilityPercent}%"></span></div>`,
+            '  </button>'
+          ].join("");
+        }
+
+        if (isRerollMode) {
+          const itemRerollPreview = InventoryService.getWeaponRerollPreview(appState.saveData, item);
+
+          return [
+            `<button class="inventory-card blacksmith-weapon-row rarity-${item.rarity} ${isSelected ? "is-selected" : ""}" type="button" data-blacksmith-item="${item.id}">`,
+            `  <div class="item-title-row"><strong class="card-title">${InventoryService.getItemDisplayName(item, { forceShowReinforceLevel: true })}</strong><span class="card-subtitle">${rarity.label}</span></div>`,
+            `  <div class="inventory-meta"><span class="meta-pill ${item.equippedBy ? "is-gold" : "is-muted"}">${ownerText}</span><span class="meta-pill is-violet">옵션 ${itemRerollPreview.affixCount}개</span><span class="meta-pill ${item.setId ? "is-crimson" : itemRerollPreview.canReroll ? "is-cyan" : "is-muted"}">${item.setId ? "세트 장비" : itemRerollPreview.canReroll ? "재조율 가능" : "공구 필요"}</span></div>`,
             '  </button>'
           ].join("");
         }
@@ -6267,7 +6332,7 @@
           `  <div class="inventory-meta"><span class="meta-pill ${item.equippedBy ? "is-gold" : "is-muted"}">${ownerText}</span><span class="meta-pill">위력 ${item.might}</span><span class="meta-pill is-cyan">강화 +${InventoryService.getReinforceLevel(item)}</span><span class="meta-pill ${itemReinforcePreview && itemReinforcePreview.canReinforce ? "is-gold" : "is-muted"}">${itemReinforcePreview && itemReinforcePreview.maxLevelReached ? "최대 강화" : itemReinforcePreview && itemReinforcePreview.canReinforce ? "즉시 가능" : "재화 필요"}</span></div>`,
           '  </button>'
         ].join("");
-      }).join("") : `<div class="inventory-card"><p>${mode === "repair" ? "수리가 필요한 장비가 없습니다." : "보유한 무기가 없습니다."}</p></div>`}</div>`,
+      }).join("") : `<div class="inventory-card"><p>${isRepairMode ? "수리가 필요한 장비가 없습니다." : isRerollMode ? "재조율할 무기가 없습니다." : "보유한 무기가 없습니다."}</p></div>`}</div>`,
       items.length > BLACKSMITH_PAGE_SIZE ? [
         '    <div class="list-pagination blacksmith-pagination">',
         `      <button class="ghost-button small-button" type="button" data-blacksmith-page="prev" ${currentPage <= 1 ? "disabled" : ""}>이전</button>`,
@@ -6277,14 +6342,13 @@
       ].join("") : "",
       '  </section>',
       '  <section class="inventory-card blacksmith-detail-card">',
-      selectedItem && (mode === "repair" ? repairPreview : reinforcePreview) ? [
-        mode === "repair"
+      selectedItem && (isRepairMode ? repairPreview : isRerollMode ? rerollPreview : reinforcePreview) ? [
+        isRepairMode
           ? `    <div class="item-title-row blacksmith-detail-title-row"><strong class="card-title">${InventoryService.getItemDisplayName(selectedItem, { forceShowReinforceLevel: InventoryService.isWeapon(selectedItem) })}</strong><div class="inventory-meta blacksmith-detail-inline-meta"><span class="meta-pill ${selectedItem.equippedBy ? "is-gold" : "is-muted"}">${selectedOwner}</span><span class="meta-pill ${repairPreview.durabilityRate <= 0.25 ? "is-crimson" : repairPreview.durabilityRate <= 0.55 ? "is-gold" : "is-cyan"}">내구 ${repairPreview.currentUses}/${repairPreview.maxUses}</span><span class="meta-pill is-muted">손상 ${repairPreview.missingUses}</span></div><span class="card-subtitle">${InventoryService.getRarityMeta(selectedItem.rarity).label}</span></div>`
-          : `    <div class="item-title-row blacksmith-detail-title-row"><strong class="card-title">${InventoryService.getItemDisplayName(selectedItem, { forceShowReinforceLevel: true })}</strong><div class="inventory-meta blacksmith-detail-inline-meta"><span class="meta-pill ${selectedItem.equippedBy ? "is-gold" : "is-muted"}">${selectedOwner}</span><span class="meta-pill is-cyan">현재 +${reinforcePreview.reinforceLevel}</span><span class="meta-pill ${reinforcePreview.maxLevelReached ? "is-gold" : "is-muted"}">${reinforcePreview.maxLevelReached ? "최대 강화" : `다음 +${reinforcePreview.cost ? reinforcePreview.cost.targetLevel : reinforcePreview.reinforceLevel}`}</span></div><span class="card-subtitle">${InventoryService.getRarityMeta(selectedItem.rarity).label}</span></div>`,
-        `    <p class="blacksmith-section-copy">${selectedItem.description || (mode === "repair"
-          ? "소모된 내구도를 복원해 장비를 다시 안정적으로 사용할 수 있습니다."
-          : "무기 재련으로 위력을 올릴 수 있습니다. 장착 중인 무기라도 바로 강화가 가능하며, 성공 시 즉시 성능에 반영됩니다.")}</p>`,
-        mode === "repair" ? [
+          : isRerollMode
+            ? `    <div class="item-title-row blacksmith-detail-title-row"><strong class="card-title">${InventoryService.getItemDisplayName(selectedItem, { forceShowReinforceLevel: true })}</strong><div class="inventory-meta blacksmith-detail-inline-meta"><span class="meta-pill ${selectedItem.equippedBy ? "is-gold" : "is-muted"}">${selectedOwner}</span><span class="meta-pill is-violet">옵션 ${rerollPreview.affixCount}개</span><span class="meta-pill ${selectedItem.setId ? "is-crimson" : "is-cyan"}">${selectedItem.setId ? "세트 장비" : "재조율 가능"}</span></div><span class="card-subtitle">${InventoryService.getRarityMeta(selectedItem.rarity).label}</span></div>`
+            : `    <div class="item-title-row blacksmith-detail-title-row"><strong class="card-title">${InventoryService.getItemDisplayName(selectedItem, { forceShowReinforceLevel: true })}</strong><div class="inventory-meta blacksmith-detail-inline-meta"><span class="meta-pill ${selectedItem.equippedBy ? "is-gold" : "is-muted"}">${selectedOwner}</span><span class="meta-pill is-cyan">현재 +${reinforcePreview.reinforceLevel}</span><span class="meta-pill ${reinforcePreview.maxLevelReached ? "is-gold" : "is-muted"}">${reinforcePreview.maxLevelReached ? "최대 강화" : `다음 +${reinforcePreview.cost ? reinforcePreview.cost.targetLevel : reinforcePreview.reinforceLevel}`}</span></div><span class="card-subtitle">${InventoryService.getRarityMeta(selectedItem.rarity).label}</span></div>`,
+        isRepairMode ? [
           '    <div class="blacksmith-detail-grid">',
           `      <article class="summary-card blacksmith-metric-card"><span class="card-subtitle">현재 내구</span><strong class="card-title">${repairPreview.currentUses} / ${repairPreview.maxUses}</strong></article>`,
           `      <article class="summary-card blacksmith-metric-card"><span class="card-subtitle">복구 후</span><strong class="card-title">${repairPreview.maxUses} / ${repairPreview.maxUses}</strong></article>`,
@@ -6302,6 +6366,22 @@
           `      <button class="primary-button" type="button" data-blacksmith-repair="${selectedItem.id}" ${!repairPreview.needsRepair || !repairPreview.canRepair ? "disabled" : ""}>${repairPreview.needsRepair ? "내구도 수리" : "수리 불필요"}</button>`,
           '    </div>',
           `    <p class="inventory-click-hint">${repairPreview.needsRepair ? "수리 시 내구도가 최대치까지 즉시 복구됩니다." : "이 장비는 이미 최대 내구도입니다."}</p>`
+        ].join("") : isRerollMode ? [
+          '    <div class="blacksmith-detail-grid">',
+          `      <article class="summary-card blacksmith-metric-card"><span class="card-subtitle">현재 옵션 수</span><strong class="card-title">${rerollPreview.affixCount}개</strong></article>`,
+          `      <article class="summary-card blacksmith-metric-card"><span class="card-subtitle">필요 소모품</span><strong class="card-title">${rerollPreview.consumableName} 1개</strong></article>`,
+          `      <article class="summary-card blacksmith-metric-card"><span class="card-subtitle">보유 공구</span><strong class="card-title">${rerollPreview.consumableCount}개</strong></article>`,
+          `      <article class="summary-card blacksmith-metric-card"><span class="card-subtitle">대상 상태</span><strong class="card-title">${selectedItem.setId ? "재조율 불가" : "재조율 가능"}</strong></article>`,
+          '    </div>',
+          '    <div class="blacksmith-resource-state">',
+          `      <div class="status-line"><strong>필요 소모품:</strong> ${rerollPreview.consumableName} 1개</div>`,
+          `      <div class="status-line ${rerollPreview.consumableCount > 0 ? "is-cyan" : "is-crimson"}"><strong>보유 공구:</strong> ${rerollPreview.consumableCount}개</div>`,
+          `      <div class="status-line"><strong>현재 옵션:</strong> ${rerollPreview.affixCount}개</div>`,
+          `      <div class="status-line inventory-status-wide"><strong>제한 사항:</strong> ${rerollPreview.blockedReason || "기존 옵션을 제거하고 새 무작위 옵션을 다시 생성합니다."}</div>`,
+          '    </div>',
+          '    <div class="button-row">',
+          `      <button class="primary-button" type="button" data-blacksmith-reroll="${selectedItem.id}" ${!rerollPreview.canReroll ? "disabled" : ""}>옵션 재조율</button>`,
+          '    </div>'
         ].join("") : [
           '    <div class="blacksmith-detail-grid">',
           `      <article class="summary-card blacksmith-metric-card"><span class="card-subtitle">현재 강화</span><strong class="card-title">+${reinforcePreview.reinforceLevel} 강화</strong></article>`,
@@ -6322,8 +6402,7 @@
           '    </div>'
         ].join("")
       ].join("") : [
-        `    <div class="item-title-row"><strong class="card-title">${mode === "repair" ? "수리 상세" : "강화 상세"}</strong><span class="card-subtitle">${mode === "repair" ? "장비 선택 필요" : "무기 선택 필요"}</span></div>`,
-        `    <p class="blacksmith-section-copy">좌측 목록에서 ${mode === "repair" ? "수리할 장비" : "강화할 무기"}를 선택하세요.</p>`
+        `    <div class="item-title-row"><strong class="card-title">${isRepairMode ? "수리 상세" : isRerollMode ? "재조율 상세" : "강화 상세"}</strong><span class="card-subtitle">${isRepairMode ? "장비 선택 필요" : "무기 선택 필요"}</span></div>`
       ].join(""),
       '  </section>',
       '</div>'
@@ -6371,6 +6450,20 @@
           appState.blacksmithView.selectedItemId = null;
           renderBlacksmithPanel();
           showToast(`${InventoryService.getItemDisplayName(result.item, { forceShowReinforceLevel: InventoryService.isWeapon(result.item) })}의 내구도를 복구했습니다.`);
+        } catch (error) {
+          showToast(error.message, true);
+        }
+      });
+    });
+
+    root.querySelectorAll("[data-blacksmith-reroll]").forEach((button) => {
+      button.addEventListener("click", () => {
+        try {
+          const result = InventoryService.rerollWeaponAffixes(appState.saveData, button.dataset.blacksmithReroll);
+          persistSession(appState.saveData, appState.settings);
+          appState.blacksmithView.selectedItemId = result.item.id;
+          renderBlacksmithPanel();
+          showToast(`${InventoryService.getItemDisplayName(result.item, { forceShowReinforceLevel: true })} 옵션 재조율 완료 (${result.previousAffixCount} -> ${result.nextAffixCount})`);
         } catch (error) {
           showToast(error.message, true);
         }
