@@ -62,13 +62,15 @@
       hoveredSlotKey: null,
       previewSlotKey: null,
       dragItemId: null,
-      page: 1
+      page: 1,
+      returnToDetailUnitId: null
     },
     skillModal: {
       unitId: null,
       dragSkillId: null,
       activePage: 1,
-      passivePage: 1
+      passivePage: 1,
+      returnToDetailUnitId: null
     },
     detailModal: {
       type: null,
@@ -1185,7 +1187,11 @@
     return getElement("menu-modal-host");
   }
 
-  function closeEquipmentModal() {
+  function closeEquipmentModal(options) {
+    const nextOptions = options || {};
+    const returnToDetailUnitId = nextOptions.restoreParent === true
+      ? appState.equipmentModal.returnToDetailUnitId
+      : null;
     const host = getEquipmentModalHost();
 
     if (host) {
@@ -1200,9 +1206,18 @@
     appState.equipmentModal.previewSlotKey = null;
     appState.equipmentModal.dragItemId = null;
     appState.equipmentModal.page = 1;
+    appState.equipmentModal.returnToDetailUnitId = null;
+
+    if (returnToDetailUnitId) {
+      openDetailModal("unit", returnToDetailUnitId, { returnTo: "sortie" });
+    }
   }
 
-  function closeSkillModal() {
+  function closeSkillModal(options) {
+    const nextOptions = options || {};
+    const returnToDetailUnitId = nextOptions.restoreParent === true
+      ? appState.skillModal.returnToDetailUnitId
+      : null;
     const host = getEquipmentModalHost();
 
     if (host) {
@@ -1215,6 +1230,11 @@
     appState.skillModal.dragSkillId = null;
     appState.skillModal.activePage = 1;
     appState.skillModal.passivePage = 1;
+    appState.skillModal.returnToDetailUnitId = null;
+
+    if (returnToDetailUnitId) {
+      openDetailModal("unit", returnToDetailUnitId, { returnTo: "sortie" });
+    }
   }
 
   function closeDetailModal(options) {
@@ -3263,14 +3283,16 @@
     }
 
     if (button.dataset.openEquipment === "true") {
-      closeDetailModal();
-      openEquipmentModal(unit.id);
+      openEquipmentModal(unit.id, {
+        returnToDetailUnitId: appState.detailModal.returnTo === "sortie" ? unit.id : null
+      });
       return;
     }
 
     if (button.dataset.openSkillModal === "true") {
-      closeDetailModal();
-      openSkillModal(unit.id);
+      openSkillModal(unit.id, {
+        returnToDetailUnitId: appState.detailModal.returnTo === "sortie" ? unit.id : null
+      });
       return;
     }
 
@@ -3872,10 +3894,12 @@
     ].join("");
 
     const backdrop = host.querySelector(".menu-modal-backdrop");
-    getElement("menu-modal-close-button").addEventListener("click", closeEquipmentModal);
+    getElement("menu-modal-close-button").addEventListener("click", () => {
+      closeEquipmentModal({ restoreParent: true });
+    });
     backdrop.addEventListener("click", (event) => {
       if (event.target === backdrop) {
-        closeEquipmentModal();
+        closeEquipmentModal({ restoreParent: true });
       }
     });
 
@@ -4014,6 +4038,8 @@
 
   function openEquipmentModal(unitId, options) {
     const nextOptions = options || {};
+    const returnToDetailUnitId = nextOptions.returnToDetailUnitId
+      || (appState.detailModal.type === "unit" && appState.detailModal.returnTo === "sortie" ? unitId : null);
     closeDetailModal();
     closeSkillModal();
     appState.equipmentModal.unitId = unitId;
@@ -4022,6 +4048,7 @@
     appState.equipmentModal.previewSlotKey = null;
     appState.equipmentModal.dragItemId = null;
     appState.equipmentModal.page = 1;
+    appState.equipmentModal.returnToDetailUnitId = returnToDetailUnitId;
     renderEquipmentModal();
   }
 
@@ -4149,10 +4176,12 @@
       }
     };
 
-    getElement("menu-skill-modal-close-button").addEventListener("click", closeSkillModal);
+    getElement("menu-skill-modal-close-button").addEventListener("click", () => {
+      closeSkillModal({ restoreParent: true });
+    });
     backdrop.addEventListener("click", (event) => {
       if (event.target === backdrop) {
-        closeSkillModal();
+        closeSkillModal({ restoreParent: true });
       }
     });
 
@@ -4261,13 +4290,17 @@
 
   }
 
-  function openSkillModal(unitId) {
+  function openSkillModal(unitId, options) {
+    const nextOptions = options || {};
+    const returnToDetailUnitId = nextOptions.returnToDetailUnitId
+      || (appState.detailModal.type === "unit" && appState.detailModal.returnTo === "sortie" ? unitId : null);
     closeDetailModal();
     closeEquipmentModal();
     appState.skillModal.unitId = unitId;
     appState.skillModal.dragSkillId = null;
     appState.skillModal.activePage = 1;
     appState.skillModal.passivePage = 1;
+    appState.skillModal.returnToDetailUnitId = returnToDetailUnitId;
     renderSkillModal();
   }
 
@@ -7018,11 +7051,11 @@
     window.addEventListener("resize", handleFloatingStatTooltipViewportChange);
     document.addEventListener("keydown", (event) => {
       if (event.key === "Escape" && appState.equipmentModal.unitId) {
-        closeEquipmentModal();
+        closeEquipmentModal({ restoreParent: true });
       }
 
       if (event.key === "Escape" && appState.skillModal.unitId) {
-        closeSkillModal();
+        closeSkillModal({ restoreParent: true });
       }
 
       if (event.key === "Escape" && appState.detailModal.type) {
