@@ -1600,8 +1600,8 @@
           {
             id: "mirror_rethread",
             title: "기억을 되감는다",
-            description: "기억 재편 두루마리 1개를 얻는다. 수동 분배한 1차 스탯을 다시 찍을 수 있다.",
-            fixedItemIds: ["shop-stat-reset-scroll"]
+            description: "기억 재편 두루마리와 직업 변경의 서를 얻는다. 스탯 재분배와 병종 재편이 가능해진다.",
+            fixedItemIds: ["shop-stat-reset-scroll", "shop-class-change-scroll"]
           },
           {
             id: "mirror_awaken",
@@ -1641,9 +1641,9 @@
           {
             id: "mentor_tactical_cache",
             title: "전술 메모와 보급을 받는다",
-            description: `EXP ${expBase}와 기억 재편 두루마리 1개를 확보한다.`,
+            description: `EXP ${expBase}와 직업 변경의 서 1개를 확보한다.`,
             expReward: expBase,
-            fixedItemIds: ["shop-stat-reset-scroll"]
+            fixedItemIds: ["shop-class-change-scroll"]
           }
         ]
       };

@@ -76,6 +76,7 @@
       page: 1
     },
     pendingEquipAction: null,
+    pendingClassChangeAction: null,
     quickSwapSlotIndex: null,
     sortieManagerView: {
       page: 1,
@@ -1077,6 +1078,17 @@
       return `${unit.name} 스탯 포인트 ${result.refundedPoints} 재분배 가능`;
     }
 
+    if (result.effectKind === "class_change") {
+      const passiveNames = (result.grantedPassiveSkills || []).map((skill) => skill.name);
+      const activeNames = (result.grantedActiveSkills || []).map((skill) => skill.name);
+      const rewardParts = []
+        .concat(passiveNames.length ? [`패시브 ${passiveNames.join(", ")}`] : [])
+        .concat(activeNames.length ? [`액티브 ${activeNames.join(", ")}`] : [])
+        .concat((result.unequippedItems || []).length ? [`비호환 장비 ${(result.unequippedItems || []).length}개 해제`] : []);
+
+      return `${unit.name} 직업 변경: ${result.previousClassName} -> ${result.nextClassName}${rewardParts.length ? ` / ${rewardParts.join(" / ")}` : ""}`;
+    }
+
     return `${unit.name}이(가) ${result.item ? result.item.name : "소모품"}을 사용했습니다.`;
   }
 
@@ -1217,6 +1229,7 @@
     appState.detailModal.id = null;
     appState.detailModal.page = 1;
     appState.pendingEquipAction = null;
+    appState.pendingClassChangeAction = null;
     appState.quickSwapSlotIndex = null;
   }
 
@@ -2765,6 +2778,33 @@
     }
   }
 
+  function handleClassChangeModalInteraction(event) {
+    const button = event.target.closest("button[data-class-change-target]");
+    const pendingAction = appState.pendingClassChangeAction;
+
+    if (!button || !pendingAction || !appState.saveData) {
+      return;
+    }
+
+    const unit = (appState.saveData.roster || []).find((entry) => entry.id === pendingAction.unitId);
+
+    if (!unit) {
+      showToast("직업 변경 대상을 찾을 수 없습니다.", true);
+      return;
+    }
+
+    try {
+      const result = InventoryService.applyConsumableToUnit(appState.saveData, unit, pendingAction.itemId, {
+        nextClassName: button.dataset.classChangeTarget
+      });
+      persistSession(appState.saveData, appState.settings);
+      closeDetailModal();
+      showToast(formatConsumableUseMessage(unit, result));
+    } catch (error) {
+      showToast(error.message, true);
+    }
+  }
+
   function getDetailModalConfig() {
     const type = appState.detailModal.type;
     const id = appState.detailModal.id;
@@ -2803,6 +2843,11 @@
             className: "secondary-button",
             disabled: !selectedUnit || !canUse,
             onClick() {
+              if (item.effect && item.effect.kind === "class_change") {
+                openClassChangeModal(selectedUnit.id, item.id);
+                return;
+              }
+
               const result = InventoryService.applyConsumableToUnit(appState.saveData, selectedUnit, item.id);
               persistSession(appState.saveData, appState.settings);
               closeDetailModal();
@@ -2897,6 +2942,24 @@
       return {
         title: "출전 파티 관리",
         bodyMarkup: buildSortieManagementMarkup(),
+        actions: []
+      };
+    }
+
+    if (type === "class-change") {
+      const pendingAction = appState.pendingClassChangeAction;
+      const item = pendingAction ? InventoryService.getItemById(appState.saveData, pendingAction.itemId) : null;
+      const unit = pendingAction
+        ? (appState.saveData.roster || []).find((entry) => entry.id === pendingAction.unitId)
+        : null;
+
+      if (!pendingAction || !item || !unit || !InventoryService.isConsumable(item) || !item.effect || item.effect.kind !== "class_change") {
+        return null;
+      }
+
+      return {
+        title: "병종 선택",
+        bodyMarkup: buildClassChangeModalMarkup(item, unit),
         actions: []
       };
     }
@@ -3121,7 +3184,13 @@
       });
     });
 
-    if (appState.detailModal.type === "unit" || appState.detailModal.type === "equip-target" || appState.detailModal.type === "sortie" || appState.detailModal.type === "profile") {
+    if (
+      appState.detailModal.type === "unit"
+      || appState.detailModal.type === "equip-target"
+      || appState.detailModal.type === "sortie"
+      || appState.detailModal.type === "profile"
+      || appState.detailModal.type === "class-change"
+    ) {
       const detailCard = host.querySelector(".menu-detail-card");
 
       if (detailCard) {
@@ -3138,6 +3207,11 @@
 
           if (appState.detailModal.type === "profile") {
             handleProfileDetailInteraction(event);
+            return;
+          }
+
+          if (appState.detailModal.type === "class-change") {
+            handleClassChangeModalInteraction(event);
             return;
           }
 
@@ -4524,6 +4598,13 @@
         event.stopPropagation();
         try {
           const unit = getSelectedMenuUnit();
+          const item = InventoryService.getItemById(appState.saveData, button.dataset.menuUse);
+
+          if (item && item.effect && item.effect.kind === "class_change") {
+            openClassChangeModal(unit.id, item.id);
+            return;
+          }
+
           const result = InventoryService.applyConsumableToUnit(appState.saveData, unit, button.dataset.menuUse);
           persistSession(appState.saveData, appState.settings);
           showToast(formatConsumableUseMessage(unit, result));
@@ -4884,6 +4965,53 @@
       missions.map((mission) => buildDispatchMissionCard({ status, mission }, mission.id === selectedMissionId)).join(""),
       '</div>'
     ].join("");
+  }
+
+  function buildClassChangeModalMarkup(item, unit) {
+    const options = SkillsService.getClassChangeOptions(unit);
+    const currentProfile = SkillsService.getClassProfile(unit.className);
+    const currentWeaponType = SkillsService.getClassWeaponType(unit.className);
+    const currentWeaponLabel = currentWeaponType ? InventoryService.getTypeLabel(currentWeaponType) : "무기 정보 없음";
+
+    return [
+      `<div class="item-title-row"><strong class="card-title">${item.name}</strong><span class="card-subtitle">${unit.name} / ${unit.className}</span></div>`,
+      '<div class="class-change-summary-row">',
+      `  <p class="class-change-summary-copy">현재 병종은 ${unit.className}이며, 직업 변경의 서를 사용하면 기존 스킬은 유지한 채 ${unit.level || 1}레벨 기준 새 병종 스킬과 특수 능력이 보충됩니다. 비호환 장비는 자동 해제됩니다.</p>`,
+      '  <div class="inventory-meta">',
+      `    <span class="meta-pill is-gold">현재 병종 ${unit.className}</span>`,
+      `    <span class="meta-pill is-cyan">주 무기 ${currentWeaponLabel}</span>`,
+      `    <span class="meta-pill is-violet">${currentProfile.role}</span>`,
+      '  </div>',
+      '</div>',
+      '<div class="class-change-grid">',
+      options.map((entry) => {
+        const weaponLabel = entry.weaponType ? InventoryService.getTypeLabel(entry.weaponType) : "무기 미정";
+        return [
+          `<article class="inventory-card class-change-card ${entry.weaponType === currentWeaponType ? "is-same-discipline" : ""}">`,
+          '  <div class="item-title-row">',
+          `    <strong class="card-title">${entry.className}</strong>`,
+          `    <span class="card-subtitle">${weaponLabel} / ${entry.role}</span>`,
+          "  </div>",
+          `  <p>${entry.summary}</p>`,
+          `  <p class="class-change-card-matchup">${entry.matchup}</p>`,
+          `  <button class="secondary-button small-button" type="button" data-class-change-target="${entry.className}">${entry.className}로 변경</button>`,
+          "</article>"
+        ].join("");
+      }).join(""),
+      "</div>"
+    ].join("");
+  }
+
+  function openClassChangeModal(unitId, itemId) {
+    if (!unitId || !itemId) {
+      throw new Error("직업 변경 대상을 찾을 수 없습니다.");
+    }
+
+    appState.pendingClassChangeAction = {
+      unitId,
+      itemId
+    };
+    openDetailModal("class-change", itemId);
   }
 
   function getDispatchMissionRecordsForBoard(dispatch) {

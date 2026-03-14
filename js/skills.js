@@ -2332,6 +2332,67 @@
     return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
   }
 
+  function shuffle(list) {
+    const array = Array.isArray(list) ? list.slice() : [];
+
+    for (let index = array.length - 1; index > 0; index -= 1) {
+      const swapIndex = Math.floor(Math.random() * (index + 1));
+      const nextValue = array[index];
+      array[index] = array[swapIndex];
+      array[swapIndex] = nextValue;
+    }
+
+    return array;
+  }
+
+  const CLASS_CHANGE_SPECIAL_PASSIVE_POOL = {
+    sword: ["warlord_presence", "fortress_heart"],
+    greatsword: ["warlord_presence", "fortress_heart"],
+    tachi: ["warlord_presence", "fortress_heart"],
+    katana: ["warlord_presence", "fortress_heart"],
+    hwando: ["warlord_presence", "fortress_heart"],
+    lance: ["fortress_heart", "warlord_presence"],
+    spear: ["fortress_heart", "warlord_presence"],
+    halberd: ["fortress_heart", "warlord_presence"],
+    bow: ["eagle_commander", "warlord_presence"],
+    shortbow: ["eagle_commander", "warlord_presence"],
+    longbow: ["eagle_commander", "warlord_presence"],
+    crossbow: ["eagle_commander", "warlord_presence"],
+    axe: ["warlord_presence", "fortress_heart"],
+    handaxe: ["warlord_presence", "fortress_heart"],
+    battleaxe: ["warlord_presence", "fortress_heart"],
+    greataxe: ["warlord_presence", "fortress_heart"],
+    focus: ["saint_guard", "oracle_insight", "mystic_barrier"],
+    staff: ["mana_well", "spell_overflow", "mystic_barrier"],
+    wand: ["mana_well", "spell_overflow", "mystic_barrier"],
+    tome: ["mana_well", "spell_overflow", "mystic_barrier"],
+    grimoire: ["mana_well", "spell_overflow", "mystic_barrier"]
+  };
+
+  const CLASS_CHANGE_SPECIAL_ACTIVE_POOL = {
+    sword: ["boss_cleave", "frenzy_assault", "adamant_guard"],
+    greatsword: ["boss_cleave", "frenzy_assault", "adamant_guard"],
+    tachi: ["boss_cleave", "frenzy_assault", "adamant_guard"],
+    katana: ["boss_cleave", "frenzy_assault", "adamant_guard"],
+    hwando: ["boss_cleave", "frenzy_assault", "adamant_guard"],
+    lance: ["guard_roar", "adamant_guard", "boss_cleave"],
+    spear: ["guard_roar", "adamant_guard", "boss_cleave"],
+    halberd: ["guard_roar", "adamant_guard", "boss_cleave"],
+    bow: ["rain_of_arrows", "marked_shot", "adamant_guard"],
+    shortbow: ["rain_of_arrows", "marked_shot", "adamant_guard"],
+    longbow: ["rain_of_arrows", "marked_shot", "adamant_guard"],
+    crossbow: ["rain_of_arrows", "marked_shot", "adamant_guard"],
+    axe: ["frenzy_assault", "boss_cleave", "adamant_guard"],
+    handaxe: ["frenzy_assault", "boss_cleave", "adamant_guard"],
+    battleaxe: ["frenzy_assault", "boss_cleave", "adamant_guard"],
+    greataxe: ["frenzy_assault", "boss_cleave", "adamant_guard"],
+    focus: ["sanctuary_wave", "oracle_ray", "holy_lance"],
+    staff: ["arcane_orb", "nova_burst", "ether_spear"],
+    wand: ["arcane_orb", "nova_burst", "ether_spear"],
+    tome: ["arcane_orb", "nova_burst", "ether_spear"],
+    grimoire: ["arcane_orb", "nova_burst", "ether_spear"]
+  };
+
   function getPrimaryStats(unit) {
     return Object.assign({
       str: 0,
@@ -3090,8 +3151,193 @@
     ));
   }
 
+  function getClassChangeOptions(unit) {
+    const currentClassName = unit && unit.className ? String(unit.className) : "";
+
+    return Object.keys(CLASS_ROLE_META)
+      .filter((className) => className !== currentClassName)
+      .sort((left, right) => {
+        const leftWeaponType = getClassWeaponType(left) || "";
+        const rightWeaponType = getClassWeaponType(right) || "";
+        const weaponCompare = leftWeaponType.localeCompare(rightWeaponType, "ko");
+
+        if (weaponCompare !== 0) {
+          return weaponCompare;
+        }
+
+        return left.localeCompare(right, "ko");
+      })
+      .map((className) => Object.assign({
+        className,
+        weaponType: getClassWeaponType(className) || null
+      }, getClassProfile(className)));
+  }
+
   function canPromote(unit) {
     return getPromotionOptions(unit).length > 0;
+  }
+
+  function grantUnlockedClassSkills(unit, className) {
+    (CLASS_SKILLS[className] || [])
+      .filter((skill) => (unit.level || 1) >= skill.unlockLevel)
+      .forEach((skill) => {
+        if (!unit.learnedSkillIds.includes(skill.id)) {
+          unit.learnedSkillIds.push(skill.id);
+        }
+      });
+
+    (CLASS_ACTIVE_SKILLS[className] || [])
+      .filter((skill) => (unit.level || 1) >= skill.unlockLevel)
+      .forEach((skill) => {
+        if (!unit.learnedActiveSkillIds.includes(skill.id)) {
+          unit.learnedActiveSkillIds.push(skill.id);
+        }
+
+        unit.skillLevels[skill.id] = Math.max(1, Number(unit.skillLevels[skill.id] || 1));
+      });
+  }
+
+  function refillClassChangeSpecialSkills(unit, nextClassName, options) {
+    const nextOptions = options || {};
+    const targetWeaponType = getClassWeaponType(nextClassName);
+    const passiveTargetCount = Math.max(1, Number(nextOptions.passiveTargetCount || 1));
+    const activeTargetCount = Math.max(1, Number(nextOptions.activeTargetCount || 1));
+    const grantedPassiveSkills = [];
+    const grantedActiveSkills = [];
+
+    const passivePool = shuffle((CLASS_CHANGE_SPECIAL_PASSIVE_POOL[targetWeaponType] || []).filter((skillId) => (
+      !unit.learnedSkillIds.includes(skillId)
+      && !unit.signaturePassiveIds.includes(skillId)
+      && !(unit.specialSkillIds || []).includes(skillId)
+    )));
+    const activePool = shuffle((CLASS_CHANGE_SPECIAL_ACTIVE_POOL[targetWeaponType] || []).filter((skillId) => (
+      !unit.learnedActiveSkillIds.includes(skillId)
+      && !(unit.specialActiveSkillIds || []).includes(skillId)
+    )));
+
+    while ((unit.specialSkillIds || []).length < passiveTargetCount && passivePool.length) {
+      const skillId = passivePool.shift();
+      unit.specialSkillIds.push(skillId);
+      grantedPassiveSkills.push(decorateSkillForUnit(unit, PASSIVE_SKILL_MAP[skillId]));
+    }
+
+    while ((unit.specialActiveSkillIds || []).length < activeTargetCount && activePool.length) {
+      const skillId = activePool.shift();
+      unit.specialActiveSkillIds.push(skillId);
+      unit.skillLevels[skillId] = Math.max(1, Number(unit.skillLevels[skillId] || 1));
+      grantedActiveSkills.push(decorateSkillForUnit(unit, ACTIVE_SKILL_MAP[skillId]));
+    }
+
+    return {
+      grantedPassiveSkills: grantedPassiveSkills.filter(Boolean),
+      grantedActiveSkills: grantedActiveSkills.filter(Boolean)
+    };
+  }
+
+  function reclassUnit(saveData, unitId, nextClassName) {
+    if (!saveData || !Array.isArray(saveData.roster)) {
+      throw new Error("병종을 변경할 세이브 데이터를 찾을 수 없습니다.");
+    }
+
+    const unit = (saveData.roster || []).find((entry) => entry.id === unitId);
+
+    if (!unit) {
+      throw new Error("병종을 변경할 유닛을 찾을 수 없습니다.");
+    }
+
+    const targetClassName = String(nextClassName || "").trim();
+
+    if (!targetClassName || !CLASS_ROLE_META[targetClassName]) {
+      throw new Error("변경할 병종을 선택해야 합니다.");
+    }
+
+    if (targetClassName === unit.className) {
+      throw new Error("현재 병종과 같은 병종으로는 변경할 수 없습니다.");
+    }
+
+    normalizeUnitLearnedSkills(unit);
+    unit.signaturePassiveIds = Array.isArray(unit.signaturePassiveIds) ? unit.signaturePassiveIds : [];
+
+    const previousClassName = unit.className;
+    const passiveTargetCount = Math.max(1, (unit.specialSkillIds || []).length);
+    const activeTargetCount = Math.max(1, (unit.specialActiveSkillIds || []).length);
+    const inventoryService = global.InventoryService;
+    const statsService = global.StatsService;
+    const equippedItemIdsBefore = inventoryService
+      ? (saveData.inventory || [])
+        .filter((item) => item && item.equippedBy === unit.id && inventoryService.isEquipment(item))
+        .map((item) => item.id)
+      : [];
+
+    unit.className = targetClassName;
+    unit.classChangeHistory = Array.isArray(unit.classChangeHistory) ? unit.classChangeHistory : [];
+    unit.classChangeHistory.push({
+      from: previousClassName,
+      to: targetClassName,
+      changedAtLevel: unit.level || 1,
+      changedAt: new Date().toISOString()
+    });
+
+    unit.promotionHistory = Array.isArray(unit.promotionHistory) ? unit.promotionHistory : [];
+    unit.promotionHistory.push({
+      from: previousClassName,
+      to: targetClassName,
+      promotedAtLevel: unit.level || 1,
+      type: "class_change"
+    });
+
+    normalizeUnitLearnedSkills(unit);
+    grantUnlockedClassSkills(unit, targetClassName);
+    const skillRewards = refillClassChangeSpecialSkills(unit, targetClassName, {
+      passiveTargetCount,
+      activeTargetCount
+    });
+
+    unit.equippedActiveSkillIds = (unit.equippedActiveSkillIds || [])
+      .filter((skillId) => unit.learnedActiveSkillIds.includes(skillId) || unit.specialActiveSkillIds.includes(skillId))
+      .slice(0, MAX_EQUIPPED_ACTIVE_SKILLS);
+
+    while (unit.equippedActiveSkillIds.length < MAX_EQUIPPED_ACTIVE_SKILLS) {
+      const nextSkillId = unit.learnedActiveSkillIds
+        .concat(unit.specialActiveSkillIds || [])
+        .find((skillId) => !unit.equippedActiveSkillIds.includes(skillId));
+
+      if (!nextSkillId) {
+        break;
+      }
+
+      unit.equippedActiveSkillIds.push(nextSkillId);
+    }
+
+    if (statsService && typeof statsService.normalizeUnitProgression === "function") {
+      statsService.normalizeUnitProgression(unit);
+    }
+
+    let unequippedItems = [];
+
+    if (inventoryService && typeof inventoryService.normalizeInventoryState === "function") {
+      inventoryService.normalizeInventoryState(saveData);
+      const equippedAfter = new Set(
+        (saveData.inventory || [])
+          .filter((item) => item && item.equippedBy === unit.id && inventoryService.isEquipment(item))
+          .map((item) => item.id)
+      );
+      unequippedItems = equippedItemIdsBefore
+        .filter((itemId) => !equippedAfter.has(itemId))
+        .map((itemId) => inventoryService.getItemById(saveData, itemId))
+        .filter(Boolean);
+    }
+
+    const finalUnit = (saveData.roster || []).find((entry) => entry.id === unit.id) || unit;
+
+    return {
+      unit: finalUnit,
+      previousClassName,
+      nextClassName: targetClassName,
+      grantedPassiveSkills: skillRewards.grantedPassiveSkills,
+      grantedActiveSkills: skillRewards.grantedActiveSkills,
+      unequippedItems
+    };
   }
 
   function promoteUnit(unit, nextClassName) {
@@ -3253,8 +3499,10 @@
     getNewlyUnlockedSkills,
     getNewlyUnlockedActiveSkills,
     getPromotionOptions,
+    getClassChangeOptions,
     canPromote,
     promoteUnit,
+    reclassUnit,
     describeSkills,
     describeActiveSkills,
     getClassProfile,

@@ -2533,7 +2533,10 @@
   function openConsumableModal(unitId) {
     const snapshot = viewState.snapshot;
     const unit = snapshot.battle.units.find((entry) => entry.id === unitId);
-    const items = (snapshot.saveData.inventory || []).filter((item) => InventoryService.isConsumable(item));
+    const items = (snapshot.saveData.inventory || []).filter((item) => (
+      InventoryService.isConsumable(item)
+      && (!item.effect || item.effect.kind !== "class_change")
+    ));
     const body = [
       `<h3>${unit.name} 소모품 사용</h3>`,
       '<div class="modal-list">'

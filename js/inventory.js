@@ -1060,6 +1060,17 @@
       effect: { kind: "reset_stats" }
     },
     {
+      id: "shop-class-change-scroll",
+      name: "직업 변경의 서",
+      type: "consumable",
+      slot: "consumable",
+      rarity: "unique",
+      availableInShop: false,
+      price: 540,
+      description: "준비 화면에서 원하는 병종으로 재편한다. 기존 스킬은 유지되며 새 병종에 맞는 특수 패시브와 액티브가 보충된다.",
+      effect: { kind: "class_change" }
+    },
+    {
       id: "shop-iron-sword",
       name: "철검 보급품",
       type: "sword",
@@ -4259,6 +4270,10 @@
         return 180;
       }
 
+      if (item.effect && item.effect.kind === "class_change") {
+        return 540;
+      }
+
       return 40 + rarityIndex * 16;
     }
 
@@ -4341,7 +4356,8 @@
     };
   }
 
-  function applyConsumableToUnit(saveData, unit, itemId) {
+  function applyConsumableToUnit(saveData, unit, itemId, options) {
+    const nextOptions = options || {};
     const item = getItemById(saveData, itemId);
     const persistentUnit = unit && saveData && saveData.roster
       ? (saveData.roster || []).find((entry) => entry.id === unit.id) || null
@@ -4394,6 +4410,40 @@
         item,
         effectKind: "reset_stats",
         refundedPoints: resetResult.refundedPoints
+      };
+    }
+
+    if (item.effect.kind === "class_change") {
+      if (saveData && saveData.stageStatus === "in_progress") {
+        throw new Error("직업 변경의 서는 전투 중에는 사용할 수 없습니다.");
+      }
+
+      const nextClassName = String(nextOptions.nextClassName || "").trim();
+      const skillsService = global.SkillsService;
+
+      if (!skillsService || typeof skillsService.reclassUnit !== "function") {
+        throw new Error("병종 변경 시스템을 불러오지 못했습니다.");
+      }
+
+      if (!nextClassName) {
+        throw new Error("변경할 병종을 선택해야 합니다.");
+      }
+
+      const classChangeResult = skillsService.reclassUnit(saveData, targetUnit.id, nextClassName);
+
+      if (persistentUnit && unit !== persistentUnit) {
+        Object.assign(unit, clone(classChangeResult.unit));
+      }
+
+      removeItemFromInventory(saveData, itemId);
+      return {
+        item,
+        effectKind: "class_change",
+        previousClassName: classChangeResult.previousClassName,
+        nextClassName: classChangeResult.nextClassName,
+        grantedPassiveSkills: classChangeResult.grantedPassiveSkills || [],
+        grantedActiveSkills: classChangeResult.grantedActiveSkills || [],
+        unequippedItems: classChangeResult.unequippedItems || []
       };
     }
 
