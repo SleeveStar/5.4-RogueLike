@@ -2760,15 +2760,12 @@
 
   function buildAffixedItemName(baseName, affixes) {
     const dominantAffix = getDominantNamingAffix(affixes);
-    let name = baseName;
 
-    if (!dominantAffix) {
-      return name;
+    if (!dominantAffix || !dominantAffix.prefix) {
+      return baseName;
     }
 
-    return dominantAffix.prefix
-      ? `${dominantAffix.prefix} ${name}`
-      : `${name} ${dominantAffix.suffix}`;
+    return `${dominantAffix.prefix} ${baseName}`;
   }
 
   function getSetDefinition(setId) {
@@ -3281,7 +3278,7 @@
       return item;
     }
 
-    item.baseMight = Math.max(0, Number(item.baseMight || item.might || 0));
+    item.baseMight = Math.max(1, Number(item.baseMight || item.might || 1));
     item.reinforceLevel = getReinforceLevel(item);
     item.reinforceFailStreak = getReinforceFailStreak(item);
     item.seedValue = getWeaponSeedValue(item);
@@ -3404,7 +3401,7 @@
     item.baseName = item.baseName || item.name;
 
     if (isWeapon(item) && item.base) {
-      item.might = Number.isFinite(Number(item.might)) ? Number(item.might) : Number(item.base.might || 0);
+      item.might = Math.max(1, Number.isFinite(Number(item.might)) ? Number(item.might) : Number(item.base.might || 1));
       item.hit = Number.isFinite(Number(item.hit)) ? Number(item.hit) : Number(item.base.hit || 0);
       item.rangeMin = Number.isFinite(Number(item.rangeMin)) ? Number(item.rangeMin) : Number(item.base.rangeMin || 1);
       item.rangeMax = Number.isFinite(Number(item.rangeMax)) ? Number(item.rangeMax) : Number(item.base.rangeMax || item.rangeMin || 1);
@@ -3898,7 +3895,7 @@
     }
 
     const reinforceLevel = getReinforceLevel(item);
-    const baseMight = Math.max(0, Number(item.baseMight || item.might || 0));
+    const baseMight = Math.max(1, Number(item.baseMight || item.might || 1));
     const seedValue = getWeaponSeedValue(item);
     const targetLevel = Math.min(REINFORCE_MAX_LEVEL, reinforceLevel + 1);
     const currentBonusAttack = getReinforceMightBonus(reinforceLevel, seedValue, baseMight);
