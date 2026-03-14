@@ -15,6 +15,7 @@
     gridVisible: true,
     actionLogVisible: true,
     confirmEndTurn: true,
+    autoBattleEnabled: false,
     preferredLanguage: "ko"
   };
 
@@ -44,6 +45,7 @@
     },
     tutorial: {
       prologueFieldIntroShown: false,
+      endlessAutoBattleIntroShown: false,
       blacksmithIntroShown: false,
       partyIntroShown: false,
       tavernIntroShown: false,

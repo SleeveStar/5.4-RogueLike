@@ -7,11 +7,16 @@
   const SkillsService = global.SkillsService;
   const StatsService = global.StatsService;
 
+  function createAutoBattleState(enabled) {
+    return global.BattleAuto.createState(enabled);
+  }
+
   const viewState = {
     config: null,
     snapshot: null,
     sessionRef: null,
     aiRunning: false,
+    autoBattle: createAutoBattleState(false),
     statusAnnounced: null,
     statusOverlayKey: null,
     modal: null,
@@ -30,6 +35,20 @@
     }
   };
 
+  const autoBattleController = global.BattleAuto.createController({
+    getViewState: () => viewState,
+    BattleService,
+    CombatService,
+    SkillsService,
+    persistSession,
+    getLiveSession,
+    renderToolbar,
+    executeEndTurnFlow,
+    getMapTileType,
+    getMapElevation,
+    isAutoBattleAvailable
+  });
+
   function isTextInputElement(target) {
     if (!target) {
       return false;
@@ -41,6 +60,10 @@
 
   function getElement(id) {
     return document.getElementById(id);
+  }
+
+  function isAutoBattleAvailable(snapshot) {
+    return !!(snapshot && snapshot.battle && snapshot.battle.stageId === "endless-rift");
   }
 
   function escapeAttribute(value) {
@@ -235,7 +258,7 @@
       "  </div>",
       '  <div id="battle-turn-counter" class="battle-turn-counter">TURN 1</div>',
       '  <div class="battle-toolbar-actions">',
-      '    <button id="battle-stage-info-button" class="ghost-button" type="button">스테이지 정보</button>',
+      '    <button id="battle-auto-battle-button" class="ghost-button" type="button">자동전투 OFF</button>',
       '    <button id="battle-end-turn-button" class="secondary-button" type="button">턴 종료</button>',
       '    <button id="battle-return-menu-button" class="ghost-button" type="button">메뉴로</button>',
       "  </div>",
@@ -268,6 +291,7 @@
     const scene = getElement("battle-scene");
 
     getElement("battle-stage-info-button").addEventListener("click", openBattleInfoModal);
+    getElement("battle-auto-battle-button").addEventListener("click", handleAutoBattleToggle);
     getElement("battle-end-turn-button").addEventListener("click", handleEndTurn);
     getElement("battle-return-menu-button").addEventListener("click", handleReturnMenu);
     scene.addEventListener("mousedown", handleScenePointerDown);
@@ -294,8 +318,10 @@
     render(snapshot);
     maybeShowCutscene(snapshot);
     maybeShowPrologueTutorial(snapshot);
+    maybeShowEndlessAutoBattleTutorial(snapshot);
     maybeShowSupportChoice(snapshot);
     maybeAnnounceStatus(snapshot);
+    handleAutoBattleSnapshot(previousSnapshot, snapshot);
   }
 
   function ensureAudioContext() {
@@ -684,6 +710,46 @@
     }
   }
 
+  function clearAutoBattleTimer() {
+    autoBattleController.clearTimer();
+  }
+
+  function resetAutoBattleReservations() {
+    autoBattleController.resetReservations();
+  }
+
+  function getAutoBattleButtonState(snapshot) {
+    return autoBattleController.getButtonState(snapshot);
+  }
+
+  function persistAutoBattlePreference(enabled) {
+    autoBattleController.persistPreference(enabled);
+  }
+
+  function setAutoBattleEnabled(enabled, options) {
+    autoBattleController.setEnabled(enabled, options);
+  }
+
+  function handleAutoBattleToggle() {
+    autoBattleController.handleToggle();
+  }
+
+  function requestCancelAutoBattle(reason) {
+    autoBattleController.requestCancel(reason);
+  }
+
+  function getAutoBattleGate(snapshot) {
+    return autoBattleController.getGate(snapshot);
+  }
+
+  function maybeScheduleAutoBattle(snapshot, delayMs) {
+    autoBattleController.maybeSchedule(snapshot, delayMs);
+  }
+
+  function handleAutoBattleSnapshot(previousSnapshot, snapshot) {
+    autoBattleController.handleSnapshot(previousSnapshot, snapshot);
+  }
+
   function startNewBattle(session) {
     if (!session || !session.userId) {
       throw new Error("전투를 시작할 사용자 세션이 없습니다.");
@@ -691,6 +757,7 @@
 
     viewState.sessionRef = session;
     viewState.aiRunning = false;
+    viewState.autoBattle = createAutoBattleState(session.settings && session.settings.autoBattleEnabled === true);
     viewState.statusAnnounced = null;
     viewState.progressionDrafts = {};
     BattleService.launch({
@@ -709,6 +776,7 @@
 
     viewState.sessionRef = session;
     viewState.aiRunning = false;
+    viewState.autoBattle = createAutoBattleState(session.settings && session.settings.autoBattleEnabled === true);
     viewState.statusAnnounced = null;
     viewState.progressionDrafts = {};
     BattleService.launch({
@@ -783,6 +851,7 @@
         return;
       }
 
+      requestCancelAutoBattle("manual-input");
       event.preventDefault();
 
       if (normalizedKey === "a") {
@@ -799,6 +868,7 @@
     }
 
     if (shouldOfferSpaceEndTurn(viewState.snapshot)) {
+      requestCancelAutoBattle("manual-input");
       event.preventDefault();
       openEndTurnConfirmModal();
       return;
@@ -811,6 +881,7 @@
     event.preventDefault();
 
     if (movePreview && movePreview.unitId === selectedUnit.id) {
+      requestCancelAutoBattle("manual-input");
       try {
         BattleService.commitMovePreview();
       } catch (error) {
@@ -820,6 +891,7 @@
     }
 
     if (pendingMove && pendingMove.unitId === selectedUnit.id) {
+      requestCancelAutoBattle("manual-input");
       openWaitConfirmModal(selectedUnit);
     }
   }
@@ -1247,14 +1319,26 @@
   }
 
   function renderToolbar(snapshot) {
+    const autoBattleButton = getElement("battle-auto-battle-button");
     const endTurnButton = getElement("battle-end-turn-button");
     const turnCounter = getElement("battle-turn-counter");
+    const autoBattleAvailable = isAutoBattleAvailable(snapshot);
+    const autoBattleEnabled = !!(viewState.autoBattle && viewState.autoBattle.enabled && autoBattleAvailable);
 
-    if (!endTurnButton || !turnCounter) {
+    if (!autoBattleButton || !endTurnButton || !turnCounter) {
       return;
     }
 
     turnCounter.textContent = snapshot && snapshot.battle ? `TURN ${snapshot.battle.turnNumber}` : "TURN -";
+    autoBattleButton.classList.toggle("hidden", !autoBattleAvailable);
+
+    if (autoBattleAvailable) {
+      const autoBattleButtonState = getAutoBattleButtonState(snapshot);
+      autoBattleButton.textContent = autoBattleButtonState.label;
+      autoBattleButton.title = autoBattleButtonState.title;
+      autoBattleButton.className = autoBattleButtonState.className;
+    }
+
     endTurnButton.classList.remove("turn-end-attention");
 
     if (snapshot && snapshot.battle && snapshot.battle.victoryCondition === "support_complete") {
@@ -1269,7 +1353,7 @@
 
     endTurnButton.textContent = "턴 종료";
     endTurnButton.disabled = !snapshot || !snapshot.battle || snapshot.battle.phase !== "player" || snapshot.battle.status !== "in_progress";
-    if (!endTurnButton.disabled && !hasReadyAlly) {
+    if (!autoBattleEnabled && !endTurnButton.disabled && !hasReadyAlly) {
       endTurnButton.classList.add("turn-end-attention");
     }
   }
@@ -1416,12 +1500,15 @@
       ? (() => {
           const locked = selectedUnit.acted || snapshot.battle.phase !== "player" ? "disabled" : "";
           const undoDisabled = snapshot.ui.pendingMove || movePreview ? "" : "disabled";
+          const attentionClass = viewState.autoBattle && viewState.autoBattle.enabled && isAutoBattleAvailable(snapshot)
+            ? ""
+            : " attention-button";
 
           if (movePreview) {
             return [
               '<div class="unit-action-row">',
-              '  <button class="primary-button attention-button small-button" type="button" data-action="confirm-move">이동 확정</button>',
-              '  <button class="ghost-button attention-button small-button" type="button" data-action="cancel-preview">미리보기 취소</button>',
+              `  <button class="primary-button${attentionClass} small-button" type="button" data-action="confirm-move">이동 확정</button>`,
+              `  <button class="ghost-button${attentionClass} small-button" type="button" data-action="cancel-preview">미리보기 취소</button>`,
               `  <button class="ghost-button small-button" type="button" data-action="undo" ${undoDisabled}>원위치 복귀</button>`,
               "</div>"
             ].join("");
@@ -1430,10 +1517,10 @@
           return [
             '<div class="unit-action-row">',
             `  <button class="secondary-button small-button" type="button" data-action="attack" ${locked}>${snapshot.ui.pendingAttack ? "공격 취소 (A)" : "공격 (A)"}</button>`,
-            `  <button class="primary-button attention-button small-button" type="button" data-action="wait" ${locked}>행동 확정</button>`,
-            `  <button class="ghost-button attention-button small-button" type="button" data-action="undo" ${undoDisabled}>원위치 복귀</button>`,
+            `  <button class="primary-button${attentionClass} small-button" type="button" data-action="wait" ${locked}>행동 확정</button>`,
+            `  <button class="ghost-button${attentionClass} small-button" type="button" data-action="undo" ${undoDisabled}>원위치 복귀</button>`,
             `  <button class="ghost-button small-button" type="button" data-action="skill" ${locked}>스킬 (S)</button>`,
-            snapshot.ui.pendingSkillId ? '  <button class="ghost-button attention-button small-button" type="button" data-action="cancel-skill">스킬 취소</button>' : "",
+            snapshot.ui.pendingSkillId ? `  <button class="ghost-button${attentionClass} small-button" type="button" data-action="cancel-skill">스킬 취소</button>` : "",
             `  <button class="ghost-button small-button" type="button" data-action="item" ${locked}>소모품</button>`,
             '  <button class="ghost-button small-button" type="button" data-action="inventory">장착/인벤토리</button>',
             '  <button class="ghost-button small-button" type="button" data-action="stats">성장 배분</button>',
@@ -1476,6 +1563,8 @@
     if (!selectedUnit) {
       return;
     }
+
+    requestCancelAutoBattle("manual-input");
 
     if (action === "wait") {
       try {
@@ -1779,6 +1868,7 @@
     maybeCenterBattleScene(snapshot);
     grid.querySelectorAll(".battle-tile").forEach((button) => {
       button.addEventListener("click", () => {
+        requestCancelAutoBattle("manual-input");
         BattleService.handleTileSelection(Number(button.dataset.x), Number(button.dataset.y));
       });
 
@@ -1815,6 +1905,10 @@
     return snapshot.battle.map.elevations && snapshot.battle.map.elevations[y]
       ? snapshot.battle.map.elevations[y][x] || 0
       : 0;
+  }
+
+  async function tryRunAutoStep() {
+    return autoBattleController.tryRunStep();
   }
 
   function getPendingSkillPreview(snapshot, selectedUnit, hoveredUnit) {
@@ -2371,6 +2465,59 @@
     openPrologueTutorialModal(snapshot);
   }
 
+  function openEndlessAutoBattleTutorialModal(snapshot) {
+    const body = [
+      '<div class="battle-skill-modal">',
+      '  <section class="battle-result-hero battle-skill-hero">',
+      '    <div class="item-title-row">',
+      '      <strong>무한 균열 자동전투 안내</strong>',
+      '      <span>1 / 1</span>',
+      "    </div>",
+      '    <p>무한 균열부터는 전투 맵 우측 상단의 자동전투 버튼을 사용할 수 있습니다.</p>',
+      "  </section>",
+      '  <div class="modal-list">',
+      '    <article class="modal-card cutscene-card">',
+      '      <p><strong>자동전투중</strong>: 아군 행동을 자동으로 처리합니다.</p>',
+      '      <p>단순 대기가 아니라 적을 마무리하거나, 힐이 필요하면 회복하고, 다음 턴 공격각이 나오는 위치로 전진하도록 설계되어 있습니다.</p>',
+      '      <p>원하면 전투 중 언제든 버튼을 다시 눌러 해제할 수 있고, 수동 조작을 하면 자동전투는 즉시 멈춥니다.</p>',
+      "    </article>",
+      "  </div>",
+      '  <div class="button-row">',
+      '    <button id="endless-auto-battle-tutorial-confirm" class="primary-button small-button" type="button">확인</button>',
+      "  </div>",
+      "</div>"
+    ].join("");
+
+    showModal(body, {
+      panelClass: "modal-panel-wide battle-skill-modal-panel",
+      bodyClass: "battle-skill-modal-body"
+    });
+
+    viewState.modal.dataset.locked = "true";
+    getElement("modal-close-button").classList.add("hidden");
+    BattleService.markTutorialSeen("endlessAutoBattleIntroShown");
+    getElement("endless-auto-battle-tutorial-confirm").addEventListener("click", () => {
+      viewState.modal.dataset.locked = "false";
+      closeModal();
+    });
+  }
+
+  function maybeShowEndlessAutoBattleTutorial(snapshot) {
+    if (!snapshot || !snapshot.battle || snapshot.battle.status !== "in_progress") {
+      return;
+    }
+
+    if (snapshot.battle.stageId !== "endless-rift" || !snapshot.battle.cutsceneSeen || viewState.modal) {
+      return;
+    }
+
+    if (snapshot.saveData && snapshot.saveData.tutorial && snapshot.saveData.tutorial.endlessAutoBattleIntroShown) {
+      return;
+    }
+
+    openEndlessAutoBattleTutorialModal(snapshot);
+  }
+
   function maybeShowSupportChoice(snapshot) {
     if (!snapshot || !snapshot.battle || !snapshot.battle.pendingChoice || snapshot.battle.status !== "in_progress") {
       return;
@@ -2456,6 +2603,8 @@
       return;
     }
 
+    requestCancelAutoBattle("manual-input");
+
     if (viewState.snapshot.battle.victoryCondition === "support_complete") {
       if (!BattleService.completeSupportFloor()) {
         viewState.config.showToast("먼저 현재 층의 선택 보상을 완료하세요.", true);
@@ -2476,8 +2625,10 @@
   function handleReturnMenu() {
     closeModal();
     hideHoverPreview();
+    clearAutoBattleTimer();
     BattleService.leaveBattle();
     viewState.aiRunning = false;
+    viewState.autoBattle = createAutoBattleState(false);
     viewState.sessionRef = null;
     viewState.statusAnnounced = null;
     viewState.statusOverlayKey = null;
@@ -2872,6 +3023,8 @@
       viewState.modal.remove();
       viewState.modal = null;
     }
+
+    maybeScheduleAutoBattle(viewState.snapshot, 100);
   }
 
   global.BattleView = {

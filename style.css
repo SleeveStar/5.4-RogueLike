@@ -613,6 +613,19 @@ body.use-floating-stat-tooltip .stat-tooltip-pill::after {
   min-width: 0;
 }
 
+.battle-map-panel-header {
+  flex-direction: row;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-14);
+}
+
+.battle-map-panel-header-copy {
+  display: grid;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
 .menu-detail-header-actions {
   margin-left: auto;
   flex: 0 0 auto;
@@ -4209,6 +4222,28 @@ body.use-floating-stat-tooltip .stat-tooltip-pill::after {
 
 .battle-toolbar-actions {
   justify-self: end;
+  gap: var(--space-8);
+}
+
+.battle-toolbar-actions > .primary-button,
+.battle-toolbar-actions > .secondary-button,
+.battle-toolbar-actions > .ghost-button {
+  min-height: 38px;
+  padding: 0 var(--space-14);
+  font-size: 0.9rem;
+}
+
+.battle-toolbar-actions > .auto-battle-active {
+  border-color: rgba(103, 215, 232, 0.34);
+  box-shadow:
+    0 0 0 1px rgba(103, 215, 232, 0.14),
+    0 0 16px rgba(103, 215, 232, 0.16);
+  animation: auto-battle-glow 1.5s ease-in-out infinite;
+}
+
+.battle-toolbar-actions > .auto-battle-active::before {
+  opacity: 1;
+  background: linear-gradient(180deg, rgba(103, 215, 232, 0.16), transparent 62%);
 }
 
 .secondary-button.turn-end-attention {
@@ -7814,6 +7849,26 @@ body.use-floating-stat-tooltip .stat-tooltip-pill::after {
   }
 }
 
+@keyframes auto-battle-glow {
+  0% {
+    box-shadow:
+      0 0 0 1px rgba(103, 215, 232, 0.12),
+      0 0 10px rgba(103, 215, 232, 0.12);
+  }
+
+  50% {
+    box-shadow:
+      0 0 0 1px rgba(103, 215, 232, 0.28),
+      0 0 22px rgba(103, 215, 232, 0.28);
+  }
+
+  100% {
+    box-shadow:
+      0 0 0 1px rgba(103, 215, 232, 0.12),
+      0 0 10px rgba(103, 215, 232, 0.12);
+  }
+}
+
 @keyframes attention-sweep {
   0% {
     transform: translateX(-120%);
@@ -8133,6 +8188,11 @@ body.use-floating-stat-tooltip .stat-tooltip-pill::after {
 
   .battle-toolbar-actions {
     justify-self: center;
+  }
+
+  .battle-map-panel-header {
+    flex-direction: column;
+    align-items: stretch;
   }
 
   .battle-briefing-header {

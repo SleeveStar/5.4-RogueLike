@@ -299,9 +299,12 @@
           </aside>
 
           <section class="panel battle-map-panel">
-            <div class="panel-header">
-              <p class="eyebrow">Battlefield</p>
-              <h2>전투 맵</h2>
+            <div class="panel-header battle-map-panel-header">
+              <div class="battle-map-panel-header-copy">
+                <p class="eyebrow">Battlefield</p>
+                <h2>전투 맵</h2>
+              </div>
+              <button id="battle-stage-info-button" class="ghost-button small-button" type="button">스테이지 정보</button>
             </div>
             <div id="battle-map-root" class="battle-map-root"></div>
           </section>
@@ -341,7 +344,10 @@
   <script src="./js/dispatch.js"></script>
   <script src="./js/combat.js"></script>
   <script src="./js/ai.js"></script>
+  <script src="./js/battleStageData.js"></script>
+  <script src="./js/battleStageFactory.js"></script>
   <script src="./js/battle.js"></script>
+  <script src="./js/battleAuto.js"></script>
   <script src="./js/battleView.js"></script>
   <script src="./js/auth.js"></script>
 </body>
